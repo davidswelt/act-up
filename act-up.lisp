@@ -4,12 +4,25 @@
 
 ;; NOT FULLY FUNCTIONAL       
 
+;; to load:
+;; (require "act-up" "act-up.lisp")
+;; (use-package :act-up)
+
+
 
 ;; production rules?
 
-
+;; (load "lispdoc.lisp")
+;; (lispdoc:lispdoc-html "doc/" :act-up)
 
 (declaim (optimize (speed 1) (space 0) (debug 3)))
+ 
+
+(defpackage :act-up
+  (:use :common-lisp))
+
+(in-package :act-up)
+
 
 
 (load "actr6-compatibility.lisp")  ; hack
@@ -19,7 +32,9 @@
 
 
 (defstruct chunk
-
+  "Type defining an ACT-UP chunk.
+Derive your own chunks using this as a base structure
+by specifying (:include chunk)."
   ;; internal ACT-UP structures
   (total-presentations 0 :type integer)
   (first-presentation nil)
@@ -41,14 +56,16 @@
   (referenced-by nil :type list) ; list of chunks that reference this chunk
 
   (fan nil) ; internal)
-)
-
+) 
+(export '(chunk))
 
 
 (defstruct meta-process
+  "An ACT-UP meta process."
   (actUP-time 0.0 :type number)
   name
 )
+(export '(meta-process))
 
 (defparameter *current-actUP-meta-process* (make-meta-process))
 
@@ -63,12 +80,13 @@
 
 ;; parameters
 
-(defparameter *bll* 0.5)
-(defparameter *blc* 1.7) ; 1.7  ;; seems to result in a ceiling
-(defparameter *rt* 1.0)  ; can be (cons 'pres 4)
+(defparameter *bll* 0.5 "Base-level learning decay parameter")
+(defparameter *blc* 1.7 "Base-level constant parameter") ; 1.7  ;; seems to result in a ceiling
+(defparameter *rt* 1.0 "Reaction time parameter")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2) ;; transient noise  0.2
+(defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  0.2
 
+(export '(*bll* *blc* *rt* *ans*))
 
 ;; a model
 
@@ -101,33 +119,56 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
+(export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+	  show-chunks chunk-name explain-activation
+	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
+	  reset-sji-fct add-sji-fct ))
+
 
 (defun current-actUP-model ()
+  "Evaluates to the currently active ACT-UP model."
   (or *current-actUP-model*
       (error "No model active.")))
 
-(defun actUP-time ()
-  (meta-process-actUP-time *current-actUP-meta-process*))
+(defun set-current-actUP-model (new-model)
+  "Switches the currently active ACT-UP model.
+This may set a range of model parameters."
+  (setq *current-actUP-model* new-model))
 
-(defun actUP-pass-time (seconds)
-  (setf (meta-process-actUP-time *current-actUP-meta-process*)
-	(+ (meta-process-actUP-time *current-actUP-meta-process*) seconds)))
+(defun actUP-time (&optional meta-process)
+  "Returns the current runtime
+An optional parameter META-PROCESS specifies the meta-process to use.
+It defaults to the current meta-process."
+  (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
+
+(defun actUP-pass-time (seconds &optional meta-process)
+  "Simulates the passing of time.
+An optional parameter META-PROCESS specifies the meta-process to use.
+It defaults to the current meta-process."
+  (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
+	(+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds)))
 
 
 (defmacro model-chunks (model)
+  "Evaluates to the list of chunks in the given model MODEL."
   `(declarative-memory-chunks (model-dm ,model)))
 
 
 (defun show-chunks (model &optional constraints)
-      (print (mapcar 'chunk-name (if constraints
-					(search-for-chunks model constraints)
-					(dm-chunks (model-dm model))))))
+  "Prints all chunks in model MODEL subject to CONSTRAINTS.
+See the function `filter-chunks' for a description of possible constraints."
+  (print (mapcar 'chunk-name (if constraints
+				 (search-for-chunks model constraints)
+				 (dm-chunks (model-dm model))))))
 
 
 (defun chunk-name (chunk)
   "Chunk")
 
 (defun explain-activation (chunk &optional cues retr-spec)
+  "Returns a string with an explanation of the evaluation of CHUNK.
+CUES contains retrieval cues spreading activation.
+RETR-SPEC describes the retrieval specification for partial matching retrievals."
   (when chunk
     (format nil "  ~a  ~a base-level: ~a  (~a pres) pm: ~a ~a"
 	    (actUP-time)

@@ -28,6 +28,13 @@ As in the ACT-R 6 implementation, modelers are free to adhere more or less to th
 
 \section{How do I...}
 
+\paragraph {... load the library?}
+
+\begin{verbatim}
+(require "act-up" "act-up.lisp")
+(use-package :act-up)
+\end{verbatim}
+
 
 \paragraph {... define a chunk type?}
 
@@ -47,7 +54,7 @@ One of these slots is assigned a default value (`strategy').
 
 \paragraph {...define a new model?}
 
-The model is defined automatically when `act-up.lisp' is loaded.  To reset the model, use the `reset-model' function.  To create a new model (multiple models may be used in parallel), use `(make-model)'.  Set the Lisp variable *current-actUP-model* to define the current model.
+The model is defined automatically when `act-up.lisp' is loaded.  To reset the model, use the `reset-model' function.  To create a new model (multiple models may be used in parallel), use `(make-model)'.  Use the function `set-current-actUP-model' to define the current model.
 
 The ACT-UP meta-process keeps track of model time that is common to all models.  You may define several meta-processes and use/reuse them as you like with the function `make-meta-process'.  You can bind *current-actUP-meta-process* to a meta-process to switch.  Use `reset-mp' to discard and reset the current meta-process.
 
@@ -74,7 +81,7 @@ The `best-chunk' function does the actual (time-consuming and noisy) retrieval: 
 
 \begin{verbatim}
 (best-chunk (filter-chunks 
-                 (model-chunks *current-actUP-model*)
+                 (model-chunks (current-actUP-model))
 		 '(:name guess))
 	    (list valve-open-chunk) 
 	    nil)

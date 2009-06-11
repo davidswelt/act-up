@@ -50,10 +50,10 @@
 
 ;; Libraries
 
-
 (declaim (optimize (speed 1) (space 0) (debug 3)))
 
 (require "act-up" "act-up.lisp")
+(use-package :act-up)
 (load "split-sequence.lisp")
 
 ;; MODEL
