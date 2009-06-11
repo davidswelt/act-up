@@ -1,0 +1,203 @@
+\documentclass{article}
+
+\title{A two-strategy model of memory-based control}
+
+\begin{document}
+
+% Initial analysis:
+
+% plotting four different conditions on a per user basis
+% this revealed general learning, even where modulation of the environmental inflow was very high at the end (non-linear decreasing).  There was more variance during the initial than during the late steps.
+% Also, we saw that some subjects used a particularly bad strategy - some did not learn at all, some maste systematic errors (like overestimating the changes).
+
+% Notably, linear increases could be modeled well.  Linear decreases not so much.  (cf kalish & griffiths ?)
+
+
+% We can see that the user's choice is correlated with the tank level:
+
+% library(Hmisc)
+% xYplot(I(AmountInTank - Goal) + I(-UserOutFlow+UserInFlow) ~ Time.Step,  data=subset(d, Version=="Non Linear decrease"), nx=F, method=smean.cl.boot, type='b',lty.bands=c(2,2), ylim=c(-15,15))
+
+% d2 <- subset(d, Time.Step>80 & Version=="Non Linear decrease")
+
+% d2 <- subset(d, Time.Step>80 & Version=="Non Linear decrease" & Subject=="t10")
+
+% xYplot( I(AmountInTank) + I(UserOutFlow-UserInFlow) + EnvirInFlow ~ Time.Step,  data=d2, nx=F, method=smean.cl.boot, type='l',lty.bands=c(2,2))
+
+% xYplot( I(UserOutFlow-UserInFlow) + EnvirInFlow ~ Time.Step,  data=d2, nx=F, method=smean.cl.boot, type='l',lty.bands=c(2,2), ylim=c(0,7))
+
+
+% In the non-linear increase condition, we get very large deviation until about the 70th iteration, but that is only due to subject t33.
+%  xYplot(I(AmountInTank - Goal) + I(-UserOutFlow+UserInFlow) ~ Time.Step,  data=subset(d.nl, Subject!='t33' & Version=="Non Linear increase"), nx=F, method=smean.cl.boot, type='b',lty.bands=c(2,2), ylim=c(-15,65))
+
+
+% # Now, let's take a look at individual subjects.
+
+% ds <- subset(d, Time.Step>80)
+
+
+\section{Introduction}
+
+In this model of control, a variable is estimated iteratively from discrete samples whose underlying distribution is a function of time.  The variable signifies the amount of water flowing into a water tank (inflow).  The mnodel's task was to control the outflow of the tank in order to keep the water level at a constant target.  Inflow was determined according to an experimentally controlled function.  The model was to estimate the immediately following level of inflow in order to regulate the outflow.  In the empirical data available to design the model, the inflow function was manipulated across four conditions, combining linear and non-linear, decreasing and increasing inflow.
+
+
+\section{Exploratory Analysis of the Data}
+\label{sec:expl-analys-data}
+
+
+Plotting the data reveals a number of interesting effects.  First, let's look at variance in terms of water level (compared to the constant target of 4.0) and in terms of the chosen valve settings to counter-act the environmental inflow.  In our analysis, we concentrate on only one environmental change variable (EnvirInFlow - EnvirOutFlow) and one user-controlled variable (UserInFlow - UserOutFlow).  
+
+Both variances appear to be much greater overall in the non-linear than in the linear condition.  Second, variances are greater during the early phase of the experiment than towards the end.  This observation holds both for the non-linear increasing case, where the rate of change in environmental inflow is high at the beginning, and for the non-linear decreasing case, where the rate of change is greatest at the end.  Thus, there seems to be an effect of practice.
+
+The linear case appears to be an easier task for the subjects.  The plots show the means and a bootstrapped 95\% confidence interval over all subjects except subject t33, which was excluded from the analysis as an outlier.
+
+However, looking only at aggregate data is very deceiving in this case.  Plotting the data separately for each subject reveals that they learned to handle the linear cases extremely well; there is initial variance, but then they usually hit the target water level with mathematical precision.  Once or twice per subject, the water level changes for a few steps - often, dramatically.  This causes the impression of an overall, constant variance in the aggregate data; a good model, however, approximates the behavior of subjects separately.
+
+
+
+\section{Modeling the data}
+\label{sec:modeling-data}
+
+
+
+
+Our initial assumption that this problem was similar to control problems.  Consider the case of somebody taking a hot shower. Suddenly, the water turns a little colder.  Expecting much colder water, the person overcompensates, and the water ends up being much hotter than desired.  During a few oscillations, water temperature converges to the desired level again.  Similar examples can be made of a weaving car or the well-known phenomenon of pilot-induced oscillations (PIO) in the control of aircraft.  One may hypothesize that unexpected external influences (e.g., road conditions or an aircraft entering ground effect during landing) lead to an overstimation of the effect and an increase the likelihood of such oscillations.  We hypothesize that the delay between control input and observed reaction is a main driver in the production of control oscillations.  Such a delay is given in all of the examples mentioned (shower, aircraft and car, specifically in the case of longer reaction times due to drug-induced incapacitation of the driver, or due to stronger-than-expected inertia of a large vehicle). 
+
+The data presented in this challenge would fit this paradigm quite well, if it wasn't for three observations.  First, the experimental setup suggests entering numbers, i.e. the design requires making discrete decisions at fixed time intervals as opposed to giving a continuous, motor response.  Second, the subject-specific data strongly suggests that most subjects, at least for the linear conditions, acquire the slope of the environmental inflow very quickly, but then apply it very accurately with only minimal deviations.  Third, the design does not introduce noise in the crucial controlled variable (environmental in/outflow) visible to the participant.
+These observations suggest that the experimental task is taken as an arithmetic problem rather than as a sensory-motor control problem.
+
+The basic strategy to solve this problem is to calculate the main trend of the environmental inflow.  This calculation is a primarily symbolic operation; we are not primarily concerned here with the details of how subjects perform the algebraic manipulations involved, other than that they usually arrive reliably at a result.  The second algebraic problem they solve is to add the current water level to the expected trend (to predict the next step), and calculate the necessary inflow/outflow in order to reach the target water level of 4.0.
+
+What would the same problem look like if we were to deal with a classical, sensory-motor control problem?  A trend would have to estimated (a subsymbolic operation).  Our implementation of this variant estimates the difference between expected water levels (usually 4.0, because outflow is manipulated in order to reach this target) and observed water levels.  It learns the obtained estimate of the inflow as ACT-R chunk.  It then uses Blending (Lebiere, 19...) to retrieve a non-noisy, stable estimate of the time-inflow function and estimates (or calculates) the needed outflow.  The resulting model had two notable characteristics.  First, it tended to overestimate inflows in an underlying linearly decreasing function, and to underestimate them in an underlying linearly increasing function, because blending uses past experience, and not just the most recent experience.  Second, the model dealt with non-linear functions worse than the subjects did. The strong drop in inflow in the final steps in the non-linear decreasing condition caused the model to vastly overestimate inflow (i.e. not notice the drop), while subjects did better.  However, we believe that the subsymbolic model could account for control problems such as the one presented by Bott \& Heit (2004) or also Kalish, Griffiths \& Lewandowsky (2007), where graphical representations were used for input and output, and where subjects showed a tendency to prefer positive, linear correlations.
+
+A subject-by-subject, exploratory analysis of the data reveals that subjects do adopt different strategies.  Subject t11, for instance, estimates the linearly increasing inflow relatively well without consistently over- or underestimating.  Large deviations occur until approx. step 25, after which the inflow is well estimated and also well compensated.   Subject t26, on the other hand, seems to calculate the inflow trend precisely, making successful corrections from step 5, and miscalculating only once (which leads to short oscillation for just a few steps).  The majority of subjects seem to have chosen this (symbolic) method for the linearly increasing task.
+
+For the non-linear example, this solution is less likely to be successful and less commonly seen.  Subjects t29 and t39, for instance, both show regular oscillations throughout the experiment.
+
+As a consequence, we felt that the model had to implement both strategies:
+
+- calculating the trend precisely
+- estimating the trend 
+
+Not to offend the mathematically inclined: while estimating and guessing the nonlinear function directly from a few discrete samples is technically simple, we feel that this would be too complex for a human subject and too ad-hoc for our model to do.  Thus, we always estimate a simple linear function.  
+
+The choice of strategy is guided by prior experience.  Each iteration produces a prediction.  This is simple in our task: we expect the water level to be 4.0 after our new outflow value has been applied.  For the \emph{calculate} strategy, we expect to arrive precisely at the target level (we accept a small tolerance of $0.02$).  When reaching the target within this tolerance, we experience a \emph{successful experience}, encoded as memory item $<strategy: calculate, precision:0>$.  If we miss the target, we experience low success: $<strategy: calculate, precision: 10>$.    For the \emph{estimate} strategy, we have a less precise expectation and simply learn the absolute success: $<strategy: estimate, precision: | round(4.0 - waterLevel) |>$.  This learning process leads to either reinforcement of prior experiences or to the acquisition of new ones.  
+
+To decide the strategy, we retrieve the most active experience from memory, requesting an experience as $<precision:0>$.  Thus, the ACT-R mechanisms of base-level learning and partial matching will lead to a preference of successful experiences (with precision near 0), but prefer the more recent episodes.  ACT-R's transient noise leads to explorative behavior.
+
+
+\subsection{Cognitive Framework}
+\label{sec:cognitive-framework}
+
+We present an end-to-end model of the task, implemented within the theory of ACT-R.  We chose ACT-R in order to have a well-validated framework providing primarily memory function in a combination of symbolic and subsymbolic reasoning. 
+
+The instantiation of the framework used here is provided by ACT-UP, a scalable implementation of ACT-R that allows the modeler to underspecify components of the model, usually because there is no primary evidence and no reasonable intuition about those components.  Specifically, we do not specify the exact combination of productions (IF-THEN rules), as their structure is unknown, cannot be validated precisely and does not contribute to the predictions or explanations provided by the model.  (It should be noted, however, that productions may well underly the model's algorithmic specification.)
+
+The components of ACT-R that contribute to the results of the model are \emph{Base-level learning} and its temporal activation decay; symbolic matching and partial matching in memory retrieval, transient noise ($0.25$) in retrieval, and blending (Lakoff 1987, Wallach&Lebiere 1999).  
+
+
+\subsection{Common model}
+\label{sec:common-model}
+
+
+
+Both strategies come up with a prediction of the next environment inflow value (EnvInFlow'), resulting in an outflow valve setting of $EnvInFlow' - 4.0$.  
+We assume a fixed cost of 2.5 seconds to monitor the strategy.  While we consider delays as underspecified with respect to temporal predictions, they are somewhat relevant to the preference of the model for chunks learned more recently, as activation decays with time.
+
+After choosing a valve setting, an additional $6$ seconds are spent waiting for the results, as estimated from the experimental environment.  Timing data was not available. 
+
+
+\subsection{Calculation model}
+\label{sec:calculation-model}
+
+
+
+This strategy remembers the last $EnvInFlow_{-1}$ value in a buffer, i.e., it remembers it precisely during the next iteration.  Then, calculation is attempted on the basis of the visible new $EnvInFlow$.  Mental arithmetic has been studied and modeled elsewhere (e.g., McCloskey & Lindemann, 1992, Viscuso, Anderson and Spoehr, 1989, Campbell 2008); we abstract away from the details of the arithmetic operations, primarily for reasons of simplicity, but expect that further variance in the model may be explained by a more detailed model of mental arithmetic.  However, our abstract implementation of the addition and substraction procedures assumes more reliable addition than subtraction, and more reliable subtraction $A-B$ if $A>B$.  These assumptions follow from predictions of models of cognitive arithmetic (Lebiere 1999). 
+
+The calculation takes 10 seconds in the model.
+
+
+\subsection{Estimation model}
+\label{sec:estimation-model}
+
+Estimation differs from calculation in that exact values are not retained in buffers, but stored in and retrieved from memory.  We store the environmental inflow in memory and retrieve the last stored value (noise may lead to misretrievals).  We then determine the difference between this last stored inflow and the current shown inflow, learning this value in a \emph{trend chunk}.
+
+The current estimate of the trend is then a blend of previously learned trends.  Blending results in a weighted mean of previous values; single values are weighted by their probability of retrieval, which is determined by $e^{a/t}$  (the numerator of the Boltzmann equation).  $t$ specifies a \emph{temperature} held constant at $0.5$ in our model.
+
+% {\tt 
+% trend-chunks $\Leftarrow$ (filter-chunks (model-chunks)  '(:type trend))
+% trend-estimate $\Leftarrow$ (blend expected-trend-chunks :cues nil) }
+
+The estimation takes 5 seconds in the model. 
+
+% - data shows much more exploration initially in the non-linear cond.
+% --> symbolic calculation does not work all the time.
+
+
+\section{Oscillations due to delay}
+
+Real-word control problems often suffer from 
+
+
+Oscillations
+
+
+Dillard&Pfau:
+"However, the osciallatory trajectories do not look like the trajectories predicted by the simple version of the spatial-spring model discussed earlier.  That model predicted constant periods and amplitudes that either remained constant or got steadily smaller (i.e., were damped).  None of theoscillatory trajectories found showed constant periods.  Moreover, some amplitures suddenly got larger, and oscillations apruptly ended with no gradual damping."
+
+
+
+
+
+JAMIE I. D. CAMPBELL. Subtraction by addition Mem Cognit 2008 36:1094-1102; doi:10.3758/MC.36.6.1094
+Dillard, J.P., Pfau M., The persuasion handbook.  
+
+Kalish, M. L., Griffiths, T. L., & Lewandowsky, S. (2007). Iterated learning: Intergenerational knowledge transmission reveals inductive biases. Psychonomic Bulletin and Review. (pdf)
+
+Lebiere, C. (1999). The dynamics of cognition: An ACT-R model of cognitive arithmetic. Kognitionswissenschaft., 8 (1), pp. 5-19
+McCloskey M. & M. Lindemann (1992). MATHNET: preliminary results from a distributed model of arithmetic fact 
+retrieval. In Cambpell (edt.) The Nature and Origin of Mathematical Skills. 1992, Elsevier. 
+
+Viscuso, S.R., J.A. Anderson & K.T. Spoehr (1989). Representing simple arithmetic in neural networks. In (G. 
+Tiberghien, edt.), Advances in Cognitive Science Vol.2: Theory and Applications, 144-164. 
+
+Wallach, D., & Lebiere, C. (1999). Example-based models of control problems. Paper presented at the 1999 ACT-R Workshop, George-Mason University, Fairfax, Va. See http://hfac.gmu.edu/actr99/.
+
+
+
+So, it seems like, at least on the micro-level, tank level seems to be used as input.  We react to it with fairly short delay.
+
+
+There is little direct correlation between delta-environment and the user's choices - but they may well be implicit.
+
+
+summary(lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step, data=d.l))
+summary(lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step, data=subset(d.nl, Subject!='t33' & Version=="Non Linear increase")))
+summary(lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step, data=subset(d.nl, Subject!='t33' & Version=="Non Linear decrease")))
+ summary(lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step, data=subset(d.l, Subject!='t33' & Version=="Linear decrease")))
+summary(lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step, data=subset(d.l, Subject!='t33' & Version=="Linear increase")))
+
+
+ d <- read.csv("/Users/dr/Challenge/human_data.csv", header=T)
+
+However, it seems like that this is not the basis to estimate subject-specific performance:
+
+summary(lme( fixed = I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) + Time.Step, random = ~ ((EnvirInFlow + I(AmountInTank - Goal)) + Time.Step)|Subject, data=subset(d, Subject!='t33')))
+
+To me, this indicates that (provided the LME fitting algorithm doesnot suffer from lack of data here),  that a linear model does not provide a very meaningful level of description for a cognitive model
+.
+However, it helps us identify relevant parameters.
+
+Version is predictive of the effect of the parameters:
+
+lm1 <- lm( I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step  / Version, data=subset(d, Subject!='t33'))
+
+best mode so far R^2=0.45
+
+lme1 <- lme(  I(-UserOutFlow+UserInFlow)  ~ (EnvirInFlow + I(AmountInTank - Goal)) * Time.Step  / Version, random=  ~ Time.Step|Subject, data=subset(d, Subject!='t33'))
+
+
+
+ 
+
+\end{document}
