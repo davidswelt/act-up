@@ -1,0 +1,110 @@
+\documentclass{article}
+
+\begin{document}
+\title{ACT-UP \\
+Documentation}
+
+\author{David Reitter}
+
+\maketitle
+
+
+
+
+\section{Overview}
+
+
+ACT-UP is a cognitive modeling library that allows modelers to specify their model's functionality in Common Lisp.  Whenever a cognitive explanation in a particular part of the model is sought, the modeler uses the library to provide characteristics of 
+
+\begin{itemize}\item  explicit, declarative learning and cue- and similarity-based
+  retrieval, and \item procedural skill acquisition [not yet available]
+\end{itemize}
+following the ACT-R 6 theory.
+
+As in the ACT-R 6 implementation, modelers are free to adhere more or less to the theoretical limitations.  However, ACT-UP's design encourages modelers to underspecify portions of the model's functionality that do not contribute to the model's explanations and predictions of human performance.  
+
+
+
+
+\section{How do I...}
+
+
+\paragraph {... define a chunk type?}
+
+Chunk types are lisp structure types that inherit from the type `chunk'.
+For example, the following structure defines a chunk type of name `strategy' with four slots.
+One of these slots is assigned a default value (`strategy').
+
+\begin{verbatim}
+(defstruct (strategy (:include chunk))
+  (type  'strategy)
+  name
+  dampen
+  success
+)
+\end{verbatim}
+
+
+\paragraph {...define a new model?}
+
+The model is defined automatically when `act-up.lisp' is loaded.  To reset the model, use the `reset-model' function.  To create a new model (multiple models may be used in parallel), use `(make-model)'.  Set the Lisp variable *current-actUP-model* to define the current model.
+
+The ACT-UP meta-process keeps track of model time that is common to all models.  You may define several meta-processes and use/reuse them as you like with the function `make-meta-process'.  You can bind *current-actUP-meta-process* to a meta-process to switch.  Use `reset-mp' to discard and reset the current meta-process.
+
+
+\paragraph ...commit a chunk to memory or reinforce it?
+
+To specify the "presentation" of a specific chunk, use the function `learn'.
+The chunk reference may be supplied in a normal variable (equivalent to ACT-R's buffer),
+or the chunk may be produced right there and then using the `make-type' syntax , as in the following example:
+
+\begin{verbatim}
+(learn-chunk  (make-strategy :name 'guess :success 0.2))
+\end{verbatim}
+This will create a new strategy chunk, setting two of its parameters, and commit it to memory.
+Note that even newly created chunks will be merged with existing chunks if they contain the same elements.
+
+
+\paragraph {... retrieve an item from declarative memory?}
+
+Several functions are provided here.  `filter-chunks' produces a list of all chunks that match a given set of
+criteria.  In the example below, we are looking for a chunk with the `name' attribute `guess'.
+
+The `best-chunk' function does the actual (time-consuming and noisy) retrieval: it selects the best chunk out of the (filtered) list of chunks, given additional retrieval cues that spread activation and, if so desired, a set of filter specifications for partial matching.  In this example, we use an existing chunk stored in the `valve-open-chunk' variable as a single retrieval cue, and no partial matching:
+
+\begin{verbatim}
+(best-chunk (filter-chunks 
+                 (model-chunks *current-actUP-model*)
+		 '(:name guess))
+	    (list valve-open-chunk) 
+	    nil)
+\end{verbatim}
+
+
+
+\paragraph {... retrieve a blended chunk?}
+
+To blend chunks, use the function `blend' instead of `retrieve-chunk'.
+In addition to the cues and partial-matching specification known from `retrieve-chunk', it also expects a chunk type (such as `strategy'), which determines the kind of chunk created as a result of blending.
+
+
+
+
+\paragraph {... define chunk similarities?}
+
+Use the `add-sji-fct' and reset-sji-fct' functions.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\end{document}
