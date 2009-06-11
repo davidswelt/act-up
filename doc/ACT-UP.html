@@ -1,0 +1,70 @@
+<html><head><title>ACT-UP</title></head><body><h3>API for package ACT-UP</h3>
+<blockquote>UNDOCUMENTED</blockquote>
+<p><b>*ans*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Transient noise parameter</blockquote>
+<blockquote>Initial value: <tt>0.2</tt></blockquote>
+<p><b>*blc*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Base-level constant parameter</blockquote>
+<blockquote>Initial value: <tt>1.7</tt></blockquote>
+<p><b>*bll*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Base-level learning decay parameter</blockquote>
+<blockquote>Initial value: <tt>0.5</tt></blockquote>
+<p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Reaction time parameter</blockquote>
+<blockquote>Initial value: <tt>1.0</tt></blockquote>
+<p>(<b>actup-pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Simulates the passing of time.
+An optional parameter META-PROCESS specifies the meta-process to use.
+It defaults to the current meta-process.</blockquote><p>(<b>actup-time</b> &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Returns the current runtime
+An optional parameter META-PROCESS specifies the meta-process to use.
+It defaults to the current meta-process.</blockquote><p><b>ADD-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<p>(<b>best-chunk</b> confusion-set cues &optional request-spec &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Retrieves the best chunk in confusion set.
+CONFUSION-SET is a list of chunks, out of which the chunk is returned.
+CUES is a list of cues that spread activation.
+OPTIONS: do not use (yet).
+
+Simulates timing behavior.</blockquote><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Return a blended variant of chunks.
+Activation is calculated using spreading activation from CUES.
+The returned chunk is of type CHUNK-TYPE; all CHUNKS must be
+of type CHUNK-TYPE or of a supertype thereof.  If CHUNK-TYPE is not
+given, all CHUNKS must be of the same class and the returned type
+will be this class.
+RETRIEVAL-SPEC should contain the retrieval filter used to
+obtain CHUNKS; attribute-value pairs in it will be included in
+the returned chunk as-is and not be blended from the CHUNKS.</blockquote><p><b>chunk</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+<blockquote>Type defining an ACT-UP chunk.
+Derive your own chunks using this as a base structure
+by specifying (:include chunk).</blockquote><p><b>CHUNK-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the currently active ACT-UP model.</blockquote><p>(<b>explain-activation</b> chunk &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Returns a string with an explanation of the evaluation of CHUNK.
+CUES contains retrieval cues spreading activation.
+RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Filter chunks according to ARGS.
+ARGS is a list of the form (:slot1 value1 :slot2 value2),
+or (slot1 value1 slot2 value2).
+CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
+of the form ((X . chunk1) (Y . chunk2) ...).
+returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><p>(<b>learn-chunk</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Learn chunk CHUNK.
+
+This will note a presentation of an existing chunk in the model's DM, if
+the existing chunk is unifiable with CHUNK.  If no such chunk exists in DM,
+the CHUNK will be added.  If more than one such chunk exists, one of the existing
+chunks is noted as 'presented'.
+
+CHUNK may be altered by side-effect.
+
+Returns the added chunk.</blockquote><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+<blockquote>An ACT-UP meta process.</blockquote><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><p><b>RESET-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<p><b>RESET-MP</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<p><b>RESET-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Switches the currently active ACT-UP model.
+This may set a range of model parameters.</blockquote><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Prints all chunks in model MODEL subject to CONSTRAINTS.
+See the function `filter-chunks' for a description of possible constraints.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
