@@ -1,3 +1,9 @@
+
+
+
+ ;; *actup-rule-utilities*
+
+       
 ;; ACT-UP
 
 ;; DR, 04/2009
@@ -552,6 +558,174 @@ the returned chunk as-is and not be blended from the CHUNKS."
 	  (- (abs (- v1 v2))))  ;; could be done better!
       0 ;; not implemented yet
     ))
+
+
+
+;; PROCEDURAL
+
+;; tests
+
+;; (setq *actup-rulegroups* nil)
+;; (defrule rule1 (arg--1 arg2) :group g1 (print arg1))
+;; (defrule rule1b (arg--1 arg2) :group (g1 g5) (print arg1))
+;; (defrule rule2 (arg2 arg3) :group (g1 g2) (print arg1))
+;; (defrule rule3 (arg3 arg4) :group g2 (print arg1))
+;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG--1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG--1 ARG2) (RULE1 ARG--1 ARG2))))
+
+(defun set-alist (key val alist-name)
+  (let ((kv (assoc key (eval alist-name))))
+    (if kv
+	(progn (setf (cdr kv) val) 
+	       (eval alist-name))
+	(set alist-name (acons key val (eval alist-name))))))
+
+
+(defmacro defrule (name args &rest body)
+  "Define an ACT-UP rule.
+The syntax follows the Lisp `defun' macro, except
+that after arguments to the function to be greated, a 
+:group GROUP parameter may follow, defining one or more
+rule groups that the rule will belong to.
+
+This macro will define a Lisp function of name NAME with
+arguments ARGS."
+  ;; remove keyword args from body
+  (let ((groups
+	 (let (keyw group)
+	   (loop while (keywordp (setq keyw (car body))) do
+	     (setq body (cdr body))
+	     (case keyw
+	       (:group (setq group (pop body)))
+	       ;; (t (push keyw extra-keywords) (push (pop body) extra-keywords))
+	       ))
+	   (if (consp group) group (list group)))))
+
+    `(progn
+    (defun ,name ,args
+       (actup-rule-start ',name ',args)
+;; to do: handle signals
+       (let ((actup---rule-result
+	      (progn
+		,@body)))
+	 (actup-rule-end ',name actup---rule-result)
+	 actup---rule-result))
+    (declare-rule ',groups
+		   ',name ',args)
+)))
+
+;; FIXME this needs to go into the current model!!!!
+(defparameter *actup-rule-queue* nil)
+(defun actup-rule-start (name args)
+  ;;(format t "start: ~s ~s" name args)
+  (setq *actup-rule-queue* (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)))
+(defun actup-rule-end (name result)
+  ;; (format t "end: ~s ~s" name result)
+)
+
+;; this is, as of now, independent of the model
+(defparameter *actup-rulegroups* nil)
+
+;; this needs to go into the model structure
+(defparameter *actup-rule-utilities* nil)
+
+(defparameter *egs* nil) ;; transient rule noise
+
+(defun declare-rule (groups name args)
+  (when groups
+    (loop for g in groups do
+	 (let ((group-cons (assoc g *actup-rulegroups*)))
+	   (if group-cons
+	       (setf (cdr group-cons)  
+		     (acons name args (cdr group-cons)))
+	       
+	       (setq *actup-rulegroups*
+		     (acons 
+		      g
+		      ( acons name args nil)
+		      *actup-rulegroups*)))))))
+
+  
+;; test case:
+;; (defun rule2 (a1 a2) (print a1))
+;; (eval-rule 'g2 1 2)
+(defun eval-rule (group &rest args)
+  "Evaluates an ACT-UP rule from rule group GROUP.
+Passes arguments ARG to the lisp function representing 
+the chose rule."
+
+  ;; chose rule with highest utility
+  (let* ((rule-util
+	 (loop for r in (cdr (assoc group *actup-rulegroups*)) 
+	    with utility = 0.0
+	    with rule = nil
+	    for r-utility = (+ (or (cdr (assoc (sxhash r) *actup-rule-utilities*)) *iu*) (if *egs* (act-r-noise *egs*) 0.0))
+	    when (> r-utility utility)
+	    do
+	      (setq utility r-utility
+		    rule r)
+	    finally
+	      (return (cons utility r ))))
+	(rule (second rule-util))
+	(util (car rule-util)))
+    (when rule
+      (apply rule args))))
+
+
+(defparameter *au-rpps* 0.05)                    ;; reward proportion per second elapsed
+;; e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
+;; time is in between rules
+
+(defparameter *au-rfr* 0.10)                    ;; base reward proportion for each rule
+;; e.g., the each rule before the reward trigger gets 10% of the reward
+ 
+(defparameter *alpha* 0.2) ; utility learning rate
+
+(defparameter *iu* 0.0) ; initial utility
+
+;; just a linear backpropagatino over time
+; quue elements: (time . hash)
+; (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)
+(defun assign-reward (reward)
+  (let ((time (actup-time))
+	(last-time (actup-time)))
+    (loop for rc in *actup-rule-queue* do
+
+	 (let* ((r-time (car rc))
+		(r-rule-signature (sxhash (cdr rc)))
+		(reward-portion (* reward
+				   (+ *au-rfr*
+				      (* *au-rpps* (- last-time r-time))))))
+
+	   (setq reward (- reward reward-portion)
+		 last-time r-time)
+	   
+	   ;; assign reward
+	   
+	   (let ((current (or (cdr (assoc r-rule-signature *actup-rule-utilities*)) *iu*)))
+	     (set-alist r-rule-signature (+ current
+		      (* *alpha* (- reward-portion current)))
+			'*actup-rule-utilities*)
+	     )))))
+
+
+;; test case
+
+(defun test-reward-assignment ()
+  (setq *actup-rulegroups* nil)
+  (defrule rule1 (arg1 arg2) :group g1 (print arg1))
+  (defrule rule1b (arg1 arg2) :group (g1 g5) (print arg1))
+  (defrule rule2 (arg2 arg3) :group (g1 g2) (print arg2))
+  (defrule rule3 (arg3 arg4) :group g2 (print arg1))
+  
+  (rule1 1 2)
+  (rule2 1 2)
+  (assign-reward 10.0)
+
+  (eval-rule 'g1 5 6)
+)
+
+
+
 
 
 ;; experimental
