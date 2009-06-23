@@ -5,7 +5,7 @@
 (defun chunk-spec-variable-p (chunk)
   chunk)
 
-(load "misc-utils.lisp")
+(load (format nil "~a/../misc-utils.lisp"  *load-truename*))
 
 (defmacro define-module-fct (&rest args)
 	  nil)
@@ -18,7 +18,7 @@
       nil))
 
 ;; allow random module to work
-(load "random.lisp")
+(load (format nil "~a/../random.lisp"  *load-truename*))
 
 (setq  *actr-random-module* (create-random-module nil))
 

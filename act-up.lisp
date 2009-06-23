@@ -29,12 +29,11 @@
 
 (in-package :act-up)
 
-
-
-(load "actr6-compatibility.lisp")  ; hack
-(load "actr-aux.lisp") 
+(load (format nil "~a/../actr6-compatibility.lisp"  *load-truename*))
+(load (format nil "~a/../actr-aux.lisp"  *load-truename*))
 
 ;; all chunks inherit from this structure:
+
 
 
 (defstruct chunk
@@ -64,7 +63,6 @@ by specifying (:include chunk)."
   (fan nil) ; internal)
 ) 
 (export '(chunk))
-
 
 (defstruct meta-process
   "An ACT-UP meta process."
