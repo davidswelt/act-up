@@ -29,8 +29,8 @@
 
 (in-package :act-up)
 
-(load (format nil "~a/../actr6-compatibility.lisp"  *load-truename*))
-(load (format nil "~a/../actr-aux.lisp"  *load-truename*))
+(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-pathname*)))
+(load (format nil "~a/actr-aux.lisp" (directory-namestring *load-pathname*)))
 
 ;; all chunks inherit from this structure:
 
