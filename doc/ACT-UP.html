@@ -25,7 +25,9 @@ CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.
 OPTIONS: do not use (yet).
 
-Simulates timing behavior.</blockquote><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Simulates timing behavior.
+
+See also the higher-level function `retrieve-chunk'.</blockquote><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Return a blended variant of chunks.
 Activation is calculated using spreading activation from CUES.
 The returned chunk is of type CHUNK-TYPE; all CHUNKS must be
@@ -34,17 +36,42 @@ given, all CHUNKS must be of the same class and the returned type
 will be this class.
 RETRIEVAL-SPEC should contain the retrieval filter used to
 obtain CHUNKS; attribute-value pairs in it will be included in
-the returned chunk as-is and not be blended from the CHUNKS.</blockquote><p><b>chunk</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+the returned chunk as-is and not be blended from the CHUNKS.
+
+See also the higher-level function `blend-retrieve-chunk'.</blockquote><p>(<b>blend-retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Retrieve a blended chunk from declarative memory.
+The blended chunk is a new chunk represeting the chunks
+retrievable from declarative memory under specification SPEC.
+The contents of the blended chunk consist of a weighted average
+of the retrievable chunks, whereas each chunk is weighted
+according to its activation.
+
+CUES is, if given, a list of chunks that spread activation
+to facilitate the retrieval of target chunks.
+
+PM-SOFT-SPEC is, if given, a retrieval specification whose 
+constraints are soft; partial matching is used for this portion
+of the retrieval specification. 
+
+SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><p><b>chunk</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
 by specifying (:include chunk).</blockquote><p><b>CHUNK-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
 <p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the currently active ACT-UP model.</blockquote><p>(<b>explain-activation</b> chunk &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the currently active ACT-UP model.</blockquote><p>(<b>define-chunk-type</b> name &rest members)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Define a chunk type of name NAME.
+MEMBERS should contain all possible elements of the chunk type.
+NAME may be a symbol or a list of form (name2 :include parent-type),
+whereas PARENT-TYPE refers to another defined chunk type whose
+elements will be inherited.
+MEMBERS may be a list of symbols, or also a list of member
+specifiers as used with the lisp `defstruct' macro, which see.</blockquote><p>(<b>explain-activation</b> chunk &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Filter chunks according to ARGS.
-ARGS is a list of the form (:slot1 value1 :slot2 value2),
+ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
@@ -63,7 +90,21 @@ Returns the added chunk.</blockquote><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>
 <blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><p><b>RESET-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
 <p><b>RESET-MP</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
 <p><b>RESET-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Retrieve a chunk from declarative memory.
+The retrieved chunk is the most highly active chunk among those in
+declarative memory that are retrievable and that conform to
+specification SPEC.
+
+CUES is, if given, a list of chunks that spread activation
+to facilitate the retrieval of a target chunk.
+
+PM-SOFT-SPEC is, if given, a retrieval specification whose 
+constraints are soft; partial matching is used for this portion
+of the retrieval specification. 
+
+SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Switches the currently active ACT-UP model.
 This may set a range of model parameters.</blockquote><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Prints all chunks in model MODEL subject to CONSTRAINTS.

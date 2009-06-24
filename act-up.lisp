@@ -1,9 +1,3 @@
-
-
-
- ;; *actup-rule-utilities*
-
-       
 ;; ACT-UP
 
 ;; DR, 04/2009
@@ -29,17 +23,33 @@
 
 (in-package :act-up)
 
-(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-pathname*)))
-(load (format nil "~a/actr-aux.lisp" (directory-namestring *load-pathname*)))
+(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
+(load (format nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
+
+(defstruct meta-process
+  "An ACT-UP meta process."
+  (actUP-time 0.0 :type number)
+  name
+)
+(export '(meta-process))
+
+(defparameter *current-actUP-meta-process* (make-meta-process))
+
+
+;; CHUNKS
+
 
 ;; all chunks inherit from this structure:
 
 
+(export '(chunk define-chunk-type))
 
 (defstruct chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
 by specifying (:include chunk)."
+  ;; helpful for debugging
+  name
   ;; internal ACT-UP structures
   (total-presentations 0 :type integer)
   (first-presentation nil)
@@ -62,24 +72,35 @@ by specifying (:include chunk)."
 
   (fan nil) ; internal)
 ) 
-(export '(chunk))
 
-(defstruct meta-process
-  "An ACT-UP meta process."
-  (actUP-time 0.0 :type number)
-  name
-)
-(export '(meta-process))
-
-(defparameter *current-actUP-meta-process* (make-meta-process))
-
-
+(defmacro define-chunk-type (name &rest members)
+  "Define a chunk type of name NAME.
+MEMBERS should contain all possible elements of the chunk type.
+NAME may be a symbol or a list of form (name2 :include parent-type),
+whereas PARENT-TYPE refers to another defined chunk type whose
+elements will be inherited.
+MEMBERS may be a list of symbols, or also a list of member
+specifiers as used with the lisp `defstruct' macro, which see."
+  
+  (let* ((name-and-options name)
+	 (incl
+	  (if (consp name-and-options)
+	      (list (car name-and-options)
+		    (if (eq (cadr name-and-options) :include)
+			`(:include ,(caddr name-and-options))
+			(error "define-chunk-type: faulty options in NAME.")))
+	      (list name-and-options '(:include chunk)))))
+    `(defstruct ,incl
+       @,members)
+    ))
+ 
+;; (macroexpand '(define-chunk-type test one two))
 
 (defun update-chunk-references (chunk)
-  (loop for (slot . value) in (structure-alist chunk) do
+  ;;(loop for (_slot . _value) in (structure-alist chunk) do
        ;; to do
-       (print "not implemented")
-       ))
+       (print "update-chunk-references: not implemented")
+       )
 
 
 ;; parameters
@@ -102,7 +123,6 @@ by specifying (:include chunk)."
 ;;   (dm-noise 0.1 :type number)
 ;; )
 
-
 (defstruct declarative-memory
   (chunks nil :type list))
 
@@ -124,7 +144,9 @@ by specifying (:include chunk)."
 ;; CLIENT FUNCTIONS
 
 (export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+	  define-chunk-type
 	  show-chunks chunk-name explain-activation
+	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
 	  reset-sji-fct add-sji-fct ))
 
@@ -163,11 +185,7 @@ It defaults to the current meta-process."
 See the function `filter-chunks' for a description of possible constraints."
   (print (mapcar 'chunk-name (if constraints
 				 (search-for-chunks model constraints)
-				 (dm-chunks (model-dm model))))))
-
-
-(defun chunk-name (chunk)
-  "Chunk")
+				 (declarative-memory-chunks (model-dm model))))))
 
 (defun explain-activation (chunk &optional cues retr-spec)
   "Returns a string with an explanation of the evaluation of CHUNK.
@@ -195,9 +213,57 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 ;  (say "searching for chunks ~a" args)
   (filter-chunks (model-chunks model) args))
 
+
+
+
+(defun retrieve-chunk (spec &optional cues pm-soft-spec)
+  "Retrieve a chunk from declarative memory.
+The retrieved chunk is the most highly active chunk among those in
+declarative memory that are retrievable and that conform to
+specification SPEC.
+
+CUES is, if given, a list of chunks that spread activation
+to facilitate the retrieval of a target chunk.
+
+PM-SOFT-SPEC is, if given, a retrieval specification whose 
+constraints are soft; partial matching is used for this portion
+of the retrieval specification. 
+
+SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+value2 ...), or (slot1 value1 slot2 value2)."
+
+  (best-chunk (filter-chunks (model-chunks *current-actUP-model*)
+			     spec)
+	      cues (append spec pm-soft-spec)))
+
+
+(defun blend-retrieve-chunk (spec &optional cues pm-soft-spec)
+  "Retrieve a blended chunk from declarative memory.
+The blended chunk is a new chunk represeting the chunks
+retrievable from declarative memory under specification SPEC.
+The contents of the blended chunk consist of a weighted average
+of the retrievable chunks, whereas each chunk is weighted
+according to its activation.
+
+CUES is, if given, a list of chunks that spread activation
+to facilitate the retrieval of target chunks.
+
+PM-SOFT-SPEC is, if given, a retrieval specification whose 
+constraints are soft; partial matching is used for this portion
+of the retrieval specification. 
+
+SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+value2 ...), or (slot1 value1 slot2 value2)."
+  (let ((cs (filter-chunks (model-chunks *current-actUP-model*)
+			     spec)))
+    (if cs
+	(blend cs cues nil (append spec pm-soft-spec)))))
+    
+
+
 (defun filter-chunks (chunk-set args)
   "Filter chunks according to ARGS.
-ARGS is a list of the form (:slot1 value1 :slot2 value2),
+ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
@@ -265,12 +331,14 @@ CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.
 OPTIONS: do not use (yet).
 
-Simulates timing behavior."
+Simulates timing behavior.
 
-  (setq  *last-retrieved-activation* nil)
+See also the higher-level function `retrieve-chunk'."
+
  ;; retrieve using spreading activation from cues to confusion-set
   (if confusion-set
-      (let ((best  (loop for c in confusion-set with bc = nil with bs = nil 
+      (let* ((last-retrieved-activation nil)
+	    (best  (loop for c in confusion-set with bc = nil with bs = nil 
 			when (if (eq options 'inhibit-cues) (not (member c cues)) t)
 			when c ;; allow nil chunks
 		  do
@@ -285,25 +353,27 @@ Simulates timing behavior."
 		;	  (say "chunk ~a falls below RT" (concept-name c))
 			  ))
 		  finally
-			(progn (setq *last-retrieved-activation* 
+			(progn (setq last-retrieved-activation 
 				     bs)
 			       (return bc))
 		    )))
 
 	;; timing
-	(if *last-retrieved-activation*
-	    (actUP-pass-time (* *lf* (exp (- (* *le* *last-retrieved-activation*))))))
+	(if last-retrieved-activation
+	    (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
 	
 	;; (say "found best chunk: ~a " (if best (concept-name best) nil))
 	best)))
 
 (defun best-n-chunks (n confusion-set cues)
-"Retrieves the best chunks in confusion set.
-CONFUSION-SET is a list of chunks, out of which the best N chunks will be returned.
-CUES is a list of cues that spread activation."
+  "Retrieves the best chunks in confusion set.
+CONFUSION-SET is a list of chunks, out of which the best N chunks will
+be returned. CUES is a list of cues that spread activation.
 
-  (setq  *last-retrieved-activation* nil)
- ;; retrieve using spreading activation from cues to confusion-set
+See also the higher-level functions `retrieve-chunk' and
+`blend-retrieve-chunk'."
+
+  ;; retrieve using spreading activation from cues to confusion-set
   (if confusion-set
       (let ((all  (loop for c in confusion-set 
 		  append
@@ -320,6 +390,8 @@ CUES is a list of cues that spread activation."
 	(mapcar 'cdr (subseq (stable-sort all #'> :key #'car) 0 (min n (length all) ))))))
 
  
+(defparameter *blend-temperature* 1.0)
+
 (defun blend (chunks &optional cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
 Activation is calculated using spreading activation from CUES.
@@ -329,7 +401,10 @@ given, all CHUNKS must be of the same class and the returned type
 will be this class.
 RETRIEVAL-SPEC should contain the retrieval filter used to
 obtain CHUNKS; attribute-value pairs in it will be included in
-the returned chunk as-is and not be blended from the CHUNKS."  
+the returned chunk as-is and not be blended from the CHUNKS.
+
+See also the higher-level function `blend-retrieve-chunk'."
+ 
 
  
   (if (and chunk-type (symbolp chunk-type))
@@ -357,7 +432,7 @@ the returned chunk as-is and not be blended from the CHUNKS."
 		 (setq auto-chunk-type t
 		       chunk-type (class-of c))))
 
-	 (let ((act (chunk-get-activation c)))
+	 (let ((act (chunk-get-activation c cues retrieval-spec)))
 	   (setq blend-activation (+ blend-activation
 				     (exp act)))
 	   (loop for s in (structure-alist c) do
@@ -442,7 +517,9 @@ the returned chunk as-is and not be blended from the CHUNKS."
  (slot-value chunk slot-name))
  
 
-(defun chunk-get-fan  (j i chunk-set)
+(defun chunk-get-fan  (j _i chunk-set)
+
+  (print "chunk-get-fan: not implemented.")
 
   ;; how to iterate over all slots?
 
@@ -616,8 +693,9 @@ arguments ARGS."
 (defun actup-rule-start (name args)
   ;;(format t "start: ~s ~s" name args)
   (setq *actup-rule-queue* (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)))
-(defun actup-rule-end (name result)
+(defun actup-rule-end (_name _result)
   ;; (format t "end: ~s ~s" name result)
+  (actUP-pass-time 0.050) ;; to do: randomization (:vpft parameter)
 )
 
 ;; this is, as of now, independent of the model
@@ -664,7 +742,8 @@ the chose rule."
 	    finally
 	      (return (cons utility r ))))
 	(rule (second rule-util))
-	(util (car rule-util)))
+	;; (util (car rule-util))
+	 )
     (when rule
       (apply rule args))))
 
@@ -710,10 +789,10 @@ the chose rule."
 
 (defun test-reward-assignment ()
   (setq *actup-rulegroups* nil)
-  (defrule rule1 (arg1 arg2) :group g1 (print arg1))
-  (defrule rule1b (arg1 arg2) :group (g1 g5) (print arg1))
-  (defrule rule2 (arg2 arg3) :group (g1 g2) (print arg2))
-  (defrule rule3 (arg3 arg4) :group g2 (print arg1))
+  (defrule rule1 (arg1 _arg2) :group g1 (print arg1))
+  (defrule rule1b (arg1 _arg2) :group (g1 g5) (print arg1))
+  (defrule rule2 (arg2 _arg3) :group (g1 g2) (print arg2))
+  (defrule rule3 (arg3 arg4) :group g2 (print arg3))
   
   (rule1 1 2)
   (rule2 1 2)
