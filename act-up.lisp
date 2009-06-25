@@ -23,6 +23,8 @@
 
 (in-package :act-up)
 
+
+
 (load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
 (load (format nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
 
@@ -91,9 +93,10 @@ specifiers as used with the lisp `defstruct' macro, which see."
 			(error "define-chunk-type: faulty options in NAME.")))
 	      (list name-and-options '(:include chunk)))))
     `(defstruct ,incl
-       @,members)
+       ,@members)
     ))
  
+
 ;; (macroexpand '(define-chunk-type test one two))
 
 (defun update-chunk-references (chunk)
@@ -847,6 +850,20 @@ See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
 	 
 ;;        (setf sym (slot-value (model-parameters model) p))))
 ;;   (setq *current-actUP-model* model))
+
+
+
+;; MODULES
+
+;; locations used by visual and manual model
+(define-chunk-type location 
+    screen-x
+  screen-y)
+
+(load (format nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
+(load (format nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
+
+
 
 
 (provide "act-up")
