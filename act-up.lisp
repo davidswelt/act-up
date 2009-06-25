@@ -144,6 +144,7 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;; CLIENT FUNCTIONS
 
 (export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+	  defrule
 	  define-chunk-type
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
