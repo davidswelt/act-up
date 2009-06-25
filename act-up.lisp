@@ -641,11 +641,12 @@ See also the higher-level function `blend-retrieve-chunk'."
 ;; tests
 
 ;; (setq *actup-rulegroups* nil)
-;; (defrule rule1 (arg--1 arg2) :group g1 (print arg1))
-;; (defrule rule1b (arg--1 arg2) :group (g1 g5) (print arg1))
+;; (defrule rule1 (arg1 arg2) :group g1 (print arg1))
+;; (defrule rule1b (arg1 arg2) :group (g1 g5) (print arg1))
 ;; (defrule rule2 (arg2 arg3) :group (g1 g2) (print arg1))
 ;; (defrule rule3 (arg3 arg4) :group g2 (print arg1))
-;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG--1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG--1 ARG2) (RULE1 ARG--1 ARG2))))
+;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG1 ARG2) (RULE1 ARG1 ARG2))))
+;; (g1 'working 'huh)
 
 (defun set-alist (key val alist-name)
   (let ((kv (assoc key (eval alist-name))))
@@ -660,10 +661,15 @@ See also the higher-level function `blend-retrieve-chunk'."
 The syntax follows the Lisp `defun' macro, except
 that after arguments to the function to be greated, a 
 :group GROUP parameter may follow, defining one or more
-rule groups that the rule will belong to.
+rule groups that the rule will belong to.  All rules
+defined as part of GROUP must have the same argument
+footprint.
 
 This macro will define a Lisp function of name NAME with
-arguments ARGS."
+arguments ARGS.
+
+If GROUP is given, a function of name GROUP will also be
+defined that invokes one of the rules assigned to GROUP."
   ;; remove keyword args from body
   (let ((groups
 	 (let (keyw group)
@@ -707,8 +713,14 @@ arguments ARGS."
 (defparameter *egs* nil) ;; transient rule noise
 
 (defun declare-rule (groups name args)
+  ;; to do: check number of arguments 
   (when groups
     (loop for g in groups do
+	 ;; (re)define lisp function with group name
+	 (eval `(defun ,g ,args 
+		  ,(format nil "Choose a rule out of group %s" g)
+		  (actup-eval-rule ',g ,@args)))
+
 	 (let ((group-cons (assoc g *actup-rulegroups*)))
 	   (if group-cons
 	       (setf (cdr group-cons)  
@@ -723,8 +735,8 @@ arguments ARGS."
   
 ;; test case:
 ;; (defun rule2 (a1 a2) (print a1))
-;; (eval-rule 'g2 1 2)
-(defun eval-rule (group &rest args)
+;; (actup-eval-rule 'g2 1 2)
+(defun actup-eval-rule (group &rest args)
   "Evaluates an ACT-UP rule from rule group GROUP.
 Passes arguments ARG to the lisp function representing 
 the chose rule."
@@ -798,7 +810,7 @@ the chose rule."
   (rule2 1 2)
   (assign-reward 10.0)
 
-  (eval-rule 'g1 5 6)
+  (g1 5 6)
 )
 
 
