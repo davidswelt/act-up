@@ -1,0 +1,247 @@
+<HTML>
+<HEAD>
+<TITLE>ACT-UP Documentation</TITLE>
+<META NAME="description" CONTENT="ACT-UP Documentation">
+<META NAME="keywords" CONTENT="documentation">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+
+<META NAME="Generator" CONTENT="LaTeX2HTML v2002-2-1">
+<META HTTP-EQUIV="Content-Style-Type" CONTENT="text/css">
+
+<LINK REL="STYLESHEET" HREF="documentation.css">
+
+</HEAD>
+
+<BODY >
+<P>
+<H1 ALIGN="CENTER">ACT-UP 
+<BR>
+Documentation</H1>
+<DIV>
+
+<P ALIGN="CENTER"><STRONG>David Reitter</STRONG></P>
+</DIV>
+
+<P>
+
+<H1><A NAME="SECTION00010000000000000000">
+Overview</A>
+</H1>
+
+<P>
+ACT-UP is a cognitive modeling library that allows modelers to specify their model's functionality in Common Lisp.  Whenever a cognitive explanation in a particular part of the model is sought, the modeler uses the library to provide characteristics of 
+
+<P>
+
+<UL>
+<LI>explicit, declarative learning and cue- and similarity-based
+  retrieval, and
+</LI>
+<LI>procedural skill acquisition [not yet available]
+</LI>
+</UL>
+following the ACT-R 6 theory.
+
+<P>
+As in the ACT-R 6 implementation, modelers are free to adhere more or less to the theoretical limitations.  However, ACT-UP's design encourages modelers to underspecify portions of the model's functionality that do not contribute to the model's explanations and predictions of human performance.  
+
+<P>
+
+<H1><A NAME="SECTION00020000000000000000">
+How do I...</A>
+</H1>
+
+<P>
+
+<H4><A NAME="SECTION00020010000000000000">
+... load the library?</A>
+</H4>
+
+<P>
+<PRE>
+(require "act-up" "act-up.lisp")
+(use-package :act-up)
+</PRE>
+
+<P>
+
+<H4><A NAME="SECTION00020020000000000000">
+... define a chunk type?</A>
+</H4>
+
+<P>
+Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#chunk">chunk</a>.
+For example, the following structure defines a chunk type of name <a href="ACT-UP.html#strategy">strategy</a> with four slots.
+One of these slots is assigned a default value (<a href="ACT-UP.html#strategy">strategy</a>).
+
+<P>
+<PRE>
+(define-chunk-type strategy
+  (type 'a-strategy)
+  name
+  dampen
+  success
+)
+</PRE>
+
+<P>
+Note that the <a href="ACT-UP.html#type">type</a> member is not required by ACT-UP.
+
+<P>
+To define an inherited type, use this construction:
+
+<P>
+<PRE>
+(define-chunk-type (lazy-strategy :include strategy)
+...
+</PRE>
+
+<P>
+
+<H4><A NAME="SECTION00020030000000000000">
+...define a new model?</A>
+</H4>
+
+<P>
+The model is defined automatically when <a href="ACT-UP.html#act-up.lisp">act-up.lisp</a> is loaded.  To reset the model, use the <a href="ACT-UP.html#reset-model">reset-model</a> function.  To create a new model (multiple models may be used in parallel), use <a href="ACT-UP.html#make-model">make-model</a>.  Use the function <a href="ACT-UP.html#set-current-actUP-model">set-current-actUP-model</a> to define the current model.
+
+<P>
+The ACT-UP meta-process keeps track of model time that is common to all models.  You may define several meta-processes and use/reuse them as you like with the function <a href="ACT-UP.html#make-meta-process">make-meta-process</a>.  You can bind *current-actUP-meta-process* to a meta-process to switch.  Use <a href="ACT-UP.html#reset-mp">reset-mp</a> to discard and reset the current meta-process.
+
+<P>
+
+<H4><A NAME="SECTION00020040000000000000">
+...commit a chunk to memory or reinforce it?</A>
+</H4>
+
+<P>
+To specify the "presentation" of a specific chunk, use the function <a href="ACT-UP.html#learn">learn</a>.
+The chunk reference may be supplied in a normal variable (equivalent to ACT-R's buffer),
+or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-type</a> syntax , as in the following example:
+
+<P>
+<PRE>
+(learn-chunk  (make-strategy :name 'guess :success 0.2))
+</PRE>
+This will create a new strategy chunk, setting two of its parameters, and commit it to memory.
+Note that even newly created chunks will be merged with existing chunks if they contain the same elements.
+
+<P>
+
+<H4><A NAME="SECTION00020050000000000000">
+... retrieve an item from declarative memory?</A>
+</H4>
+
+<P>
+Simply use the high-level functions <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>, or <a href="ACT-UP.html#blend-retrieve-chunk">blend-retrieve-chunk</a> (for blending).  The following example retrieves the most active chunk that has the name <a href="ACT-UP.html#guess">guess</a> .  The chunk contained in the variable <a href="ACT-UP.html#valve-open-chunk">valve-open-chunk</a> 
+spreads activation.  No partial matching is used:
+
+<P>
+<PRE>
+(retrieve-chunk '(:name guess))
+	    (list valve-open-chunk) 
+	    nil)
+</PRE>
+
+<P>
+Several low-level functions are provided as well.  <a href="ACT-UP.html#filter-chunks">filter-chunks</a> produces a list of all chunks that match a given set of
+criteria.  In the example below, we are looking for a chunk with the <a href="ACT-UP.html#name">name</a> attribute <a href="ACT-UP.html#guess">guess</a>.
+
+<P>
+The <a href="ACT-UP.html#best-chunk">best-chunk</a> function does the actual (time-consuming and noisy) retrieval: it selects the best chunk out of the (filtered) list of chunks, given additional retrieval cues that spread activation and, if so desired, a set of filter specifications for partial matching.  In this example, we use an existing chunk stored in the <a href="ACT-UP.html#valve-open-chunk">valve-open-chunk</a> variable as a single retrieval cue, and no partial matching:
+
+<P>
+<PRE>
+(best-chunk (filter-chunks 
+                 (model-chunks (current-actUP-model))
+		 '(:name guess))
+	    (list valve-open-chunk) 
+	    nil)
+</PRE>
+
+<P>
+
+<H4><A NAME="SECTION00020060000000000000">
+... retrieve a blended chunk?</A>
+</H4>
+
+<P>
+Use the high-level function <a href="ACT-UP.html#blend-retrieve-chunk">blend-retrieve-chunk</a> .
+
+<P>
+When combining low-level functions, use the function <a href="ACT-UP.html#blend">blend</a> instead of <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>.
+In addition to the cues and partial-matching specification known from <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>, it also expects a chunk type (such as <a href="ACT-UP.html#strategy">strategy</a>), which determines the kind of chunk created as a result of blending.
+
+<P>
+
+<H4><A NAME="SECTION00020070000000000000">
+... define chunk similarities?</A>
+</H4>
+
+<P>
+Use the <a href="ACT-UP.html#add-sji-fct">add-sji-fct</a> and reset-sji-fct' functions.
+
+<P>
+
+<H4><A NAME="SECTION00020080000000000000">
+... define a procedural rule (<a href="ACT-UP.html#`production">`production</a>')?</A>
+</H4>
+
+<P>
+ACT-UP does not use if-then production rules as known from ACT-R. 
+Instead, it allows you define Lisp functions.  However, rather than through Lisp's <a href="ACT-UP.html#defun">defun</a> macro, you define rules using <a href="ACT-UP.html#defrule">defrule</a>:
+
+<P>
+<PRE>
+(defrule subtract-digit (minuend subtrahend)
+   "Perform subtraction of a single digit"
+   (- minuend subtrahend))
+</PRE>
+
+<P>
+
+<H4><A NAME="SECTION00020090000000000000">
+... select a procedural rule using subsymbolic utility learning?</A>
+</H4>
+
+<P>
+Define competing rules as above and give each a <TT>:group</TT> attribute in order to group them into a competition set:
+
+<P>
+<PRE>
+(defrule  force-over ()
+  :group choose-strategy
+  ...)
+(defrule force-under ()
+  :group choose-strategy
+  ...)
+</PRE>
+
+<P>
+Then, invoke one of the rules (as chosen by utility) as such:
+
+<P>
+<TT>(choose-strategy)</TT>
+
+<P>
+Arguments may be used as well (but ensure that all rules accept the same arguments).
+
+<P>
+Utilities are learned using the function <a href="ACT-UP.html#assign-reward">assign-reward</a>:
+
+<P>
+<TT>(assign-reward 1.5)</TT>
+
+<P>
+This example distributes a reward of  across the recently invoked rules.
+Rules do not have to have a <TT>:group</TT> attribute and they do not have to have been invoked
+via the group name in order to receive a reward; however, they have to have been defined
+using the <a href="ACT-UP.html#defrule">defrule</a> macro (rather than just being Lisp functions).
+
+<P>
+Configure utility learning via the parameters <a href="ACT-UP.html#*au-rpps*">*au-rpps*</a>, <a href="ACT-UP.html#*au-rfr*">*au-rfr*</a>, <a href="ACT-UP.html#*alpha*">*alpha*</a>, and <a href="ACT-UP.html#*iu*">*iu*</a>.
+
+
+</BODY>
+</HTML>
