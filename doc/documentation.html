@@ -6,11 +6,6 @@
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
 
-<META NAME="Generator" CONTENT="LaTeX2HTML v2002-2-1">
-<META HTTP-EQUIV="Content-Style-Type" CONTENT="text/css">
-
-<LINK REL="STYLESHEET" HREF="documentation.css">
-
 </HEAD>
 
 <BODY >
@@ -134,8 +129,7 @@ Note that even newly created chunks will be merged with existing chunks if they 
 </H4>
 
 <P>
-Simply use the high-level functions <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>, or <a href="ACT-UP.html#blend-retrieve-chunk">blend-retrieve-chunk</a> (for blending).  The following example retrieves the most active chunk that has the name <a href="ACT-UP.html#guess">guess</a> .  The chunk contained in the variable <a href="ACT-UP.html#valve-open-chunk">valve-open-chunk</a> 
-spreads activation.  No partial matching is used:
+Simply use the high-level functions <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>, or <a href="ACT-UP.html#blend-retrieve-chunk">blend-retrieve-chunk</a> (for blending).  The following example retrieves the most active chunk that has the name <a href="ACT-UP.html#guess">guess</a> .  The chunk contained in the variable <i>valve-open-chunk</i> spreads activation.  No partial matching is used:
 
 <P>
 <PRE>
@@ -146,10 +140,10 @@ spreads activation.  No partial matching is used:
 
 <P>
 Several low-level functions are provided as well.  <a href="ACT-UP.html#filter-chunks">filter-chunks</a> produces a list of all chunks that match a given set of
-criteria.  In the example below, we are looking for a chunk with the <a href="ACT-UP.html#name">name</a> attribute <a href="ACT-UP.html#guess">guess</a>.
+criteria.  In the example below, we are looking for a chunk with the <i>name</i> attribute <a href="ACT-UP.html#guess">guess</a>.
 
 <P>
-The <a href="ACT-UP.html#best-chunk">best-chunk</a> function does the actual (time-consuming and noisy) retrieval: it selects the best chunk out of the (filtered) list of chunks, given additional retrieval cues that spread activation and, if so desired, a set of filter specifications for partial matching.  In this example, we use an existing chunk stored in the <a href="ACT-UP.html#valve-open-chunk">valve-open-chunk</a> variable as a single retrieval cue, and no partial matching:
+The <a href="ACT-UP.html#best-chunk">best-chunk</a> function does the actual (time-consuming and noisy) retrieval: it selects the best chunk out of the (filtered) list of chunks, given additional retrieval cues that spread activation and, if so desired, a set of filter specifications for partial matching.  In this example, we use an existing chunk stored in the <i>valve-open-chunk</i> variable as a single retrieval cue, and no partial matching:
 
 <P>
 <PRE>
@@ -185,7 +179,7 @@ Use the <a href="ACT-UP.html#add-sji-fct">add-sji-fct</a> and reset-sji-fct' fun
 <P>
 
 <H4><A NAME="SECTION00020080000000000000">
-... define a procedural rule (<a href="ACT-UP.html#`production">`production</a>')?</A>
+... define a procedural rule ("production")?</A>
 </H4>
 
 <P>
