@@ -144,7 +144,7 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;; CLIENT FUNCTIONS
 
 (export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
-	  defrule
+	  defrule assign-reward
 	  define-chunk-type
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
@@ -760,22 +760,31 @@ the chose rule."
     (when rule
       (apply rule args))))
 
+(export '(*au-rpps* *iu* *alpha* *au-rfr* assign-reward))
+(defparameter *au-rpps* 0.05
+  "Reward proportion per second elapsed.
+e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
+time is in between rules.
+See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
-(defparameter *au-rpps* 0.05)                    ;; reward proportion per second elapsed
-;; e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
-;; time is in between rules
+(defparameter *au-rfr* 0.10
+  "base reward proportion for each rule
+e.g., the each rule before the reward trigger gets 10% of the reward.
+See also the parameter `*au-rpps*' and the function `assign-reward'.")
 
-(defparameter *au-rfr* 0.10)                    ;; base reward proportion for each rule
-;; e.g., the each rule before the reward trigger gets 10% of the reward
- 
-(defparameter *alpha* 0.2) ; utility learning rate
+(defparameter *alpha* 0.2  "utility learning rate
+See also the function `assign-reward'.")
 
-(defparameter *iu* 0.0) ; initial utility
+(defparameter *iu* 0.0 "initial utility
+See also the function `assign-reward'.")
 
 ;; just a linear backpropagatino over time
 ; quue elements: (time . hash)
 ; (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)
 (defun assign-reward (reward)
+  "Assign reward to recently invoked rules.
+Distributes reward value REWARD across the recently invoked rules.
+See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
   (let ((time (actup-time))
 	(last-time (actup-time)))
     (loop for rc in *actup-rule-queue* do
