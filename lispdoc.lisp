@@ -137,6 +137,28 @@
 		  :skip)
 	       ,(symbol-name symbol))))))
 
+(defun render-html-links (text)
+  (loop with target = nil
+     for pos = (search "`" text
+		       :test #'char=)
+     for pos2 = (if pos (search "'" text
+				:start2 pos
+				:test #'char=))
+     when pos do
+       (setq target
+	     (cons
+	      (let ((label (subseq text (1+ pos) pos2)))
+		(format nil "~a<a href=\"#~a\">~a</a>"
+			(string-downcase (subseq text 0 pos))
+			label label))
+	      target))
+       (setq text (subseq text (1+ pos2)))
+       ;; the replacement is always longer than the replaced text
+       ;; so old-pos does not need updating
+     while pos
+     finally (return (apply #'concatenate 'string (reverse (cons text target))))))
+;; (render-html-links "Hello `world' how are `you'?")
+
 (defun render-html (lispdoc &optional (stream t))
   "Generate a HTML fragment for the lispdoc sexp"
   (dolist (packagedoc lispdoc)
@@ -145,6 +167,7 @@
 	    (second packagedoc)
 	    (third packagedoc))
     (dolist (symboldoc (nthcdr 3 packagedoc))
+      (format stream "<a name=\"~a\" />" (string-downcase (second symboldoc)))
       (ecase (first symboldoc)
 	((:function :generic-function)
 	 (destructuring-bind (type name arglist docstring) symboldoc
@@ -171,13 +194,13 @@
 	   (format stream
 		   "&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>"
 		   (string-downcase type)
-		   docstring)))
+		   (render-html-links docstring))))
 	(:variable
 	 (format stream
 		 "<p><b>~a</b>&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>~%"
 		 (symbol-name-tree (second symboldoc))
 		 (string-downcase (first symboldoc))
-		 (third symboldoc))
+		 (render-html-links (third symboldoc)))
 	 (if (eq (fourth symboldoc) :unbound)
 	     (format stream "<blockquote>Initially unbound</blockquote>")
 	     (format stream
@@ -188,15 +211,15 @@
 		 "<p><b>~a</b>&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>"
 		 (symbol-name-tree (second symboldoc))
 		 (string-downcase (first symboldoc))
-		 (third symboldoc))
+		 (render-html-links (third symboldoc)))
 	 (when (fourth symboldoc)
 	   (format stream
 		   "<blockquote>Class precedence list: <tt>~{ ~a~}</tt></blockquote>~%"
-		   (fourth symboldoc)))
+		    (fourth symboldoc)))
 	 (when (fifth symboldoc)
 	   (format stream
 		   "<blockquote>Class init args: <tt>~{ ~a~}</tt></blockquote>~%"
-		   (fifth symboldoc))))
+		    (fifth symboldoc))))
 	(:skip
 	 (format t "~&;; warning: lispdoc skipping ~s~%" (second symboldoc)))
 	(:undocumented
