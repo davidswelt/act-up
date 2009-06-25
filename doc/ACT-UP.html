@@ -1,44 +1,66 @@
 <html><head><title>ACT-UP</title></head><body><h3>API for package ACT-UP</h3>
 <blockquote>UNDOCUMENTED</blockquote>
-<p><b>*ans*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<a name="*alpha*" /><p><b>*alpha*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>utility learning rate
+see also the function <a href="#assign-reward">assign-reward</a>.</blockquote>
+<blockquote>Initial value: <tt>0.2</tt></blockquote>
+<a name="*ans*" /><p><b>*ans*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Transient noise parameter</blockquote>
 <blockquote>Initial value: <tt>0.2</tt></blockquote>
-<p><b>*blc*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<a name="*au-rfr*" /><p><b>*au-rfr*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>base reward proportion for each rule
+e.g., the each rule before the reward trigger gets 10% of the reward.
+see also the parameter <a href="#*au-rpps*">*au-rpps*</a> and the function <a href="#assign-reward">assign-reward</a>.</blockquote>
+<blockquote>Initial value: <tt>0.1</tt></blockquote>
+<a name="*au-rpps*" /><p><b>*au-rpps*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>reward proportion per second elapsed.
+e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
+time is in between rules.
+see also the parameter <a href="#*au-rfr*">*au-rfr*</a> and the function <a href="#assign-reward">assign-reward</a>.</blockquote>
+<blockquote>Initial value: <tt>0.05</tt></blockquote>
+<a name="*blc*" /><p><b>*blc*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Base-level constant parameter</blockquote>
 <blockquote>Initial value: <tt>1.7</tt></blockquote>
-<p><b>*bll*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<a name="*bll*" /><p><b>*bll*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Base-level learning decay parameter</blockquote>
 <blockquote>Initial value: <tt>0.5</tt></blockquote>
-<p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<a name="*iu*" /><p><b>*iu*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>initial utility
+see also the function <a href="#assign-reward">assign-reward</a>.</blockquote>
+<blockquote>Initial value: <tt>0.0</tt></blockquote>
+<a name="*rt*" /><p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Reaction time parameter</blockquote>
 <blockquote>Initial value: <tt>1.0</tt></blockquote>
-<p>(<b>actup-pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<a name="actup-pass-time" /><p>(<b>actup-pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
-It defaults to the current meta-process.</blockquote><p>(<b>actup-time</b> &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+It defaults to the current meta-process.</blockquote><a name="actup-time" /><p>(<b>actup-time</b> &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns the current runtime
 An optional parameter META-PROCESS specifies the meta-process to use.
-It defaults to the current meta-process.</blockquote><p><b>ADD-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p>(<b>best-chunk</b> confusion-set cues &optional request-spec &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Retrieves the best chunk in confusion set.
-CONFUSION-SET is a list of chunks, out of which the chunk is returned.
-CUES is a list of cues that spread activation.
-OPTIONS: do not use (yet).
+It defaults to the current meta-process.</blockquote><a name="add-sji-fct" /><p><b>ADD-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="assign-reward" /><p>(<b>assign-reward</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>assign reward to recently invoked rules.
+distributes reward value reward across the recently invoked rules.
+see parameters <a href="#*au-rpps*">*au-rpps*</a>, <a href="#*au-rfr*">*au-rfr*</a>, <a href="#*alpha*">*alpha*</a>, and <a href="#*iu*">*iu*</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>retrieves the best chunk in confusion set.
+confusion-set is a list of chunks, out of which the chunk is returned.
+cues is a list of cues that spread activation.
+options: do not use (yet).
 
-Simulates timing behavior.
+simulates timing behavior.
 
-See also the higher-level function `retrieve-chunk'.</blockquote><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Return a blended variant of chunks.
-Activation is calculated using spreading activation from CUES.
-The returned chunk is of type CHUNK-TYPE; all CHUNKS must be
-of type CHUNK-TYPE or of a supertype thereof.  If CHUNK-TYPE is not
-given, all CHUNKS must be of the same class and the returned type
+see also the higher-level function <a href="#retrieve-chunk">retrieve-chunk</a>.</blockquote><a name="blend" /><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>return a blended variant of chunks.
+activation is calculated using spreading activation from cues.
+the returned chunk is of type chunk-type; all chunks must be
+of type chunk-type or of a supertype thereof.  if chunk-type is not
+given, all chunks must be of the same class and the returned type
 will be this class.
-RETRIEVAL-SPEC should contain the retrieval filter used to
-obtain CHUNKS; attribute-value pairs in it will be included in
-the returned chunk as-is and not be blended from the CHUNKS.
+retrieval-spec should contain the retrieval filter used to
+obtain chunks; attribute-value pairs in it will be included in
+the returned chunk as-is and not be blended from the chunks.
 
-See also the higher-level function `blend-retrieve-chunk'.</blockquote><p>(<b>blend-retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+see also the higher-level function <a href="#blend-retrieve-chunk">blend-retrieve-chunk</a>.</blockquote><a name="blend-retrieve-chunk" /><p>(<b>blend-retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a blended chunk from declarative memory.
 The blended chunk is a new chunk represeting the chunks
 retrievable from declarative memory under specification SPEC.
@@ -54,28 +76,41 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2).</blockquote><p><b>chunk</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk" /><p><b>chunk</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
-by specifying (:include chunk).</blockquote><p><b>CHUNK-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the currently active ACT-UP model.</blockquote><p>(<b>define-chunk-type</b> name &rest members)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Define a chunk type of name NAME.
-MEMBERS should contain all possible elements of the chunk type.
-NAME may be a symbol or a list of form (name2 :include parent-type),
-whereas PARENT-TYPE refers to another defined chunk type whose
+by specifying (:include chunk).</blockquote><a name="chunk-name" /><p><b>CHUNK-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="current-actup-model" /><p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the currently active ACT-UP model.</blockquote><a name="define-chunk-type" /><p>(<b>define-chunk-type</b> name &rest members)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>define a chunk type of name name.
+members should contain all possible elements of the chunk type.
+name may be a symbol or a list of form (name2 :include parent-type),
+whereas parent-type refers to another defined chunk type whose
 elements will be inherited.
-MEMBERS may be a list of symbols, or also a list of member
-specifiers as used with the lisp `defstruct' macro, which see.</blockquote><p>(<b>explain-activation</b> chunk &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+members may be a list of symbols, or also a list of member
+specifiers as used with the lisp <a href="#defstruct">defstruct</a> macro, which see.</blockquote><a name="defrule" /><p>(<b>defrule</b> name args &rest body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>define an act-up rule.
+the syntax follows the lisp <a href="#defun">defun</a> macro, except
+that after arguments to the function to be greated, a 
+:group GROUP parameter may follow, defining one or more
+rule groups that the rule will belong to.  All rules
+defined as part of GROUP must have the same argument
+footprint.
+
+This macro will define a Lisp function of name NAME with
+arguments ARGS.
+
+If GROUP is given, a function of name GROUP will also be
+defined that invokes one of the rules assigned to GROUP.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
-RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Filter chunks according to ARGS.
 ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
-returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><p>(<b>learn-chunk</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><a name="learn-chunk" /><p>(<b>learn-chunk</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Learn chunk CHUNK.
 
 This will note a presentation of an existing chunk in the model's DM, if
@@ -85,12 +120,12 @@ chunks is noted as 'presented'.
 
 CHUNK may be altered by side-effect.
 
-Returns the added chunk.</blockquote><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
-<blockquote>An ACT-UP meta process.</blockquote><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><p><b>RESET-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p><b>RESET-MP</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p><b>RESET-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Returns the added chunk.</blockquote><a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+<blockquote>An ACT-UP meta process.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="reset-model" /><p><b>RESET-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="reset-mp" /><p><b>RESET-MP</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="reset-sji-fct" /><p><b>RESET-SJI-FCT</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -104,8 +139,8 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2).</blockquote><p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="set-current-actup-model" /><p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Switches the currently active ACT-UP model.
-This may set a range of model parameters.</blockquote><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Prints all chunks in model MODEL subject to CONSTRAINTS.
-See the function `filter-chunks' for a description of possible constraints.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
+This may set a range of model parameters.</blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>prints all chunks in model model subject to constraints.
+see the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>

@@ -121,5 +121,46 @@ Use the `add-sji-fct' and reset-sji-fct' functions.
 
 
 
+\paragraph {... define a procedural rule (``production'')?}
+
+ACT-UP does not use if-then production rules as known from ACT-R. 
+Instead, it allows you define Lisp functions.  However, rather than through Lisp's `defun' macro, you define rules using `defrule':
+
+\begin{verbatim}
+(defrule subtract-digit (minuend subtrahend)
+   "Perform subtraction of a single digit"
+   (- minuend subtrahend))
+\end{verbatim}
+
+\paragraph {... select a procedural rule using subsymbolic utility learning?}
+
+Define competing rules as above and give each a {\tt :group} attribute in order to group them into a competition set:
+
+\begin{verbatim}
+(defrule  force-over ()
+  :group choose-strategy
+  ...)
+(defrule force-under ()
+  :group choose-strategy
+  ...)
+\end{verbatim}
+
+Then, invoke one of the rules (as chosen by utility) as such:
+
+{\tt (choose-strategy)}
+
+Arguments may be used as well (but ensure that all rules accept the same arguments).
+
+Utilities are learned using the function `assign-reward':
+
+{\tt (assign-reward 1.5)}
+
+This example distributes a reward of $1.5$ across the recently invoked rules.
+Rules do not have to have a {\tt :group} attribute and they do not have to have been invoked
+via the group name in order to receive a reward; however, they have to have been defined
+using the `defrule' macro (rather than just being Lisp functions).
+
+Configure utility learning via the parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
+
 
 \end{document}
