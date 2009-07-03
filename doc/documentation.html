@@ -20,7 +20,7 @@ Documentation</H1>
 
 <P>
 
-<H1><A NAME="SECTION00010000000000000000">
+<H1><A NAME="SECTION00010000">
 Overview</A>
 </H1>
 
@@ -43,13 +43,13 @@ As in the ACT-R 6 implementation, modelers are free to adhere more or less to th
 
 <P>
 
-<H1><A NAME="SECTION00020000000000000000">
+<H1><A NAME="SECTION00020000">
 How do I...</A>
 </H1>
 
 <P>
 
-<H4><A NAME="SECTION00020010000000000000">
+<H4><A NAME="SECTION00020010">
 ... load the library?</A>
 </H4>
 
@@ -61,7 +61,7 @@ How do I...</A>
 
 <P>
 
-<H4><A NAME="SECTION00020020000000000000">
+<H4><A NAME="SECTION00020020">
 ... define a chunk type?</A>
 </H4>
 
@@ -94,7 +94,7 @@ To define an inherited type, use this construction:
 
 <P>
 
-<H4><A NAME="SECTION00020030000000000000">
+<H4><A NAME="SECTION00020030">
 ...define a new model?</A>
 </H4>
 
@@ -106,7 +106,7 @@ The ACT-UP meta-process keeps track of model time that is common to all models. 
 
 <P>
 
-<H4><A NAME="SECTION00020040000000000000">
+<H4><A NAME="SECTION00020040">
 ...commit a chunk to memory or reinforce it?</A>
 </H4>
 
@@ -124,7 +124,7 @@ Note that even newly created chunks will be merged with existing chunks if they 
 
 <P>
 
-<H4><A NAME="SECTION00020050000000000000">
+<H4><A NAME="SECTION00020050">
 ... retrieve an item from declarative memory?</A>
 </H4>
 
@@ -156,7 +156,7 @@ The <a href="ACT-UP.html#best-chunk">best-chunk</a> function does the actual (ti
 
 <P>
 
-<H4><A NAME="SECTION00020060000000000000">
+<H4><A NAME="SECTION00020060">
 ... retrieve a blended chunk?</A>
 </H4>
 
@@ -169,7 +169,7 @@ In addition to the cues and partial-matching specification known from <a href="A
 
 <P>
 
-<H4><A NAME="SECTION00020070000000000000">
+<H4><A NAME="SECTION00020070">
 ... define chunk similarities?</A>
 </H4>
 
@@ -178,13 +178,11 @@ Use the <a href="ACT-UP.html#add-sji-fct">add-sji-fct</a> and reset-sji-fct' fun
 
 <P>
 
-<H4><A NAME="SECTION00020080000000000000">
+<H4><A NAME="SECTION00020080">
 ... define a procedural rule ("production")?</A>
 </H4>
 
-<P>
-ACT-UP does not use if-then production rules as known from ACT-R. 
-Instead, it allows you define Lisp functions.  However, rather than through Lisp's <a href="ACT-UP.html#defun">defun</a> macro, you define rules using <a href="ACT-UP.html#defrule">defrule</a>:
+<P> ACT-UP does not use if-then production rules as known from ACT-R.  Instead, it allows you define Lisp functions that act as rules (or better: groups of rules).  Define rules using <a href="ACT-UP.html#defrule">defrule</a>, similar to the way you would define a Lisp function with the `defun' macro.
 
 <P>
 <PRE>
@@ -195,7 +193,7 @@ Instead, it allows you define Lisp functions.  However, rather than through Lisp
 
 <P>
 
-<H4><A NAME="SECTION00020090000000000000">
+<H4><A NAME="SECTION00020090">
 ... select a procedural rule using subsymbolic utility learning?</A>
 </H4>
 
