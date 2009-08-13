@@ -304,9 +304,21 @@ however, if chunks were presented at t-380 and t-200, the decay would be 2.1036.
 (defparameter *aggregate-num* nil)
 (defparameter *aggregate-colnames* nil)
 (defun aggregate-clear (colnames)
+  "Clear aggregation dataset.
+COLNAMES is a sequence of strings indicating the
+names of variables that will be given as value(s)
+and as conditions."
   (setq *aggregate-sum* nil *aggregate-num* nil
 	*aggregate-colnames* colnames))
 (defun aggregate (value condition-list)
+  "Add value to aggregation dataset.
+VALUE may be a number or a sequence of numbers.
+CONDITION-LIST is a sequence indicating the conditions that
+VALUE will be associated with. 
+VALUE is usually a dependent variable (measurement) obtained
+when conditions CONDITION-LIST were present.
+Aggregation will occur over all VALUEs in this combination of conditions."
+
   (if (assoc condition-list *aggregate-sum*  :test 'equal)
       (progn
 	(setf (cdr (assoc condition-list *aggregate-sum*  :test 'equal))
@@ -348,6 +360,9 @@ nil)
 
 
 (defun print-aggregates (&optional file)
+  "Print aggregation set as a table.
+Output is printed to FILE if given, standard out otherwise.
+In this implementation, only mean values are printed."
   (let ((str (if file 
 		 (open file 
 		       :direction :output :if-exists :supersede :if-does-not-exist :create)
