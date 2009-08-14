@@ -44,9 +44,7 @@
 ;; all chunks inherit from this structure:
 
 
-(export '(chunk define-chunk-type))
-
-(defstruct chunk
+(defstruct actup-chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
 by specifying (:include chunk)."
@@ -65,7 +63,7 @@ by specifying (:include chunk)."
   (last-noise nil)
   (last-noise-time nil)
  
-  (id (gensym "chunk") :type atom)
+  (id (gensym "actupchunk") :type atom)
   (related-chunks nil :type list)
 
   ;; working on this:
@@ -74,6 +72,10 @@ by specifying (:include chunk)."
 
   (fan nil) ; internal)
 ) 
+
+(defun make-chunk (&rest any)
+  "Placeholder function"
+  (apply #'make-actup-chunk any))
 
 (defmacro define-chunk-type (name &rest members)
   "Define a chunk type of name NAME.
@@ -90,12 +92,21 @@ specifiers as used with the lisp `defstruct' macro, which see."
 	      (list (car name-and-options)
 		    (if (eq (cadr name-and-options) :include)
 			`(:include ,(caddr name-and-options))
-			(error "define-chunk-type: faulty options in NAME.")))
-	      (list name-and-options '(:include chunk)))))
+			(error 
+			 (format nil "define-chunk-type: faulty options in NAME: ~s."
+				 name-and-options))))
+	      (list name-and-options '(:include actup-chunk)))))
     `(defstruct ,incl
        ,@members)
     ))
  
+
+(defmacro define-slots (&rest slot-names)
+  "Define slots to be used in chunks of this process.
+Only slot names defined using this macro may be used in chunks.
+Overrides any slot set defined earlier."
+  `(define-chunk-type chunk ,@slot-names))
+
 
 ;; (macroexpand '(define-chunk-type test one two))
 
@@ -109,10 +120,10 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;; parameters
 
 (defparameter *bll* 0.5 "Base-level learning decay parameter")
-(defparameter *blc* 1.7 "Base-level constant parameter") ; 1.7  ;; seems to result in a ceiling
-(defparameter *rt* 1.0 "Reaction time parameter")  ; can be (cons 'pres 4)
+(defparameter *blc* 0.0 "Base-level constant parameter") 
+(defparameter *rt* 0.0 "Reaction time parameter")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  0.2
+(defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  
 
 (export '(*bll* *blc* *rt* *ans*))
 
@@ -146,9 +157,9 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+(export '(current-actUP-model set-current-actUP-model actUP-time actUP-pass-time model-chunks 
 	  defrule assign-reward
-	  define-chunk-type
+	  define-slots define-chunk-type
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
@@ -175,8 +186,9 @@ It defaults to the current meta-process."
   "Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
-  (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
-	(+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds)))
+  (if (> seconds 0)
+      (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
+	    (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))))
 
 
 (defmacro model-chunks (model)
@@ -198,14 +210,14 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
   (when chunk
     (format nil "  ~a  ~a base-level: ~a  (~a pres) pm: ~a ~a"
 	    (actUP-time)
-	    (chunk-name chunk)
-	    (chunk-get-base-level-activation chunk)
-	    (chunk-total-presentations chunk) ;; (chunk-recent-presentations chunk)
+	    (actup-chunk-name chunk)
+	    (actup-chunk-get-base-level-activation chunk)
+	    (actup-chunk-total-presentations chunk) ;; (actup-chunk-recent-presentations chunk)
 	    (if cues
-		(format nil "  spreading: ~a" (chunk-get-spreading-activation chunk cues))
+		(format nil "  spreading: ~a" (actup-chunk-get-spreading-activation chunk cues))
 		"")
 	    (if retr-spec 
-		(format nil "partial match: ~a " (chunk-get-partial-match-score chunk retr-spec))
+		(format nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
 		"-")
 	    )))
   
@@ -287,7 +299,7 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 
 
 
-(defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
+(defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-actup-chunk)))
   "Internal to ACT-UP.")
 
 
@@ -311,17 +323,17 @@ Returns the added chunk."
 	 ;; we're either taking an existing chunk, or we're adding a new one.
 	 (chunk (or (car (search-for-chunks model chunk-descr))
 		    (progn
-		      (setf (chunk-total-presentations chunk) 0)
-		      (setf (chunk-first-presentation chunk) (actUP-time))
+		      (setf (actup-chunk-total-presentations chunk) 0)
+		      (setf (actup-chunk-first-presentation chunk) (actUP-time))
 		      (push chunk (model-chunks model))
 		      chunk))))
 
-    (incf (chunk-total-presentations chunk))
-    (push (actUP-time) (chunk-presentations chunk))
+    (incf (actup-chunk-total-presentations chunk))
+    (push (actUP-time) (actup-chunk-presentations chunk))
     
-    (push (actUP-time) (chunk-recent-presentations chunk))
-    (if (> (length (chunk-recent-presentations chunk)) 3)
-	(setf (nthcdr 3 (chunk-recent-presentations chunk)) nil)) ;; only OL 3
+    (push (actUP-time) (actup-chunk-recent-presentations chunk))
+    (if (> (length (actup-chunk-recent-presentations chunk)) 3)
+	(setf (nthcdr 3 (actup-chunk-recent-presentations chunk)) nil)) ;; only OL 3
     (actup-pass-time 0.05) ;; 50ms
     chunk))
 
@@ -330,7 +342,7 @@ Returns the added chunk."
 (defparameter *le* 1.0)
 
 (defun best-chunk (confusion-set cues &optional request-spec &rest options)
-"Retrieves the best chunk in confusion set.
+  "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.
 OPTIONS: do not use (yet).
@@ -340,17 +352,16 @@ Simulates timing behavior.
 See also the higher-level function `retrieve-chunk'."
 
  ;; retrieve using spreading activation from cues to confusion-set
-  (if confusion-set
-      (let* ((last-retrieved-activation nil)
+  (let* ((last-retrieved-activation nil)
 	    (best  (loop for c in confusion-set with bc = nil with bs = nil 
 			when (if (eq options 'inhibit-cues) (not (member c cues)) t)
 			when c ;; allow nil chunks
 		  do
-		    (let ((s (chunk-get-activation c cues request-spec)))
+		    (let ((s (actup-chunk-get-activation c cues request-spec)))
 		     
 		      (if (or (not *rt*) 
 			      (if (consp *rt*)
-				  (> (length (chunk-presentations c)) (cdr *rt*))
+				  (> (length (actup-chunk-presentations c)) (cdr *rt*))
 				  (> s *rt*)))
 			  (if (or (not bc) (> s bs)) (setq bc c bs s))
 
@@ -361,13 +372,16 @@ See also the higher-level function `retrieve-chunk'."
 				     bs)
 			       (return bc))
 		    )))
+  
+    (if best
+	(when last-retrieved-activation
+	  (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
+	;; no chunk found
+	;; F*e^(- (f*tau))
+	(actUP-pass-time (* *lf* (exp (- (* *le* *rt*))))))
+    best))
 
-	;; timing
-	(if last-retrieved-activation
-	    (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
-	
-	;; (say "found best chunk: ~a " (if best (concept-name best) nil))
-	best)))
+
 
 (defun best-n-chunks (n confusion-set cues)
   "Retrieves the best chunks in confusion set.
@@ -381,13 +395,13 @@ See also the higher-level functions `retrieve-chunk' and
   (if confusion-set
       (let ((all  (loop for c in confusion-set 
 		  append
-		    (let ((s (+ (chunk-get-base-level-activation c)
+		    (let ((s (+ (actup-chunk-get-base-level-activation c)
 				(if *ans* (act-r-noise *ans*) 0)
-				(chunk-get-spreading-activation c cues))))
+				(actup-chunk-get-spreading-activation c cues))))
 		     
 		      (if (or (not *rt*) 
 			      (if (consp *rt*)
-				  (> (length (chunk-presentations c)) (cdr *rt*))
+				  (> (length (actup-chunk-presentations c)) (cdr *rt*))
 				  (> s *rt*)))
 			  (list (cons s c)))))
 			  ))
@@ -436,7 +450,7 @@ See also the higher-level function `blend-retrieve-chunk'."
 		 (setq auto-chunk-type t
 		       chunk-type (class-of c))))
 
-	 (let ((act (chunk-get-activation c cues retrieval-spec)))
+	 (let ((act (actup-chunk-get-activation c cues retrieval-spec)))
 	   (setq blend-activation (+ blend-activation
 				     (exp act)))
 	   (loop for s in (structure-alist c) do
@@ -492,14 +506,14 @@ See also the higher-level function `blend-retrieve-chunk'."
   (setq *current-actUP-model* (make-model)))
 
 (defun reset-sji-fct (chunk)
-  (setf (chunk-related-chunks chunk) nil))
+  (setf (actup-chunk-related-chunks chunk) nil))
 
 (defun add-sji-fct (list)
   (loop for (c1 c2 s) in list do
        (unless (eq c1 c2)
-	 (setf (chunk-related-chunks c1) (delete (rassoc c2 (chunk-related-chunks c1)) (chunk-related-chunks c1)))
-	 (setf (chunk-related-chunks c1)
-	       (insert-by-weight (list (cons s c2)) (chunk-related-chunks c1))))
+	 (setf (actup-chunk-related-chunks c1) (delete (rassoc c2 (actup-chunk-related-chunks c1)) (actup-chunk-related-chunks c1)))
+	 (setf (actup-chunk-related-chunks c1)
+	       (insert-by-weight (list (cons s c2)) (actup-chunk-related-chunks c1))))
        ))
 
 
@@ -531,28 +545,28 @@ See also the higher-level function `blend-retrieve-chunk'."
 	 (j-len (length j-al)))
     
     (loop for c in chunk-set sum
-	 (structure-value-count c j (chunk-id j))
+	 (structure-value-count c j (actup-chunk-id j))
 	 ;; to do
 )))
 
 
-(defun chunk-get-noise (chunk)
+(defun actup-chunk-get-noise (chunk)
   (if *ans* 
-      (or (and (eq (actUP-time) (chunk-last-noise-time chunk))
-	       (chunk-last-noise chunk))
+      (or (and (eq (actUP-time) (actup-chunk-last-noise-time chunk))
+	       (actup-chunk-last-noise chunk))
 	  (progn
-	    (setf (chunk-last-noise chunk) (act-r-noise *ans*)
-		  (chunk-last-noise-time chunk) (actUP-time))
-	    (chunk-last-noise chunk)))
+	    (setf (actup-chunk-last-noise chunk) (act-r-noise *ans*)
+		  (actup-chunk-last-noise-time chunk) (actUP-time))
+	    (actup-chunk-last-noise chunk)))
       0))
 
-(defun chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
+(defun actup-chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
   "Calculate current activation of chunk"
 
-  (let ((base-level (chunk-get-base-level-activation chunk))
-	(spreading (chunk-get-spreading-activation chunk cue-chunks))
-	(partial-matching (chunk-get-partial-match-score chunk retrieval-spec))
-	(noise (chunk-get-noise chunk)))
+  (let ((base-level (actup-chunk-get-base-level-activation chunk))
+	(spreading (actup-chunk-get-spreading-activation chunk cue-chunks))
+	(partial-matching (actup-chunk-get-partial-match-score chunk retrieval-spec))
+	(noise (actup-chunk-get-noise chunk)))
 
 	(+ base-level spreading partial-matching noise)))
 
@@ -579,47 +593,47 @@ See also the higher-level function `blend-retrieve-chunk'."
 
 
 
-(defun chunk-get-base-level-activation (chunk)
+(defun actup-chunk-get-base-level-activation (chunk)
 
   ;; we're using the Optimized Learning function
 
   (let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-actUP-model)))
     (+
      ;; standard procedure
-     (loop for pres in (chunk-recent-presentations chunk) sum
+     (loop for pres in (actup-chunk-recent-presentations chunk) sum
 	  (expt (max 1 (- (actUP-time) pres)) (- d)))
      
      ;; initial BL activation  (e.g., from blending)
-     (or (chunk-last-bl-activation chunk) 0)
+     (or (actup-chunk-last-bl-activation chunk) 0)
 
      ;; optimized learning
-     (let ((k (length (chunk-recent-presentations chunk))))
-       (if (and (> (chunk-total-presentations chunk) k) (chunk-first-presentation chunk))
-	   (let ((last-pres-time (max 1 (- (actUP-time) (or (car (last (chunk-recent-presentations chunk))) 
-							       (chunk-first-presentation chunk))))) ;; 0? ;; tn
-		 (first-pres-time (max 1 (- (actUP-time) (chunk-first-presentation chunk)))))
+     (let ((k (length (actup-chunk-recent-presentations chunk))))
+       (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
+	   (let ((last-pres-time (max 1 (- (actUP-time) (or (car (last (actup-chunk-recent-presentations chunk))) 
+							       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+		 (first-pres-time (max 1 (- (actUP-time) (actup-chunk-first-presentation chunk)))))
 	     (if (and first-pres-time
 		      (not (= first-pres-time last-pres-time)))
 		 (progn
-		   (/ (* (- (chunk-total-presentations chunk) k) 
+		   (/ (* (- (actup-chunk-total-presentations chunk) k) 
 			 (max 0.1 (- (expt first-pres-time (- 1 d)) (expt last-pres-time (- 1 d)))))
 		      (* (- 1 d) (max 0.1 (- first-pres-time last-pres-time)))))
 		 0))
 	   0))
      *blc*)))
 
-(defun chunk-get-spreading-activation (chunk cues)
+(defun actup-chunk-get-spreading-activation (chunk cues)
   (if cues
       (* 1
       (/ (loop for cue in cues sum
-	      (or (car (rassoc chunk (chunk-related-chunks cue))) 0.0))
+	      (or (car (rassoc chunk (actup-chunk-related-chunks cue))) 0.0))
 	 (length cues)))
       0))
 
 
 
 (defparameter *pm* 1.0)
-(defun chunk-get-partial-match-score (chunk retrieval-spec)
+(defun actup-chunk-get-partial-match-score (chunk retrieval-spec)
   (if *pm*
       (progn
 	(* *pm*
