@@ -303,13 +303,14 @@ however, if chunks were presented at t-380 and t-200, the decay would be 2.1036.
 (defparameter *aggregate-sum* nil)
 (defparameter *aggregate-num* nil)
 (defparameter *aggregate-colnames* nil)
-(defun aggregate-clear (colnames)
+(defun clear-aggregates (colnames)
   "Clear aggregation dataset.
 COLNAMES is a sequence of strings indicating the
 names of variables that will be given as value(s)
 and as conditions."
   (setq *aggregate-sum* nil *aggregate-num* nil
 	*aggregate-colnames* colnames))
+
 (defun aggregate (value condition-list)
   "Add value to aggregation dataset.
 VALUE may be a number or a sequence of numbers.

@@ -232,7 +232,7 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 
 
 
-(defun retrieve-chunk (spec &optional cues pm-soft-spec)
+(defun retrieve-chunk (spec &optional cues pm-soft-spec timeout)
   "Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -246,11 +246,14 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2)."
+value2 ...), or (slot1 value1 slot2 value2).
+
+TIMEOUT, if given, specifies the maximum time allowed before
+the retrieval fails."
 
   (best-chunk (filter-chunks (model-chunks *current-actUP-model*)
 			     spec)
-	      cues (append spec pm-soft-spec)))
+	      cues (append spec pm-soft-spec) timeout))
 
 
 (defun blend-retrieve-chunk (spec &optional cues pm-soft-spec)
@@ -341,7 +344,7 @@ Returns the added chunk."
 (defparameter *lf* 1.0)
 (defparameter *le* 1.0)
 
-(defun best-chunk (confusion-set cues &optional request-spec &rest options)
+(defun best-chunk (confusion-set cues &optional request-spec timeout &rest options)
   "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.
@@ -372,16 +375,18 @@ See also the higher-level function `retrieve-chunk'."
 				     bs)
 			       (return bc))
 		    )))
-  
-    (if best
-	(when last-retrieved-activation
-	  (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
-	;; no chunk found
-	;; F*e^(- (f*tau))
-	(actUP-pass-time (* *lf* (exp (- (* *le* *rt*))))))
-    best))
 
+    ;; F*e^(- (f*tau))
 
+    (let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
+      (if (and timeout (> duration timeout))
+	  ;; time's up
+	  (progn (actUP-pass-time timeout) nil)
+	  ;; return nil
+	  ;; timeout not given or within timeout
+	  (progn
+	    (actUP-pass-time duration)
+	    best)))))
 
 (defun best-n-chunks (n confusion-set cues)
   "Retrieves the best chunks in confusion set.

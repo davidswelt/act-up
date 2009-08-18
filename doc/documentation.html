@@ -66,7 +66,17 @@ How do I...</A>
 </H4>
 
 <P>
-Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#chunk">chunk</a>.
+
+Unlike ACT-R, ACT-UP is not normally strongly typed.
+All slot names are declared initially, but ACT-UP does not distinguish chunk types within a type hierarchy.
+Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#chunk">chunk</a>.  This type exists once the `define-slots' macro is called:
+
+<PRE>
+(define-slots name dampen success)
+</PRE>
+
+<small>
+If you do want to define a type hierarchy, ACT-UP provides the necessary macros.
 For example, the following structure defines a chunk type of name <a href="ACT-UP.html#strategy">strategy</a> with four slots.
 One of these slots is assigned a default value (<a href="ACT-UP.html#strategy">strategy</a>).
 
@@ -92,6 +102,7 @@ To define an inherited type, use this construction:
 ...
 </PRE>
 
+</small>
 <P>
 
 <H4><A NAME="SECTION00020030">
@@ -113,11 +124,11 @@ The ACT-UP meta-process keeps track of model time that is common to all models. 
 <P>
 To specify the "presentation" of a specific chunk, use the function <a href="ACT-UP.html#learn">learn</a>.
 The chunk reference may be supplied in a normal variable (equivalent to ACT-R's buffer),
-or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-type</a> syntax , as in the following example:
+or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-chunk</a> function, as in the following example:
 
 <P>
 <PRE>
-(learn-chunk  (make-strategy :name 'guess :success 0.2))
+(learn-chunk  (make-chunk :name 'guess :success 0.2))
 </PRE>
 This will create a new strategy chunk, setting two of its parameters, and commit it to memory.
 Note that even newly created chunks will be merged with existing chunks if they contain the same elements.
