@@ -35,15 +35,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; emacs stuff
-(when nil
-;; emacs side
-  (progn 
-    (server-start)
-    (slime)
-    (find-file "water.R")
-    (R)
-    (process-send-string (get-ess-process ess-current-process-name) "source('/users/dr/MURI/ACT-UP/water.R')\n"))
-)
+;; (when nil
+;; ;; emacs side
+;;   (progn 
+;;     (server-start)
+;;     (slime)
+;;     (find-file "water.R")
+;;     (R)
+;;     (process-send-string (get-ess-process ess-current-process-name) "source('/users/dr/MURI/ACT-UP/water.R')\n"))
+;; )
 
 
 
@@ -54,6 +54,10 @@
 
 (require "act-up" "act-up.lisp")
 (use-package :act-up)
+
+(require "act-up-experiments" "act-up-experiments.lisp")
+(use-package :act-up-experiments)
+
 (load "split-sequence.lisp")
 
 ;; MODEL
@@ -116,16 +120,16 @@
  
 
 (defun retrieve-chunk (spec &optional cues)
-  (best-chunk (filter-chunks (model-chunks *current-actUP-model*)
+  (best-chunk (filter-chunks (model-chunks act-up::*current-actUP-model*)
 			     spec)
 	      cues spec))
 
 (defun retrieve-pm-chunk (hard-spec soft-spec &optional cues)
-  (best-chunk (filter-chunks (model-chunks *current-actUP-model*)
+  (best-chunk (filter-chunks (model-chunks act-up::*current-actUP-model*)
 			     hard-spec)
 	      cues (append hard-spec soft-spec)))
 (defun blend-retrieve-chunk (spec &optional cues)
-  (let ((cs (filter-chunks (model-chunks *current-actUP-model*)
+  (let ((cs (filter-chunks (model-chunks act-up::*current-actUP-model*)
 			     spec)))
     (if cs
 	(blend cs cues nil spec))))
@@ -142,13 +146,13 @@
       'calc))
 
 (defun best-by-blend-activation (chunks)
-  (loop for c in chunks with ba=0 with bc=nil
-     finally (return bc)
-     when c 
-     when (> (chunk-last-activation c) ba)
-     do
-       (setq bc c ba (chunk-last-activation c))))
-
+  (let ((ba 0) (bc nil))
+    (loop for c in chunks 
+       finally (return bc)
+       when c 
+       when (> (chunk-last-activation c) ba)
+       do
+	 (setq bc c ba (chunk-last-activation c)))))
 
 
 
@@ -226,7 +230,7 @@
     ;;					       nil)
     (let ((current-strategy (best-chunk  ;; retrieve blended 
 			     (loop for s in *strategies* collect  
-				  (blend (filter-chunks (model-chunks *current-actUP-model*)
+				  (blend (filter-chunks (model-chunks act-up::*current-actUP-model*)
 							`(:type strategy :strategy ,s)) 
 					 nil ;; no cues
 					 'strategy ;; return type
@@ -251,7 +255,7 @@
   ;; retrieve chunk  
   (let* ((assumed-trend  envirInflow)
 
-	 (expected-trend-1-chunks  (filter-chunks (model-chunks *current-actUP-model*)
+	 (expected-trend-1-chunks  (filter-chunks (model-chunks act-up::*current-actUP-model*)
 							       '(:type trend1)))
 	 (expected-trend-1-best (if *guesstimate*
 				    (best-chunk expected-trend-1-chunks nil)
@@ -266,6 +270,7 @@
 	 (needed-effect (if (or *guesstimate*  (not current-strategy))
 			    (- *goal-level* (+ waterLevel assumed-trend  assumed-trend-1 ))
 			    (cogn-calculate (funcall (strategy-strategy current-strategy) *goal-level* waterlevel assumed-trend assumed-trend-1))))
+	 (needed-effect-1 0.0) ;; used for damping
 	 (chosen-valve-setting needed-effect))
 
    ;; DAMPING
@@ -325,8 +330,8 @@
 	     ;; division
 	     (setq err-prob 0.20)
 	     (apply #'/ (mapcar 'cogn-calculate (cdr expression)))))))
-    (if (< (/ (random 100 my-random-state) 100) err-prob)
-	(* res (+ 0.5 (/ (random 10 my-random-state) 10.0)))
+    (if (< (/ (random 100 act-up-experiments::my-random-state) 100) err-prob)
+	(* res (+ 0.5 (/ (random 10 act-up-experiments::my-random-state) 10.0)))
 	(+ 0.0 res))))
 
 
@@ -390,7 +395,8 @@
 		       )) ;)))
      )))
 (close stats-output))
-(update-emacs-R))
+;; (update-emacs-R))
+)
 
 (defun run-trace (&optional num-subjects)
   
@@ -431,14 +437,14 @@
 
 (defun pc ()
   "Print trend chunks"
-  (loop for c in (model-chunks *current-actup-model*) when (trend-p c) do
+  (loop for c in (model-chunks act-up::*current-actup-model*) when (trend-p c) do
        (format t "~a trend=~,2F  (~,2F, ~a)~%" (trend-type c) (trend-trend c) (chunk-get-activation c) (chunk-first-presentation c))))
 
 
-(defun update-emacs-R ()
-  (ccl::run-program "~/sv.aquamacs-emacs.git/nextstep/Aquamacs.app/Contents/MacOS/bin/emacsclient"
-		    (list "-eval" "(process-send-string (get-ess-process ess-current-process-name) \"pl()\\n\")")
-		    :output t ))
+;; (defun update-emacs-R ()
+;;   (ccl::run-program "~/sv.aquamacs-emacs.git/nextstep/Aquamacs.app/Contents/MacOS/bin/emacsclient"
+;; 		    (list "-eval" "(process-send-string (get-ess-process ess-current-process-name) \"pl()\\n\")")
+;; 		    :output t ))
  
        
 ;; 
@@ -448,7 +454,7 @@
   (loop for i from 1 to 500 do
        (learn-chunk  (make-trend :trend (+ 10.0 (act-r-noise 0.3))))
        (actUP-pass-time 15)
-       (format t "~a, " (trend-trend (blend (filter-chunks (model-chunks *current-actUP-model*)
+       (format t "~a, " (trend-trend (blend (filter-chunks (model-chunks act-up::*current-actUP-model*)
 							   '(:type trend)
 							   ) nil 'trend))))
   (format t " NA)~%~%"))
@@ -496,12 +502,11 @@ eo)
     (close *v*)
     (setq *v* nil))
   (setq *v* (uni-make-socket *dsf-host* *dsf-port*))
-  (setq version-type "NONBATCH")
   (setq *last-water-state* (make-water-state))
   (conn-reset)
   (uni-send-string
    *v*
-   (format nil "~a ~a ~a ~a" entry-id name version version-type)))
+   (format nil "~a ~a ~a ~a" entry-id name version "NONBATCH")))
 ; DR DR1 1.0
 
 
