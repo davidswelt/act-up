@@ -321,7 +321,7 @@ Returns the added chunk."
     
     (push (actUP-time) (chunk-recent-presentations chunk))
     (if (> (length (chunk-recent-presentations chunk)) 3)
-	(setf (nthcdr 3 (chunk-recent-presentations chunk)) nil)) ;; only OL 3
+	(setf (cdr (nthcdr 2 (chunk-recent-presentations chunk))) nil)) ;; only OL 3
     (actup-pass-time 0.05) ;; 50ms
     chunk))
 
