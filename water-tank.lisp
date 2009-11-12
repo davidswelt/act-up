@@ -1,6 +1,6 @@
 ;; DSF Model
-;; David Reitter / CMU
-;; 05/13/2009
+;; (C) David Reitter / CMU
+;; 10/12/2009
 
 ;; Problems?  Please e-mail reitter@cmu.edu
 
@@ -14,8 +14,11 @@
 ;; (run-socket "localhost")
 
 ;; if it can't connect, try again 
+;; set IP and port in the `run-socket' function.
 
 
+;; to use the internal function generator / test environment
+;; see function `run'
 
 ;; Parameters  (set below, lines 166-)
 ;; (setq *blend-temperature* 0.5)
@@ -33,7 +36,7 @@
 ;; on MBP with openmcl
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+ 
 ;; emacs stuff
 ;; (when nil
 ;; ;; emacs side
@@ -46,19 +49,26 @@
 ;; )
 
 
-
-
 ;; Libraries
-
 (declaim (optimize (speed 1) (space 0) (debug 3)))
+;placed all the requires and loads at the top of this file
 
-(require "act-up" "act-up.lisp")
+
+
+(require "act-up" (pathname (format nil "~aact-up.lisp" (directory-namestring *load-truename*))))
 (use-package :act-up)
 
-(require "act-up-experiments" "act-up-experiments.lisp")
-(use-package :act-up-experiments)
 
-(load "split-sequence.lisp")
+
+(require "act-up-experiments" (pathname (format nil "~aact-up-experiments.lisp" (directory-namestring *load-truename*))))
+(use-package :act-up-experiments)
+(load (pathname (format nil "~asplit-sequence.lisp" (directory-namestring *load-truename*))))
+(require 'uni-files (pathname (format nil "~auni-files.lisp" (directory-namestring *load-truename*))))
+;#+:sbcl (require 'sb-bsd-sockets) ;don't need this one b/c it's defined in uni-files.lisp (I'm using marcs version of uni-files.lisp)
+(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
+;have to load actr6-compatibility at this level b/c it was loaded inside of the act-up package, so it's currently not accessible by any functions called within water-tank.lisp
+(defparameter *hpc-object* nil) ;global variable used to wrap your model with 'experiment-frame.lisp' stuff
+(load (format nil "~aexperiment-frame.lisp" (directory-namestring *load-truename*)))
 
 ;; MODEL
 
@@ -77,9 +87,14 @@
 
 
 
+
 (defparameter *predictedWaterLevel* nil)
 (defparameter *guesstimate* nil)
 (defparameter *strategies* nil)
+
+(defparameter *calc-strategies-enabled* t)
+(defparameter *guess-strategy-enabled* t)
+
 
 (defun calc-1 (goal current trend0 trend1)
   `(+ ,goal (+ ,current ,trend0 ,trend1)))
@@ -96,18 +111,25 @@
   (dotimes (n 1)
 
     ;; a set of possible guessing and calculation strategies
-    (setq *strategies* '(guess calc calc-1 calc-2 calc-3))
-    (learn-chunk  (make-strategy :strategy 'guess :success 0.2))
-    (learn-chunk  (make-strategy :strategy 'calc :success 0.2
-				 ))
-    (actup-pass-time 0.3)
+    (setq *strategies* nil)
+
+    (when *guess-strategy-enabled*
+      (setq *strategies* (cons 'guess *strategies*))
+      (learn-chunk  (make-strategy :strategy 'guess :success 0.2)))
+
+    (when *calc-strategies-enabled*
+      (setq *strategies* (append '(calc calc-1 calc-2 calc-3) *strategies*))
+
+      (learn-chunk  (make-strategy :strategy 'calc :success 0.2
+				   ))
+      (actup-pass-time 0.3)
     
-    (learn-chunk  (make-strategy :strategy 'calc-1 :success 0.2
-   				))
-    (learn-chunk  (make-strategy :strategy 'calc-2 :success 0.2 
-   				))
-    (learn-chunk  (make-strategy :strategy 'calc-3 :success 0.2 
-   				)))
+      (learn-chunk  (make-strategy :strategy 'calc-1 :success 0.2
+				   ))
+      (learn-chunk  (make-strategy :strategy 'calc-2 :success 0.2 
+				   ))
+      (learn-chunk  (make-strategy :strategy 'calc-3 :success 0.2 
+				   ))))
   ;; source of subject-specific variance
   (learn-chunk  (make-trend :trend (- 10 (random 20)) :type 'l-trend0))
   (learn-chunk  (make-trend :trend (- 10 (random 20)) :type 'l-trend0))
@@ -143,7 +165,8 @@
 (defun safe-strategy-strategy (strategy-chunk)
   (if strategy-chunk
       (strategy-strategy strategy-chunk)
-      'calc))
+      (if *calc-strategy-enabled*
+	  'calc 'guess)))
 
 (defun best-by-blend-activation (chunks)
   (let ((ba 0) (bc nil))
@@ -169,10 +192,16 @@
 
 ;;  PARAMETERS
 
-(setq *blend-temperature* 0.5)
-(defparameter *goal-level* 4.0)
+(defparameter *goal-level* 4)
+
+(setf *blend-temperature* 0.5)
 (defparameter *calc-time-factor* 1.0)
+(defparameter *guess-time-factor* 5)
+(defparameter *exact-time-factor* 10)
 (defparameter *environ-wait* 8)
+;(actUP-pass-time (* *calc-time-factor* (if *guesstimate* 5 10))) ;; seconds
+
+
 
 (defun model-get-inflow (waterLevel envirInflow)
   (declaim (optimize (speed 1) (space 0) (debug 3)))
@@ -243,7 +272,7 @@
 
 
       (unless current-strategy
-	(setq current-strategy (make-strategy :strategy 'guess)))
+	(setq current-strategy (make-strategy :strategy (pick *strategies*))))
 
       (setq *guesstimate* (eq 'guess (safe-strategy-strategy current-strategy)))
       (setq dampen (strategy-dampen current-strategy))
@@ -282,13 +311,16 @@
     	    (setq needed-effect-1 (- needed-effect-1 (* 0.3 surprisal)))))
       (setq chosen-valve-setting (- *goal-level* (+ waterLevel needed-effect-1))))
 
-    (format t "strat: ~a level: ~a   needed: ~a    assumed-trend: ~,2F assumed-trend':  ~,2F  assumed-trend'':  ~,2F chosen valve:~a  ~%" 
+   #| (format t "strat: ~a level: ~a   needed: ~a    assumed-trend: ~,2F assumed-trend':  ~,2F  assumed-trend'':  ~,2F chosen valve:~a  ~%" 
 	    (or (strategy-strategy current-strategy) (strategy-strategy current-strategy))
-	    waterLevel needed-effect  assumed-trend  assumed-trend-1 'na chosen-valve-setting)
+	    waterLevel needed-effect  assumed-trend  assumed-trend-1 'na chosen-valve-setting)|#
      
     (setq *predictedWaterLevel* *goal-level*) ;; (+ waterLevel chosen-valve-setting assumed-trend-1 assumed-trend-2))
 
-    (actUP-pass-time (* *calc-time-factor* (if *guesstimate* 5 10))) ;; seconds
+    ;(actUP-pass-time (* *calc-time-factor* (if *guesstimate* 5 10))) ;; seconds
+    (actUP-pass-time (* *calc-time-factor* (if *guesstimate* *guess-time-factor* *exact-time-factor*)))
+
+    ;(format t "~d ~d ~d ~d ~d ~d ~d ~d~%" *blend-temperature* *calc-time-factor* *environ-wait* *bll* *ans* *guess-time-factor* *exact-time-factor* *goal-level*)
 
     (learn-chunk (make-trend :type 'l-trend0 :trend (tround current-trend)))
     (learn-chunk (make-trend :type 'l-trend1 :trend (tround current-d1)))
@@ -334,20 +366,23 @@
 	(* res (+ 0.5 (/ (random 10 act-up-experiments::my-random-state) 10.0)))
 	(+ 0.0 res))))
 
-
+; unit test
 ; (cogn-calculate '(+ 4 (/ 5 2)))
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; SIMULATION ENVIRONMENT
 
 ;; environment
 (defparameter *stats-output* nil)
-(defvar *step* nil)
+(defvar *step* nil) 
 (defun run (&optional num-subjects)
   
-  (let ((stats-output (open "/Users/dr/MURI/ACT-UP/water.txt" 
-			    :direction :output :if-exists :supersede :if-does-not-exist :create)))
+  (let ((stats-output (open 
+		       (merge-pathnames
+			(translate-logical-pathname "ACT-R6:")
+			"water.txt")
+		       :direction :output :if-exists :supersede :if-does-not-exist :create)))
     (setq *stats-output* stats-output)
     (format *stats-output* "envWait calcTimeFac blendTemp subject step Version trend waterLevel chosenValveSetting~%")
 
@@ -413,7 +448,7 @@
 	    until (eq data-line 'eof)
 	    do
 	      (let ((data (split-sequence:SPLIT-SEQUENCE #\, data-line )))
-		(print data-line)
+		;(print data-line)
 		;; Version,Subject,Time Step,EnvirInFlow,EnvirOutFlow,UserInFlow,UserOutFlow,AmountInTank,Goal
 
 		(let ((fun-name (nth 0 data))
@@ -440,7 +475,6 @@
   (loop for c in (model-chunks act-up::*current-actup-model*) when (trend-p c) do
        (format t "~a trend=~,2F  (~,2F, ~a)~%" (trend-type c) (trend-trend c) (chunk-get-activation c) (chunk-first-presentation c))))
 
-
 ;; (defun update-emacs-R ()
 ;;   (ccl::run-program "~/sv.aquamacs-emacs.git/nextstep/Aquamacs.app/Contents/MacOS/bin/emacsclient"
 ;; 		    (list "-eval" "(process-send-string (get-ess-process ess-current-process-name) \"pl()\\n\")")
@@ -463,7 +497,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SOCKET API
 
-(require 'uni-files "uni-files.lisp")
 (defstruct water-state
 DSFState
 time
@@ -476,10 +509,13 @@ eo)
 
 (defvar *last-conn-data* nil)
 (defvar *last-water-state* nil)
+
 (defun conn-read ()  
-  (let ((data (read-from-string (uni-socket-read-line *v*))))
+  (let ((data (uni-socket-read-line *v*))) 
+    (setf data (format nil "(~a)" data))
+    (setf data (read-from-string data))
     (when (listp data)
-      (print data)
+      ;(print data)
       ;; (STATE TIME 2 GOAL 4.0 AMOUNT 4.0 EI -1.0 EO -1.0 UI 0.0 UO 0.0) 
       (setq *last-conn-data* data)
       (setq *last-water-state*
@@ -491,63 +527,84 @@ eo)
 	   :ui       (nth 12 data)
 	   :uo       (nth 14 data)
 	   :ei       (nth 8 data)
-	   :eo       (nth 10 data))))))
+	   :eo       (nth 10 data)))
+      (push (- (water-state-amount *last-water-state*) (water-state-goal *last-water-state*))
+	    (deviation (transducer *hpc-object*)))
+      (push (abs (- (water-state-amount *last-water-state*) (water-state-goal *last-water-state*)))
+	    (abs-deviation (transducer *hpc-object*)))
+      (push (water-state-time *last-water-state*)
+	    (ctime (transducer *hpc-object*)))
+      (push (water-state-goal *last-water-state*)
+	    (goal (transducer *hpc-object*)))
+      (push (water-state-amount *last-water-state*)
+	    (amount (transducer *hpc-object*)))
+      (push (water-state-dsfstate *last-water-state*)
+	    (dsfstate (transducer *hpc-object*)))	    
+      )))
 
 (defparameter *dsf-host* nil)
 (defparameter *dsf-port* nil)
-
 (defparameter *v* nil)
+
 (defun connsoc (entry-id name version)
   (when *v*
     (close *v*)
     (setq *v* nil))
   (setq *v* (uni-make-socket *dsf-host* *dsf-port*))
   (setq *last-water-state* (make-water-state))
-  (conn-reset)
   (uni-send-string
    *v*
-   (format nil "~a ~a ~a ~a" entry-id name version "NONBATCH")))
-; DR DR1 1.0
-
+   (format nil "~a ~a ~a ~a ~a ~a ~d ~a ~d" entry-id name "version" version "NONACTR" "goal" (goal *hpc-object*) 
+	   "amount" (initial-value *hpc-object*))) ;when initialized, the server is now getting initial goal and amount levels from the code here
+  (conn-read)) 
 
 (defun conn-decide (ui uo)
-  ;; why ei / eo ????
-  (uni-send-string *v* (format nil "DECISION UI ~d UO ~d EI ~d EO ~d" ui uo
-			       (water-state-ei *last-water-state*) (water-state-eo *last-water-state*)))
-;  (pause 0.3)
-  (conn-read))
-
-(defun conn-reset ()
- (uni-send-string *v* "SIMULATION RESET")
- (conn-read))
+  (if (set-next-segment (generator *hpc-object*) :ui ui :uo uo)
+    (let ((csegment (get-next-segment (generator *hpc-object*))))
+      (uni-send-string *v* (format nil "DECISION UI ~d UO ~d EI ~d EO ~d" 
+				   (first csegment) (second csegment) (third csegment) (fourth csegment)))
+      (conn-read)
+      t)
+    nil))
+  
 (defun conn-quit ()
- (uni-send-string *v* "QUIT"))
+ (uni-send-string *v* (format nil "QUIT")))
 
-(defun run-socket (&optional host port)
-
-  (setq *dsf-host* (or host "localhost") ;; "192.168.1.22")
-	*dsf-port* (or port 9548))
- 
-  (connsoc "ENTRY-ID" "reitter-01" "VERSION")
-
-  (conn-read)
-
-  (while (and (not (uni-stream-closed *v*))
-	      (not (equal (water-state-DSFState *last-water-state*) 'END_PROGRAM)))
-		   
+(defun run-socket (&key (host nil) (port nil) (blend-temperature 0.5) (calc-time-factor 1.0) (environ-wait 8) (bll .5) (ans .2 )
+		   (guess-time-factor 5) (exact-time-factor 10) (calculation-enabled t) (estimation-enabled t))
+  (setf *blend-temperature* blend-temperature)
+  (setf *calc-time-factor* calc-time-factor)
+  (setf *environ-wait* environ-wait)
+  (setf *bll* bll)
+  (setf *ans* ans)
+  (setf *guess-time-factor* guess-time-factor)
+  (setf *exact-time-factor* exact-time-factor)  
+  (setf *calc-strategies-enabled* calculation-enabled)
+  (setf *guess-strategy-enabled* estimation-enabled)
+  ;not even sure if we need this, since the 'goal' is echoed back by the server, and stored in *last-water-state*
+  ;this is why I'm OK with accessing the *hpc-object* directly here, and not passing 'goal-level' in as a parameter
+  (setf *goal-level* (goal *hpc-object*)) 
+  (model-init)
+  (setf *dsf-host* (aif host it "127.0.0.1"))
+  (setf *dsf-port* (aif port it 9548))
+  (connsoc "ENTRY-ID" "reitter-01" "BATCH")
+  (setf flag t)
+  (while flag
     (setq *goal-level* (water-state-goal *last-water-state*))
-    
     (let ((new-model-inflow
 	   (model-get-inflow 
 	    (or (water-state-amount *last-water-state*) 0) ;; current water level
 	    (- (max 0 (or (water-state-ei *last-water-state*) 0)) 
 	       (max 0 (or (water-state-eo *last-water-state*) 0))) ;; inflow
 	    )))
-      (print new-model-inflow)
-      (if (> new-model-inflow 0)
-	  (conn-decide new-model-inflow 0)
-	  (conn-decide 0 (- new-model-inflow)))
-      (print *last-water-state*)
-      )))
+      ;(print new-model-inflow)
+      (setf flag
+	    (conn-decide ;when no more trials are to be presented, change flag to nil
+	     (if (> new-model-inflow 0) new-model-inflow 0)
+	     (if (> new-model-inflow 0) 0 (- new-model-inflow))))))
+  (conn-quit))
 
-;; (conn-read)
+
+
+  
+  
