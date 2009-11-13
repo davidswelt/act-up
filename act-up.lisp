@@ -52,6 +52,7 @@ Derive your own chunks using this as a base structure
 by specifying (:include chunk)."
   ;; helpful for debugging
   name
+  (comment nil)
   ;; internal ACT-UP structures
   (total-presentations 0 :type integer)
   (first-presentation nil)
@@ -73,7 +74,8 @@ by specifying (:include chunk)."
   (referenced-by nil :type list) ; list of chunks that reference this chunk
 
   (fan nil) ; internal)
-) 
+)
+;; (defparameter chunk-standard-slots '(total-presentations first-presentation recent-presentations presentations last-bl-activation activation-time last-noise last-noise-time id related-chunks references referenced-by fan))
 
 (defmacro define-chunk-type (name &rest members)
   "Define a chunk type of name NAME.
@@ -212,6 +214,8 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 
 (defmacro normalize-slotname (slot)
   `(intern (string-upcase (symbol-name ,slot))))
+(defmacro normalize-slotname-with-package (slot)
+  `(intern (string-upcase (symbol-name ,slot)) 'act-up))
 
 (defun search-for-chunks (model args)
 ;  (say "searching for chunks ~a" args)
@@ -442,7 +446,9 @@ See also the higher-level function `blend-retrieve-chunk'."
 	   (loop for s in (structure-alist c) do
 		(when (and (not (assoc (car s) retrieval-spec-alist))
 			   ;; not an internal slot from "chunk"
-			   (not (slot-exists-p empty-chunk (car s))))
+			   (not (slot-exists-p empty-chunk (normalize-slotname-with-package (car s))))
+			   ;;   (not (member (normalize-slotname-with-package (car s)) chunk-standard-slots))
+			   )
 		  (if (not (assoc (car s) slot-values-by-name))
 		      (push (cons (car s) nil) slot-values-by-name))
 		  (push
@@ -465,6 +471,7 @@ See also the higher-level function `blend-retrieve-chunk'."
        (apply (find-symbol (format nil "MAKE-~a" (class-name chunk-type)))
 	      :last-bl-activation blend-activation
 	      :activation-time (actup-time)
+	      :comment 'blended
 	      (append
 	       retrieval-spec
 	       (loop for sv in slot-values-by-name append
@@ -481,8 +488,8 @@ See also the higher-level function `blend-retrieve-chunk'."
 				       (setq boltzmann-total (+ boltzmann-total boltzmann-act)) ; denominator in boltzmann eq
 				       (* boltzmann-act n))
 				     (return nil)))))
-		      (if sum
-			  (list (car sv) (/ sum boltzmann-total)))))))
+		      (when sum
+			(list (car sv) (/ sum boltzmann-total)))))))
        nil)))
 
 (defun reset-mp ()
