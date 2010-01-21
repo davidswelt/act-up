@@ -148,10 +148,10 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
 	  defrule assign-reward
 	  define-chunk-type
-	  show-chunks chunk-name explain-activation
+	  show-chunks chunk-name explain-activation chunk-get-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
 	  reset-sji-fct add-sji-fct ))
@@ -166,6 +166,9 @@ specifiers as used with the lisp `defstruct' macro, which see."
   "Switches the currently active ACT-UP model.
 This may set a range of model parameters."
   (setq *current-actUP-model* new-model))
+
+(defun make-actUP-model ()
+  (make-model))
 
 (defun actUP-time (&optional meta-process)
   "Returns the current runtime
@@ -554,14 +557,16 @@ See also the higher-level function `blend-retrieve-chunk'."
       0))
 
 (defun chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
-  "Calculate current activation of chunk"
+  "Calculate current activation of chunk
+Returns nil if chunk is nil."
 
-  (let ((base-level (chunk-get-base-level-activation chunk))
-	(spreading (chunk-get-spreading-activation chunk cue-chunks))
-	(partial-matching (chunk-get-partial-match-score chunk retrieval-spec))
-	(noise (chunk-get-noise chunk)))
-
-	(+ base-level spreading partial-matching noise)))
+  (if chunk
+      (let ((base-level (chunk-get-base-level-activation chunk))
+	    (spreading (chunk-get-spreading-activation chunk cue-chunks))
+	    (partial-matching (chunk-get-partial-match-score chunk retrieval-spec))
+	    (noise (chunk-get-noise chunk)))
+	
+	(+ base-level spreading partial-matching noise))))
 
 
 ;; export
