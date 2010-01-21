@@ -1,3 +1,9 @@
+;; chcekcmisretrievals in estimation strategy
+;; (misretrievals previous trend observation)
+;; export: number of misretrievals 
+
+
+
 ;; DSF Model
 ;; (C) David Reitter / CMU
 ;; 10/12/2009
@@ -50,7 +56,7 @@
 
 
 ;; Libraries
-(declaim (optimize (speed 1) (space 0) (debug 3)))
+(declaim (optimize (speed 0) (space 0) (debug 3)))
 ;placed all the requires and loads at the top of this file
 
 
@@ -68,7 +74,8 @@
 (load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
 ;have to load actr6-compatibility at this level b/c it was loaded inside of the act-up package, so it's currently not accessible by any functions called within water-tank.lisp
 (defparameter *hpc-object* nil) ;global variable used to wrap your model with 'experiment-frame.lisp' stuff
-(load (format nil "~aexperiment-frame.lisp" (directory-namestring *load-truename*)))
+
+;;(load (format nil "~aexperiment-frame.lisp" (directory-namestring *load-truename*)))
 
 ;; MODEL
 
@@ -118,7 +125,7 @@
       (learn-chunk  (make-strategy :strategy 'guess :success 0.2)))
 
     (when *calc-strategies-enabled*
-      (setq *strategies* (append '(calc calc-1 calc-2 calc-3) *strategies*))
+      (setq *strategies* (append *strategies* '(calc calc-1 calc-2 calc-3) ))
 
       (learn-chunk  (make-strategy :strategy 'calc :success 0.2
 				   ))
@@ -165,7 +172,7 @@
 (defun safe-strategy-strategy (strategy-chunk)
   (if strategy-chunk
       (strategy-strategy strategy-chunk)
-      (if *calc-strategy-enabled*
+      (if *calc-strategies-enabled*
 	  'calc 'guess)))
 
 (defun best-by-blend-activation (chunks)
@@ -201,10 +208,11 @@
 (defparameter *environ-wait* 8)
 ;(actUP-pass-time (* *calc-time-factor* (if *guesstimate* 5 10))) ;; seconds
 
-
+(defvar *last-trend-retrieval-correct* nil "non-nil if the latest direct retrieval of a trend (previous observed environmental inflow) was successful, i.e. actually correct.")
+(defvar *last-assumed-trend* nil "The last trend that the model estimated (estimation strategy) or remembered (calculation strategy).")
 
 (defun model-get-inflow (waterLevel envirInflow)
-  (declaim (optimize (speed 1) (space 0) (debug 3)))
+  (declaim (optimize (speed 0) (space 0) (debug 3)))
 
   ;;  (format t "wl:~a i:~a ~%" waterLevel envirInflow)
 
@@ -214,6 +222,7 @@
 	 (last-observed-d1 (if *guesstimate* (trend-trend-safe (retrieve-chunk '(:type l-trend1))) *l-trend1*)))
 
 
+    (setq *last-trend-retrieval-correct* (equal last-observed-trend *l-trend0*))
   ;; learn previous action
 
     ;; observe predicted vs. actual water level
@@ -227,6 +236,7 @@
     (when last-observed-trend
       
       (setq current-d1  (- current-trend last-observed-trend ))
+      ;; trend1 type chunks is what the estimation strategy blends together
       (learn-chunk (make-trend :type 'trend1 :trend (tround current-d1))))
 
     ;; learn second derivative
@@ -272,7 +282,8 @@
 
 
       (unless current-strategy
-	(setq current-strategy (make-strategy :strategy (pick *strategies*))))
+	(setq current-strategy (make-strategy :strategy (if *guess-strategy-enabled* 'guess ; as it was in competition model
+							    (choice *strategies*)))))
 
       (setq *guesstimate* (eq 'guess (safe-strategy-strategy current-strategy)))
       (setq dampen (strategy-dampen current-strategy))
@@ -298,9 +309,12 @@
 				expected-trend-1-best) (make-trend :trend 0))))
 	 (needed-effect (if (or *guesstimate*  (not current-strategy))
 			    (- *goal-level* (+ waterLevel assumed-trend  assumed-trend-1 ))
-			    (cogn-calculate (funcall (strategy-strategy current-strategy) *goal-level* waterlevel assumed-trend assumed-trend-1))))
+			    (progn (print current-strategy)
+				   (cogn-calculate (funcall (strategy-strategy current-strategy) *goal-level* waterlevel assumed-trend assumed-trend-1)))))
 	 (needed-effect-1 0.0) ;; used for damping
 	 (chosen-valve-setting needed-effect))
+
+    (setq *last-assumed-trend* assumed-trend-1)
 
    ;; DAMPING
     (when dampen ;; damping
@@ -333,7 +347,7 @@
     
 
     (actUP-pass-time *environ-wait*) ;; seconds  ;; this time seems to be crucial - longer, more noise in memembering
-    chosen-valve-setting
+    chosen-valve-setting ;; also guarantees *last-strategy*
     ))))
 
 (defun cogn-calculate (expression)
@@ -603,8 +617,3 @@ eo)
 	     (if (> new-model-inflow 0) new-model-inflow 0)
 	     (if (> new-model-inflow 0) 0 (- new-model-inflow))))))
   (conn-quit))
-
-
-
-  
-  
