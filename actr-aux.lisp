@@ -149,20 +149,37 @@ however, if chunks were presented at t-380 and t-200, the decay would be 2.1036.
 ;; other stuff
 
 
-;;; insert-by-weight will add new child states to an ordered list of 
-;;; states-to-try.  
-(defun insert-by-weight (children sorted-list)
-  (cond ((null children) sorted-list)
-        (t (insert (car children) 
-           (insert-by-weight (cdr children) sorted-list)))))
+;;; insert-by-weight will add a child to an ordered list
 
-(defun insert (item sorted-list)
-  (cond ((null sorted-list) (list item))
-        ((> (car item) (car (car sorted-list)))
-         (cons item sorted-list))
-        (t (cons (car sorted-list) (insert item (cdr sorted-list))))))
+(defun insert-by-weight (item sorted-list &optional accessor) 
+  (let* ((s2 (cons nil sorted-list))
+	(prev s2)
+	(accessor (or accessor #'car)))
+    (loop for i on sorted-list 
+	 finally (setf (cdr prev) (cons item i))
+       do
+	 (if (>  (funcall accessor item) 
+		 (funcall accessor (car i)))
+	     (progn (setf (cdr prev) (cons item i))
+		    (return)))
+	 (setq prev i))
+    (cdr s2)))
 
+;; (insert-by-weight '(a 5 x)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
 
+;; (insert-by-weight '(g 2 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
+
+;; (insert-by-weight '(g 8 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
+
+;; (insert-by-weight '(g 0 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
 
 
 ;; aggregation

@@ -117,6 +117,38 @@ The ACT-UP meta-process keeps track of model time that is common to all models. 
 
 <P>
 
+<H4><A NAME="SECTION00020030">
+...define a chunk?</A>
+</H4>
+
+<P>
+Chunks are Lisp structures that are of type `chunk', or of a type
+defined with `define-chunk-type'.  They can be created with the
+`make-chunk' function, or with the creator functions of the more
+specific type.
+
+<P>
+When a chunk is created, a unique name should be assigned.  Otherwise,
+this name is assigned automatically when the chunk is added to the DM.
+
+<P><PRE>
+(make-chunk :name 'andrew :age 42 :spouse 'louise)
+(make-chunk :name 'louise :age 35 :spouse 'andrew)
+</PRE>
+<P>
+When assigning values to the attributes defining a chunk, symbols are
+interpreted as names of other chunks in DM.  This is often more
+comfortable than assigning the values directly.
+
+<P>
+Note, however, that certain actions - such as defining Sji weights
+between chunks - will cause ACT-UP to implicitly define an empty chunk
+of a given name in the DM, if that chunk is not found in DM.
+
+
+
+<P>
+
 <H4><A NAME="SECTION00020040">
 ...commit a chunk to memory or reinforce it?</A>
 </H4>
