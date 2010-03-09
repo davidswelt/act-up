@@ -58,7 +58,7 @@ by specifying (:include chunk)."
 
   ;; internal ACT-UP structures
   (total-presentations 0 :type integer)
-  (first-presentation nil)
+  (first-presentation (actup-time))
   (recent-presentations nil :type list) ; with the most recent one in car!
   (presentations nil :type list)
   (last-bl-activation 0)
@@ -83,7 +83,7 @@ by specifying (:include chunk)."
 (defstruct actup-link
   "Link between two chunks.
 Includes Sji/Rji weights and cooccurrence data."
-  (sji 0.0)
+  (sji nil) ; if not set, rji (learning) is used.
   (rji 0.0)
   (fcn 0 :type integer))
   
@@ -164,7 +164,8 @@ Overrides any slot set defined earlier."
 
 (defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  
 
-(export '(*bll* *blc* *rt* *ans*))
+(defparameter *dat* 0.05 "Default time that it takes to fire a production in seconds.")
+(export '(*bll* *blc* *rt* *ans* *dat*))
 
 ;; a model
 
@@ -190,15 +191,7 @@ Overrides any slot set defined earlier."
 
   (dm (make-declarative-memory) :type declarative-memory))
 
-(defvar *actUP-debug-critical* 0)
-(defvar *actUP-debug-error* 5)
-(defvar *actUP-debug-warning* 10)
-(defvar *actUP-debug-informational* 100)
-(defvar *actUP-debug-detailed* 300)
-(defvar *actUP-debug-all* 1000)
-(export '(*actUP-debug-critical* *actUP-debug-warning* *actUP-debug-informational* *actUP-debug-all* *actUP-debug*))
 
-(defparameter *actUP-debug* *actUP-debug-warning*)
 
 (defparameter *current-actUP-model* (make-model))
 (defparameter *actUP-time* nil)
@@ -206,13 +199,14 @@ Overrides any slot set defined earlier."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
+(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time actUP-time pass-time model-chunks 
 	  defrule assign-reward
 	  define-slots define-chunk-type
+	  make-chunk
 	  show-chunks chunk-name explain-activation chunk-get-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
-	  reset-sji-fct add-sji-fct set-base-levels-fct))
+	  reset-sji-fct add-sji-fct set-dm-total-presentations set-base-levels-fct))
 
 
 (defun current-actUP-model ()
@@ -234,7 +228,7 @@ An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
   (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
 
-(defun actUP-pass-time (seconds &optional meta-process)
+(defun pass-time (seconds &optional meta-process)
   "Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
@@ -418,7 +412,10 @@ Returns the added chunk."
     ;; we must take care not to create a copy of the chunk object.
     (if (actup-chunk-p chunk)
 	(if (not (member chunk (model-chunks model))) ;; use object in DM if present
-	    (push chunk (model-chunks model)))
+	    (progn
+	      ;; upon adding, always reset first presentation time
+	      (setf (actup-chunk-first-presentation chunk) (actup-time))
+	      (push chunk (model-chunks model))))
 	     ; else: already a member.
 	; else: get from DM by name
 	; maybe learn implicitly?
@@ -429,8 +426,7 @@ Returns the added chunk."
 
     (incf (actup-chunk-total-presentations chunk))
     (push (actUP-time) (actup-chunk-presentations chunk))
-    (unless (actup-chunk-first-presentation chunk)
-      (setf (actup-chunk-first-presentation chunk) (actup-time)))
+    
     (when *associative-learning*
       (loop for c1 in co-presentations
 	 for c = (get-chunk-object-add-to-dm c1) ;; make sure cue is in DM (to prevent user error)
@@ -449,10 +445,9 @@ Returns the added chunk."
     ;; 	 for slot = (normalize-slotname-with-package slot1)
     ;; 	 do
     ;; 	   (setf (slot-value chunk slot) (slot-value chunk slot))))
-      
-    (actup-pass-time 0.05) ;; 50ms
+    
+    (actup-pass-time *dat*) ;; 50ms
     chunk))
-
 
 (defun get-chunk-objects (chunks-or-names)
   (loop for c in chunks-or-names append
@@ -556,16 +551,16 @@ See also the higher-level function `retrieve-chunk'."
 
 	;; timing
 	(if last-retrieved-activation
-	    (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
+	    (pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
 	
 	(let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
 	  (if (and timeout (> duration timeout))
 	      ;; time's up
-	      (progn (actUP-pass-time timeout) nil)
+	      (progn (pass-time timeout) nil)
 	      ;; return nil
 	      ;; timeout not given or within timeout
 	      (progn
-		(actUP-pass-time duration)
+		(pass-time duration)
 		best))))))
 
 (defun best-n-chunks (n confusion-set cues)
@@ -724,31 +719,32 @@ See also the higher-level function `blend-retrieve-chunk'."
 (defparameter *maximum-associative-strength* 1.0)
 (export '(*maximum-associative-strength*))
 
-(defun chunk-get-rji-prior (c n) ;; c=j, n=i
+(defun chunk-get-rji-prior (c) ;; c=j, n=i
 ;; m/n
   (/ (if (numberp *maximum-associative-strength*)
 	 (exp *maximum-associative-strength*)
-	 (declarative-memory-total-presentations (model-dm (current-actup-model))))
-     (length (actup-chunk-references c))))
+	 (length (model-chunks (current-actup-model))))
+     (length (actup-chunk-related-chunks c))))  ; num refs for context c
 
 (defun chunk-get-rji (c n)
   (if *associative-learning*
       (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
 	(if target
+	    (let ((no (get-chunk-object n)))
 	    (let ((f-nc (or (actup-link-fcn target) 0))
 		  ;; 1+ in order to make it work even without presentations
 		  (f-c (1+ (actup-chunk-total-presentations (get-chunk-object c))))
-		  (f-n (1+ (actup-chunk-total-presentations (get-chunk-object n))))
-		  (f (declarative-memory-total-presentations (model-dm (current-actup-model)))))
+		  (f-n (1+ (actup-chunk-total-presentations no)))
+		  (f (/ (- (actup-time) (actup-chunk-first-presentation no)) *dat*)))  ;; this is #cycles in ACT-R 5
 	      (if (and (> f-c 0) (> f 0) (> f-n 0))
 		  (let* ((pe-n-c (/ f-nc f-c))
 			 (pe-n (/ f-n f))
 			 (e-ji (/ pe-n-c pe-n)))
 		    ;; Bayesian weighted mean between prior and E
-		    (/ (+ (* *associative-learning* (chunk-get-rji-prior c n))
+		    (/ (+ (* *associative-learning* (chunk-get-rji-prior c))
 			  (* f-c e-ji))
 		       (+ *associative-learning* f-c)))
-		  0))
+		  0)))
 	    0))
       0))
     
@@ -796,7 +792,19 @@ key-value pair is returned."
       (setq alist (cons (cons key value) nil)))
   alist)
 
+;; s - sji
+;; value
+;; or (Fjoint time)  ; time unused in the ACTR5 style calculation
+
 (defun add-sji-fct (list)
+  "Set Sji link weights between chunks.
+LIST is a list with elements of form (CJ NI S), where CJ und NI are
+chunks or chunk names, and S is the new link weight, regulating
+spreading activation when CI is in context as a cue and NI is
+retrieved.  S may also be a list of form (FCN TIME), with FCN
+indicating frequency of C and N occurring together, and TIME
+indicating the point in time of their last joint occurrence (TIME is
+unused currently, but must be given.)"
   (loop for (c1a c2a s) in list 
      for c1 = (get-chunk-object c1a)
      for c2 = (get-chunk-object c2a)
@@ -804,13 +812,20 @@ key-value pair is returned."
      for c2n = (get-chunk-name c2)
      do
        (unless (eq c1 c2)
-	 (let ((link (make-actup-link :sji s)))
+	 (let ((link (if (and (listp s) (= (length s) 2))
+			 (make-actup-link :fcn (first s))
+			 (make-actup-link :sji s))))
 	   (setf (actup-chunk-related-chunks c1)
 		 (alist-replace c2n link (actup-chunk-related-chunks c1)))
 	   ;; and the reciprocal references
-	   (setf (actup-chunk-references c1)
+	   (setf (actup-chunk-references c2)
 		 (alist-replace c1n link (actup-chunk-references c2)))
 	   ))))
+(defun set-dm-total-presentations (npres)
+  "Set the count of total presentations of all chunks in DM.
+This value is relevant for associative learning (Sji/Rji)."
+  (setf (declarative-memory-total-presentations (model-dm (current-actup-model))) npres))
+
 
 (defun set-base-levels-fct (list)
   (loop for (ca presentations time) in list 
@@ -940,9 +955,13 @@ key-value pair is returned."
 	       for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
 	       when link
 	       sum
-		 (+ (or (actup-link-sji link) 0.0) ;; Sji
-		    ;; this doubles the lookup in related chunks - to revise!:
-		    (or (chunk-get-rji cue chunk) 0.0))) ;; Rji (actup-link-rji link)
+		 (+ (or 
+		   
+		     
+		     (actup-link-sji link) ;; Sji
+		     (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji)))
+		     ;; this doubles the lookup in related chunks - to revise!:
+		     0.0))) ;; Rji (actup-link-rji link)
 	    (length cues)))
       0))
 
@@ -967,15 +986,54 @@ key-value pair is returned."
       0 ;; not implemented yet
     ))
  
+
+
+
+(defvar *actUP-debug-critical* 0)
+(defvar *actUP-debug-error* 5)
+(defvar *actUP-debug-warning* 10)
+(defvar *actUP-debug-informational* 100)
+(defvar *actUP-debug-detailed* 300)
+(defvar *actUP-debug-all* 1000)
+(export '(*actUP-debug-critical* *actUP-debug-warning* *actUP-debug-informational* *actUP-debug-all* *actUP-debug*
+	  *actUP-debug-to-log* debug-log debug-clear))
+
+(defparameter *actUP-debug* *actUP-debug-warning*)
+(defparameter *actUP-debug-to-log* nil
+"Enable off-screen logging of debug output.
+If t, ACT-UP logs all debug messages not to standard output,
+but to a buffer that can be read with `debug-log' and cleared with `debug-clear'.
+If a stream, ACT-UP logs to the stream.")
+
+(defvar *actUP-debug-stream* nil)
+
+(defun debug-log ()
+  "Returns logged ACT-R output.
+If `*actUP-debug-to-log*' is set to t, the ACT-UP debug log may be
+retrieved using this function."
+  (if *actUP-debug-stream* 
+      (get-output-stream-string *actUP-debug-stream*))) 
+
+(defun debug-clear ()
+  "Clear the ACT-UP debug log buffer."
+  (when *actUP-debug-stream*
+      (close *actUP-debug-stream*)
+      (setq *actUP-debug-stream* nil)))
+
 (defun debug-print (level format &rest args)
+ (when  *actUP-debug* 
+  (if *actUP-debug-to-log*
+    (if (and (not *actUP-debug-stream*) (not (streamp *actUP-debug-to-log*)))
+	(setq *actUP-debug-stream* (make-string-output-stream))))
+   
   (when (and format (<= level *actUP-debug*))
       (let ((*print-circle* t) (*print-pretty* t)
 	    (*print-pprint-dispatch* *print-pprint-dispatch*))
 	(set-pprint-dispatch 'actup-chunk #'pc)	    
 
-	(apply #'format t format args)
+	(apply #'format (or (if (streamp *actUP-debug-to-log*) *actUP-debug-to-log* *actUP-debug-stream*) t) format args)
 	(set-pprint-dispatch 'actup-chunk nil)
-	)))
+	))))
 
 
 ;; PROCEDURAL
@@ -1043,7 +1101,7 @@ defined that invokes one of the rules assigned to GROUP."
   (setq *actup-rule-queue* (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)))
 (defun actup-rule-end (_name _result)
   ;; (format t "end: ~s ~s" name result)
-  (actUP-pass-time 0.050) ;; to do: randomization (:vpft parameter)
+  (pass-time *dat*) ;; to do: randomization (:vpft parameter)
 )
 
 ;; this is, as of now, independent of the model
