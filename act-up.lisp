@@ -268,7 +268,7 @@ Overrides any slot set defined earlier."
   (total-presentations 0 :type integer))
 
 (defstruct model 
-  (parms nil :type list) set-base-levels-fct
+  (parms nil :type list)
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
   ;; if an entry for PARM is present, it will be used rather
@@ -907,7 +907,13 @@ key-value pair is returned."
 (defun set-similarities-fct (list)
   "Set similarities between chunks.
 LIST is a list with elements of form (A B S), where A und B are
-chunks or chunk names, and S is the new similarity of A and B.)"
+chunks or chunk names, and S is the new similarity of A and B.
+For example:
+
+ (set-similarities-fct '((dave david -0.05) 
+                         (steve hank -0.1)  
+                         (mary john -0.9)))"
+
   (loop for (c1a c2a s) in list 
      for c1 = (get-chunk-object c1a)
      for c2 = (get-chunk-object c2a)
@@ -1139,10 +1145,18 @@ possible."
       0))
 
 
-(defparameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter")
+(defparameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter
+Mismatch (`set-similarities-fct') is linearly scaled using this coefficient.")
 
-(defparameter *ms* 0 "ACT-UP Partial Match Maximum Similarity")
-(defparameter *md* -1 "ACT-UP Partial Match Maximum Difference")
+(defparameter *ms* 0 "ACT-UP Partial Match Maximum Similarity
+Similarity penalty assigned when chunks are equal.
+Value in activation (log) space.")
+
+(defparameter *md* -1 "ACT-UP Partial Match Maximum Difference
+Similarity penalty assigned when chunks are different
+and no explicit similarity is set.
+Value in activation (log) space.")
+
 (export '(*mp* *ms* *md*))
 (defun actup-chunk-get-partial-match-score (chunk retrieval-spec)
   (if *mp*
