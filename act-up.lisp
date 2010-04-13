@@ -43,6 +43,69 @@ A meta process keeps track of time for one or more models."
 
 (defparameter *current-actUP-meta-process* (make-meta-process))
 
+;; Debugging
+
+
+
+
+(defvar *critical* 0 "Constant for `*debug*': Show only critical messages.")
+(defvar *error* 5 "Constant for `*debug*': Show errors and more important messages.")
+(defvar *warning* 10 "Constant for `*debug*': Show warnings and more important messages.")
+(defvar *informational* 100 "Constant for `*debug*': Show informational and more important messages.")
+(defvar *detailed* 300 "Constant for `*debug*': Show detailed log output .")
+(defvar *all* 1000 "Constant for `*debug*': Show all messages (maximum detail).")
+(export '(*critical* *warning* *informational* *all* *debug*
+	  *debug-to-log* debug-log debug-clear))
+
+(defparameter *debug* *warning*
+  "Level of debug output currently in effect.
+The following constants may be used:
+
+*critical* *warning* *informational* *all*
+
+The parameter `*debug-to-log*' is helpful in logging debug messages to a file.")
+
+(defparameter *debug-to-log* nil
+"Enable off-screen logging of debug output.
+If t, ACT-UP logs all debug messages not to standard output,
+but to a buffer that can be read with `debug-log' and cleared with `debug-clear'.
+If a stream, ACT-UP logs to the stream.")
+
+(defvar *debug-stream* nil)
+
+(defun debug-log ()
+  "Returns logged ACT-R output.
+If `*debug-to-log*' is set to t, the ACT-UP debug log may be
+retrieved using this function."
+  (if *debug-stream* 
+      (get-output-stream-string *debug-stream*))) 
+
+(defun debug-clear ()
+  "Clear the ACT-UP debug log buffer."
+  (when *debug-stream*
+      (close *debug-stream*)
+      (setq *debug-stream* nil)))
+
+(defmacro debug-print (level format &rest args)
+  `(when (and *debug*
+	      (<= ,level *debug*))
+     (debug-print-internal format args)))
+
+ 
+(defun debug-print-internal (format &rest args)
+  (if *debug-to-log*
+    (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
+	(setq *debug-stream* (make-string-output-stream))))
+   
+  (when format
+      (let ((*print-circle* t) (*print-pretty* t)
+	    (*print-pprint-dispatch* *print-pprint-dispatch*))
+	(set-pprint-dispatch 'actup-chunk #'pc)	    
+
+	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* *debug-stream*) t) format args)
+	(set-pprint-dispatch 'actup-chunk nil)
+	)))
+
 
 ;; CHUNKS
 
@@ -81,7 +144,7 @@ by using `define-chunk'."
   (references nil :type list) ;; other chunks referring to this one
   ;; this chunk will receive spreading activation if any of the cues listed here are in the context
   ;; assoc list with entries of form (chunk-name . <actup-link>)
- 
+  (similar-chunks nil :type list)
   (fan nil) ; internal)
 )
 
@@ -205,7 +268,7 @@ Overrides any slot set defined earlier."
   (total-presentations 0 :type integer))
 
 (defstruct model 
-  (parms nil :type list) 
+  (parms nil :type list) set-base-levels-fct
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
   ;; if an entry for PARM is present, it will be used rather
@@ -229,7 +292,7 @@ Overrides any slot set defined earlier."
 	  show-chunks chunk-name explain-activation chunk-get-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
-	  reset-sji-fct add-sji-fct set-dm-total-presentations set-base-levels-fct))
+	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-levels-fct))
 
 
 (defun current-actUP-model ()
@@ -341,7 +404,7 @@ the retrieval fails."
   (let* ((matching-chunks (filter-chunks (model-chunks *current-actUP-model*)
 					 spec))
 	 (best-chunk (best-chunk matching-chunks
-				 cues (append spec pm-soft-spec) timeout)))
+				 cues pm-soft-spec timeout)))
     (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (chunk-name best-chunk) "one") "none") (length matching-chunks))
     (debug-print *informational* "~a~%" (explain-activation best-chunk cues pm-soft-spec))
     ;; to do: add if to make fast
@@ -732,7 +795,7 @@ Resets the time in the meta process."
 (defun reset-model ()
   "Resets the current ACT-UP model. 
 All declarative memory and all subsymbolic knowledge is deleted.
-Global parameters (global Lisp variables) are retained, as are
+Global parameters (dynamic, global Lisp variables) are retained, as are
 functions and model-independent rules."
   (setq *current-actUP-model* (make-model)))
 
@@ -841,6 +904,24 @@ key-value pair is returned."
 ;; value
 ;; or (Fjoint time)  ; time unused in the ACTR5 style calculation
 
+(defun set-similarities-fct (list)
+  "Set similarities between chunks.
+LIST is a list with elements of form (A B S), where A und B are
+chunks or chunk names, and S is the new similarity of A and B.)"
+  (loop for (c1a c2a s) in list 
+     for c1 = (get-chunk-object c1a)
+     for c2 = (get-chunk-object c2a)
+     for c1n = (get-chunk-name c1)
+     for c2n = (get-chunk-name c2)
+     do
+       (unless (eq c1 c2)
+
+	   (setf (actup-chunk-similar-chunks c1)
+		 (alist-replace c2n s (actup-chunk-similar-chunks c1)))
+	   (setf (actup-chunk-similar-chunks c2)
+		 (alist-replace c1n s (actup-chunk-similar-chunks c2)))
+	   )))
+
 (defun add-sji-fct (list)
   "Set Sji link weights between chunks.
 LIST is a list with elements of form (CJ NI S), where CJ und NI are
@@ -866,6 +947,7 @@ unused currently, but must be given.)"
 	   (setf (actup-chunk-references c2)
 		 (alist-replace c1n link (actup-chunk-references c2)))
 	   ))))
+
 (defun set-dm-total-presentations (npres)
   "Set the count of total presentations of all chunks in DM.
 This value is relevant for associative learning (Sji/Rji)."
@@ -875,22 +957,32 @@ This value is relevant for associative learning (Sji/Rji)."
 (defun set-base-levels-fct (list)
   "Set base levels of several chunk.
 ACT-R compatibility function.
-LIST contains elements of form (CHUNK PRES TIME),
+LIST contains elements of form (CHUNK PRES TIME) or (CHUNK ACT),
 whereas CHUNK is a chunk object or the name of a chunk,
 PRES is a number of past presentations (integer),
-and TIME the life time of the chunk."
-  (loop for (ca presentations time) in list 
+and TIME the life time of the chunk,
+and ACT the chunk's absolute activation.
+
+For plausibility reasons, models should not use the ACT form when
+possible."
+  (loop for el in list 
+     for ca = (first el)
      for c = (get-chunk-object ca)
-     for age = (- (actUP-time) creation-time)
      ;;for mpres = (min presentations *ol*) ; optimized learning is always on
-       for mpres = presentations
+    
        ;; the "min" is here for ACT-R 6 compatibility.  It doesn't make sense, really.
      do
-       (setf (actup-chunk-total-presentations c) presentations)
-       (setf (actup-chunk-recent-presentations c) 
+       (if (third el)
+	   (let* ((presentations (second el))
+		  (creation-time (third el))
+		  (age (- (actUP-time) creation-time))
+		  (mpres presentations))
+	     
+	     (setf (actup-chunk-total-presentations c) presentations)
+	     (setf (actup-chunk-recent-presentations c) 
 
-	     (loop for i from 1 to *ol* collect
-		  (- (actUP-time) (* i (/ age mpres))))
+		   (loop for i from 1 to *ol* collect
+			(- (actUP-time) (* i (/ age mpres))))
 
 	     ;; (list 
 	     ;; 					   ; assume equally spread presentations since inception
@@ -898,8 +990,10 @@ and TIME the life time of the chunk."
 	     ;; 					   (- (actUP-time) (* 2 (/ age presentations)))  ; to do: use OL value to detrmine number of entries
 	     ;; 					   (- (actUP-time) (* 3 (/ age presentations))))
 	     )
-       (setf (actup-chunk-first-presentation c) creation-time)
-  ))
+	     (setf (actup-chunk-first-presentation c) creation-time))
+	   ;; old-style form
+
+	   (setf (actup-chunk-last-bl-activation c) (second el)))))
 
 (defmacro chunks ()
   '(model-chunks (current-actUP-model)))
@@ -1045,11 +1139,15 @@ and TIME the life time of the chunk."
       0))
 
 
-(defparameter *pm* 1.0)
+(defparameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter")
+
+(defparameter *ms* 0 "ACT-UP Partial Match Maximum Similarity")
+(defparameter *md* -1 "ACT-UP Partial Match Maximum Difference")
+(export '(*mp* *ms* *md*))
 (defun actup-chunk-get-partial-match-score (chunk retrieval-spec)
-  (if *pm*
-      (progn
-	(* *pm*
+  (if *mp*
+      (progn ; (print retrieval-spec)
+	(* *mp*
 	   (loop for (s v) on retrieval-spec  by #'cddr sum
 		(value-get-similarity (slot-value chunk (normalize-slotname s)) v))
 	   ))
@@ -1057,69 +1155,16 @@ and TIME the life time of the chunk."
       ;; else
       0))
 
-(defun value-get-similarity (v1 v2)
-  (if (and (numberp v1) (numberp v2))
-      (if (= v1 v2)
-	  0
-	  (- (abs (- v1 v2))))  ;; could be done better!
-      0 ;; not implemented yet
-    ))
- 
-
-
-
-(defvar *critical* 0 "Constant for `*debug*': Show only critical messages.")
-(defvar *error* 5 "Constant for `*debug*': Show errors and more important messages.")
-(defvar *warning* 10 "Constant for `*debug*': Show warnings and more important messages.")
-(defvar *informational* 100 "Constant for `*debug*': Show informational and more important messages.")
-(defvar *detailed* 300 "Constant for `*debug*': Show detailed log output .")
-(defvar *all* 1000 "Constant for `*debug*': Show all messages (maximum detail).")
-(export '(*critical* *warning* *informational* *all* *debug*
-	  *debug-to-log* debug-log debug-clear))
-
-(defparameter *debug* *warning*
-  "Level of debug output currently in effect.
-The following constants may be used:
-
-*critical* *warning* *informational* *all*
-
-The parameter `*debug-to-log*' is helpful in logging debug messages to a file.")
-
-(defparameter *debug-to-log* nil
-"Enable off-screen logging of debug output.
-If t, ACT-UP logs all debug messages not to standard output,
-but to a buffer that can be read with `debug-log' and cleared with `debug-clear'.
-If a stream, ACT-UP logs to the stream.")
-
-(defvar *debug-stream* nil)
-
-(defun debug-log ()
-  "Returns logged ACT-R output.
-If `*debug-to-log*' is set to t, the ACT-UP debug log may be
-retrieved using this function."
-  (if *debug-stream* 
-      (get-output-stream-string *debug-stream*))) 
-
-(defun debug-clear ()
-  "Clear the ACT-UP debug log buffer."
-  (when *debug-stream*
-      (close *debug-stream*)
-      (setq *debug-stream* nil)))
-
-(defun debug-print (level format &rest args)
- (when  *debug* 
-  (if *debug-to-log*
-    (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
-	(setq *debug-stream* (make-string-output-stream))))
-   
-  (when (and format (<= level *debug*))
-      (let ((*print-circle* t) (*print-pretty* t)
-	    (*print-pprint-dispatch* *print-pprint-dispatch*))
-	(set-pprint-dispatch 'actup-chunk #'pc)	    
-
-	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* *debug-stream*) t) format args)
-	(set-pprint-dispatch 'actup-chunk nil)
-	))))
+(defun value-get-similarity (v1 v2) 
+  (or (if (eq v1 v2) *ms*)
+   (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks (get-chunk-object v1))))
+      ;; (if (and (numberp v1) (numberp v2))
+      ;; 	  (if (= v1 v2)
+      ;; 	      *ms*
+      ;; 	      (+ *ms* (* (- *md* *ms*) (abs (- v1 v2)))))  ;; could be done better!
+      ;; 	  )
+      ; unrelated chunks
+      *md*))
 
 
 ;; PROCEDURAL
@@ -1201,7 +1246,7 @@ defined that invokes one of the rules assigned to GROUP."
 (defun declare-rule (groups name args)
   ;; to do: check number of arguments 
   (when groups
-    (loop for g in groups do
+    (loop for g in groups when g do
 	 ;; (re)define lisp function with group name
 	 (eval `(defun ,g ,args 
 		  ,(format nil "Choose a rule out of group %s" g)
