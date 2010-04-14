@@ -1,20 +1,18 @@
 (setq *print-level* 5)
 ;; ACT-UP
+;; (C) Carnegie Mellon University,
+;; (C) David Reitter, 2010
 
-;; DR, 04/2009
+;; reitter@cmu.edu
 
-;; NOT FULLY FUNCTIONAL       
+
+
 
 ;; to load:
 ;; (require "act-up" "act-up.lisp")
 ;; (use-package :act-up)
 
 
-
-;; production rules?
-
-;; (load "lispdoc.lisp")
-;; (lispdoc:lispdoc-html "doc/" :act-up)
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
@@ -54,8 +52,8 @@ A meta process keeps track of time for one or more models."
 (defvar *informational* 100 "Constant for `*debug*': Show informational and more important messages.")
 (defvar *detailed* 300 "Constant for `*debug*': Show detailed log output .")
 (defvar *all* 1000 "Constant for `*debug*': Show all messages (maximum detail).")
-(export '(*critical* *warning* *informational* *all* *debug*
-	  *debug-to-log* debug-log debug-clear))
+(export '(*critical* *warning* *informational* *detailed* *all* *debug*
+	  *debug-to-log* debug-log debug-clear debug-detail debug-detail*))
 
 (defparameter *debug* *warning*
   "Level of debug output currently in effect.
@@ -89,22 +87,36 @@ retrieved using this function."
 (defmacro debug-print (level format &rest args)
   `(when (and *debug*
 	      (<= ,level *debug*))
-     (debug-print-internal format args)))
-
+     (debug-print-internal ',format ,@args)))
  
 (defun debug-print-internal (format &rest args)
   (if *debug-to-log*
     (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
 	(setq *debug-stream* (make-string-output-stream))))
-   
+  
   (when format
       (let ((*print-circle* t) (*print-pretty* t)
 	    (*print-pprint-dispatch* *print-pprint-dispatch*))
 	(set-pprint-dispatch 'actup-chunk #'pc)	    
 
-	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* *debug-stream*) t) format args)
+	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* (if *debug-to-log* *debug-stream*)) t) format args)
 	(set-pprint-dispatch 'actup-chunk nil)
 	)))
+
+
+(defmacro debug-detail (&body body)
+  "Evaluates BODY while outputting ACT-UP debug information."
+  `(let  ((*debug* *all*))
+    ,@body))
+
+
+(defmacro debug-detail* (&body body)
+  "Evaluates BODY while logging ACT-UP debug information.
+The log output can be retrieved with `debug-log'."
+  `(let  ((*debug* *all*) (*debug-to-log* t))
+     (debug-clear)
+    ,@body))
+
 
 
 ;; CHUNKS
@@ -344,7 +356,7 @@ CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals."
   (when chunk-or-name
     (let ((chunk (get-chunk-object chunk-or-name)))
-    (format nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a"
+    (format nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a ~a"
 	    (actUP-time)
 	    (actup-chunk-name chunk)
 	    (actup-chunk-get-base-level-activation chunk)
@@ -365,6 +377,7 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 	    (if retr-spec 
 		(format nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
 		"-")
+	    (if *ans* (format nil "tr.noise: ~a " (actup-chunk-last-noise chunk)))
 	    ))))
   
 
@@ -657,14 +670,17 @@ See also the higher-level function `retrieve-chunk'."
 	(let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
 	  (if (and timeout (> duration timeout))
 	      ;; time's up
-	      (progn (pass-time timeout) nil)
+	      (progn 
+		(debug-print *informational* "Retrieval time-out ~a reached." ~a)
+		(pass-time timeout) 
+		nil)
 	      ;; return nil
 	      ;; timeout not given or within timeout
 	      (progn
 		(pass-time duration)
 		best))))))
 
-(defun best-n-chunks (n confusion-set cues)
+(defun best-n-chunks (n confusion-set &optional cues request-spec)
   "Retrieves the best chunks in confusion set.
 CONFUSION-SET is a list of chunks, out of which the best N chunks will
 be returned. CUES is a list of cues that spread activation.  CUES may
@@ -678,9 +694,7 @@ See also the higher-level functions `retrieve-chunk' and
       (let* ((cues (get-chunk-objects cues))
 	     (all  (loop for c in confusion-set 
 		  append
-		    (let ((s (+ (actup-chunk-get-base-level-activation c)
-				(if *ans* (act-r-noise *ans*) 0)
-				(actup-chunk-get-spreading-activation c cues))))
+		    (let ((s (actup-chunk-get-activation c cues request-spec)))
 		     
 		      (if (or (not *rt*) 
 			      (if (consp *rt*)
@@ -801,8 +815,15 @@ functions and model-independent rules."
 
 ;; Associative learning
 
+;; Leaving AL on by default would be tricky:
+;; if chunks have no joint presentations or learn-chunk doesn't get the co-present chunks,
+;; then with every single presentation of a chunk, the Rji will decline rapidly
+;; (number f_c is in denominator!)
+;; thus we start out with a nice fan effect (Rji prior), but end up with low Sjis.
 
-(defparameter *associative-learning* 1.0
+;; So that's not ideal.  That's why AL is off by default. 
+
+(defparameter *associative-learning* nil ; would be 1.0 if on
   "The trigger for associative learning, a in ROM Equation 4.5.
    Can be any non-negative value.")
 (export '(*associative-learning*))
@@ -826,14 +847,20 @@ functions and model-independent rules."
 (defparameter *maximum-associative-strength* 1.0 "Maximum associative strength ACT-R parameter (:mas)")
 (export '(*maximum-associative-strength*))
 
+
 (defun chunk-get-rji-prior (c) ;; c=j, n=i
+  "Get Rji prior (in linear space)"
 ;; m/n
+; The fan is s_ji = S - log(fan_ji)
+; so, it is s_ji = log(e^S/fan_ji)
+
   (/ (if (numberp *maximum-associative-strength*)
-	 (exp *maximum-associative-strength*)
+	 (exp *maximum-associative-strength*)  ; MAS is in log space
 	 (length (model-chunks (current-actup-model))))
-     (length (actup-chunk-related-chunks c))))  ; num refs for context c
+     (1+ (length (actup-chunk-related-chunks c)))))  ; num refs for context c
 
 (defun chunk-get-rji (c n)
+  "Get Rji (in linear space)"
   (if *associative-learning*
       (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
 	(if target
@@ -852,8 +879,10 @@ functions and model-independent rules."
 			    (* f-c e-ji))
 			 (+ *associative-learning* f-c)))
 		    0)))
+	    ; should this be 0, or the prior??
 	    0))
-      0))
+      ;; this implies the chunk's fan:
+      (chunk-get-rji-prior c)))
     
 
 
@@ -1085,46 +1114,50 @@ possible."
 
   ;; we're using the Optimized Learning function
 
-  ;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-actUP-model)))
-  (let ((time (actUP-time))
-	(1-d (- 1 *bll*)))
-    (+
-     ;; initial BL activation  (e.g., from blending)
-     (or (actup-chunk-last-bl-activation chunk) 0)
+					;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-actUP-model)))
 
-     (log
-      (+
-       ;; standard procedure
-       (loop for pres in (actup-chunk-recent-presentations chunk) sum
-	    (expt (max 1 (- time pres)) (- *bll*)))
-       
+  (+
+   *blc*
+   ;; initial BL activation  (e.g., from blending)
+   (or (actup-chunk-last-bl-activation chunk) 0)
 
-       ;; optimized learning
-       (let ((k (length (actup-chunk-recent-presentations chunk))))
-	 (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
-	     (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
-						      (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
-		   (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
-	       (if (and first-pres-time
-			(not (= first-pres-time last-pres-time)))
-		   (progn
-		     (/ (* (- (actup-chunk-total-presentations chunk) k) 
-			   (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
-			(* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
-		   0))
+   (if *bll*
+       (let ((time (actUP-time))
+	     (1-d (- 1 *bll*)))
+	 (log
+	  (+
+	   ;; standard procedure
+	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
+		(expt (max 1 (- time pres)) (- *bll*)))
+	   
 
-	     ;; (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
-	     ;; 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
-	     ;; 	 (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
-	     ;;   (if (and first-pres-time
-	     ;; 	      (not (= first-pres-time last-pres-time)))
-	     ;; 	 (progn
-	     ;; 	   (/ (* (- (actup-chunk-total-presentations chunk) k) 
-	     ;; 		 (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
-	     ;; 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
-	     ;; 	 0))
-	     0))))
-     *blc*)))
+	   ;; optimized learning
+	   (let ((k (length (actup-chunk-recent-presentations chunk))))
+	     (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
+		 (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
+							  (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+		       (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
+		   (if (and first-pres-time
+			    (not (= first-pres-time last-pres-time)))
+		       (progn
+			 (/ (* (- (actup-chunk-total-presentations chunk) k) 
+			       (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
+			    (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
+		       0))
+
+		 ;; (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
+		 ;; 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+		 ;; 	 (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
+		 ;;   (if (and first-pres-time
+		 ;; 	      (not (= first-pres-time last-pres-time)))
+		 ;; 	 (progn
+		 ;; 	   (/ (* (- (actup-chunk-total-presentations chunk) k) 
+		 ;; 		 (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
+		 ;; 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
+		 ;; 	 0))
+		 0)))))
+       0.0)
+   ))
 
 (defun actup-chunk-get-spreading-activation (chunk cues)
   (if cues
@@ -1132,13 +1165,16 @@ possible."
 	 (/ (loop 
 	       for cue in cues
 	       for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
-	       when link
 	       sum
 		 (+ (or 
-		   
-		     
-		     (actup-link-sji link) ;; Sji
-		     (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji)))
+		     (if *associative-learning*
+			 (+ (if link (actup-link-sji link) 0) ; add on Sji (is this the right thing to do?)
+			    (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji))))
+			 ;; assoc learning is off:
+			 (or
+			  (if link (actup-link-sji link)) ;; Sji
+			  ;; get Rji (prior) for fan effect if Sji isn't set
+			  (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji)))))
 		     ;; this doubles the lookup in related chunks - to revise!:
 		     0.0))) ;; Rji (actup-link-rji link)
 	    (length cues)))
@@ -1161,6 +1197,7 @@ Value in activation (log) space.")
 (defun actup-chunk-get-partial-match-score (chunk retrieval-spec)
   (if *mp*
       (progn ; (print retrieval-spec)
+
 	(* *mp*
 	   (loop for (s v) on retrieval-spec  by #'cddr sum
 		(value-get-similarity (slot-value chunk (normalize-slotname s)) v))
@@ -1170,15 +1207,16 @@ Value in activation (log) space.")
       0))
 
 (defun value-get-similarity (v1 v2) 
-  (or (if (eq v1 v2) *ms*)
+  (or 
    (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks (get-chunk-object v1))))
+   (if (eq (get-chunk-name v1) (get-chunk-name v2)) *ms*)
       ;; (if (and (numberp v1) (numberp v2))
       ;; 	  (if (= v1 v2)
       ;; 	      *ms*
       ;; 	      (+ *ms* (* (- *md* *ms*) (abs (- v1 v2)))))  ;; could be done better!
       ;; 	  )
       ; unrelated chunks
-      *md*))
+   *md*))
 
 
 ;; PROCEDURAL
