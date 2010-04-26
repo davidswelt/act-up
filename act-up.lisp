@@ -5,13 +5,17 @@
 
 ;; reitter@cmu.edu
 
-
-
-
 ;; to load:
 ;; (require "act-up" "act-up.lisp")
 ;; (use-package :act-up)
 
+
+;; to do:
+;; when retrieving a chunk from DM
+;; i can modify it (it's not read-only)
+;; and that would modify the original chunk in DM
+;; that's not right.. it should be learned for this to happen
+;; should retrieve-chunk return a copy? 
 
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
@@ -156,6 +160,10 @@ by using `define-chunk'."
   (references nil :type list) ;; other chunks referring to this one
   ;; this chunk will receive spreading activation if any of the cues listed here are in the context
   ;; assoc list with entries of form (chunk-name . <actup-link>)
+  
+  ;; other chunks that mention this chunk in one of their values
+  (occurs-in nil :type list) 
+  ;; similarities
   (similar-chunks nil :type list)
   (fan nil) ; internal)
 )
@@ -304,7 +312,7 @@ Overrides any slot set defined earlier."
 	  show-chunks chunk-name explain-activation chunk-get-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
-	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-levels-fct))
+	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
 
 (defun current-actUP-model ()
@@ -549,6 +557,17 @@ Returns the added chunk."
 	   (inc-rji-copres-count chunk c))
       (incf (declarative-memory-total-presentations (model-dm model))))
 
+    ;; update occurs-in lists in other (contained) chunks
+    ;; OPTIMIZE: don't do this if chunk is already (unchanged) in DM
+    (loop with name = (chunk-name chunk)
+       for slot in (slot-value chunk 'act-up::attrs)  ;; (structure-alist c) do
+       for val = (slot-value chunk slot)
+       when (symbolp val)
+       do
+	 (let ((ca (get-chunk-object val)))
+	   (when val
+	     (pushnew name (actup-chunk-occurs-in ca)))))
+
     (push (actUP-time) (actup-chunk-recent-presentations chunk))
     (if (> (length (actup-chunk-recent-presentations chunk)) *ol*)
 	(setf (cdr (nthcdr (1- *ol*) (actup-chunk-recent-presentations chunk))) nil)) ;; only OL 3
@@ -755,7 +774,8 @@ See also the higher-level function `blend-retrieve-chunk'."
 		do
 		(when (and (not (assoc slot retrieval-spec-alist))
 			   ;; not an internal slot from "chunk"
-			   (not (slot-exists-p empty-chunk (normalize-slotname-with-package slot)))
+			   ;; don't think we still need this
+			   ;; (not (slot-exists-p empty-chunk (normalize-slotname-with-package slot)))
 			   ;;   (not (member (normalize-slotname-with-package (car s)) chunk-standard-slots))
 			   )
 		  (if (not (assoc slot slot-values-by-name))
@@ -847,8 +867,33 @@ functions and model-independent rules."
 (defparameter *maximum-associative-strength* 1.0 "Maximum associative strength ACT-R parameter (:mas)")
 (export '(*maximum-associative-strength*))
 
+(defmacro count-occ-ji (val chunk)
+  `(count-if (lambda (slot) (eq ,val (slot-value ,chunk slot))) 
+	     (slot-value ,chunk 'act-up::attrs)))
 
-(defun chunk-get-rji-prior (c) ;; c=j, n=i
+;; we're counting all mentions of a chunk in order to calculate the fan
+;; perhaps we should just add to a fan count whenever a novel chunk is added to DM
+;; and treat chunk contents as "readonly" once they're in DM (which they should be)
+;; this solution is probably quite slow
+
+(defun count-occurrences (chunk)
+  "Count occurrences of CHUNK as value in all other chunks"
+  (loop with name = (chunk-name chunk)
+     for cn in (actup-chunk-occurs-in chunk) 
+     for c = (get-chunk-object cn)
+     sum
+       (count-occ-ji name c)))
+
+(defun fan-ji (c n)
+  (let ((occ (count-occ-ji c n)))
+    (if (> occ 0)
+	(/ (1+ (count-occurrences c))
+	   (+ occ
+	      (if (eq c n) 1 0)))
+	;; is this right:?
+	1)))
+
+(defun chunk-get-rji-prior (c n) ;; c=j, n=i
   "Get Rji prior (in linear space)"
 ;; m/n
 ; The fan is s_ji = S - log(fan_ji)
@@ -857,7 +902,8 @@ functions and model-independent rules."
   (/ (if (numberp *maximum-associative-strength*)
 	 (exp *maximum-associative-strength*)  ; MAS is in log space
 	 (length (model-chunks (current-actup-model))))
-     (1+ (length (actup-chunk-related-chunks c)))))  ; num refs for context c
+     (fan-ji c n)))  ; num refs for context c
+; was: (length (actup-chunk-related-chunks c))
 
 (defun chunk-get-rji (c n)
   "Get Rji (in linear space)"
@@ -875,14 +921,14 @@ functions and model-independent rules."
 			   (pe-n (/ f-n f))
 			   (e-ji (/ pe-n-c pe-n)))
 		      ;; Bayesian weighted mean between prior and E
-		      (/ (+ (* *associative-learning* (chunk-get-rji-prior c))
+		      (/ (+ (* *associative-learning* (chunk-get-rji-prior c n))
 			    (* f-c e-ji))
 			 (+ *associative-learning* f-c)))
 		    0)))
 	    ; should this be 0, or the prior??
 	    0))
       ;; this implies the chunk's fan:
-      (chunk-get-rji-prior c)))
+      (chunk-get-rji-prior c n)))
     
 
 
@@ -988,9 +1034,34 @@ unused currently, but must be given.)"
 This value is relevant for associative learning (Sji/Rji)."
   (setf (declarative-memory-total-presentations (model-dm (current-actup-model))) npres))
 
+(defun set-base-level-fct (chunk value &optional creation-time)
+  "Set base levels of CHUNK.
+If CREATION-TIME is specified, it contains the time at which the chunk
+was created in declarative memory, and VALUE contains the number of
+presentations (an integer value).  If TIME is not specified, VALUE is
+the chunk's absolute activation value (log space).
+
+For plausibility reasons, models should specify presentations and time
+when possible."
+  
+    (let ((c (get-chunk-object chunk)))
+      (if creation-time
+	  (let* ((presentations value)
+		 (age (- (actUP-time) creation-time))
+		 (mpres presentations))
+	    ;; mpres = (min presentations *ol*) ;  (ACT-R variant)
+	    ;; the "min" is here for ACT-R 6 compatibility.  It doesn't make sense, really.
+	    (setf (actup-chunk-total-presentations c) presentations)
+	    (setf (actup-chunk-recent-presentations c) 
+		  (loop for i from 1 to *ol* collect
+		       (- (actUP-time) (* i (/ age mpres)))))
+	    (setf (actup-chunk-first-presentation c) creation-time))
+	  ;; old-style form
+	  (setf (actup-chunk-last-bl-activation c) value))))
+
 
 (defun set-base-levels-fct (list)
-  "Set base levels of several chunk.
+  "Set base levels of several chunks.
 ACT-R compatibility function.
 LIST contains elements of form (CHUNK PRES TIME) or (CHUNK ACT),
 whereas CHUNK is a chunk object or the name of a chunk,
@@ -1000,35 +1071,9 @@ and ACT the chunk's absolute activation.
 
 For plausibility reasons, models should not use the ACT form when
 possible."
-  (loop for el in list 
-     for ca = (first el)
-     for c = (get-chunk-object ca)
-     ;;for mpres = (min presentations *ol*) ; optimized learning is always on
-    
-       ;; the "min" is here for ACT-R 6 compatibility.  It doesn't make sense, really.
-     do
-       (if (third el)
-	   (let* ((presentations (second el))
-		  (creation-time (third el))
-		  (age (- (actUP-time) creation-time))
-		  (mpres presentations))
-	     
-	     (setf (actup-chunk-total-presentations c) presentations)
-	     (setf (actup-chunk-recent-presentations c) 
-
-		   (loop for i from 1 to *ol* collect
-			(- (actUP-time) (* i (/ age mpres))))
-
-	     ;; (list 
-	     ;; 					   ; assume equally spread presentations since inception
-	     ;; 					   (- (actUP-time) (* 1 (/ age presentations)))
-	     ;; 					   (- (actUP-time) (* 2 (/ age presentations)))  ; to do: use OL value to detrmine number of entries
-	     ;; 					   (- (actUP-time) (* 3 (/ age presentations))))
-	     )
-	     (setf (actup-chunk-first-presentation c) creation-time))
-	   ;; old-style form
-
-	   (setf (actup-chunk-last-bl-activation c) (second el)))))
+ 
+  (loop for el in list do
+       (apply #'set-base-level-fct el)))
 
 (defmacro chunks ()
   '(model-chunks (current-actUP-model)))
