@@ -121,7 +121,12 @@ The log output can be retrieved with `debug-log'."
      (debug-clear)
     ,@body))
 
-
+(export '(show-utilities))
+(defun show-utilities ()
+  "Prints a list of all utilities in the current model."
+  (maphash (lambda (x y) (print (cons x y))) 
+	   (act-up::procedural-memory-rule-utilities (act-up::model-pm (current-actup-model))))
+  nil)
 
 ;; CHUNKS
 
@@ -287,6 +292,10 @@ Overrides any slot set defined earlier."
   (chunks nil :type list)
   (total-presentations 0 :type integer))
 
+(defstruct procedural-memory
+  (rule-utilities (make-hash-table))
+  (rule-queue nil :type list))
+
 (defstruct model 
   (parms nil :type list)
   ;; overriding model-specific parameters. association list
@@ -294,7 +303,7 @@ Overrides any slot set defined earlier."
   ;; if an entry for PARM is present, it will be used rather
   ;; than the global binding.
   ;; NOT IMPLEMENTED YET.
-
+  (pm (make-procedural-memory) :type procedural-memory)
   (dm (make-declarative-memory) :type declarative-memory))
 
 
@@ -1276,12 +1285,13 @@ Value in activation (log) space.")
 ;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG1 ARG2) (RULE1 ARG1 ARG2))))
 ;; (g1 'working 'huh)
 
-(defun set-alist (key val alist-name)
-  (let ((kv (assoc key (eval alist-name))))
+(defun set-alist (key val alist)
+  "Sets value in alist."
+  (let ((kv (assoc key alist)))
     (if kv
-	(progn (setf (cdr kv) val) 
-	       (eval alist-name))
-	(set alist-name (acons key val (eval alist-name))))))
+	(rplacd kv val)
+	(setf (cdr (last alist)) (list (cons key val)))))
+  alist)
 
 
 (defmacro defrule (name args &rest body)
@@ -1322,11 +1332,10 @@ defined that invokes one of the rules assigned to GROUP."
 		   ',name ',args)
 )))
 
-;; FIXME this needs to go into the current model!!!!
-(defparameter *actup-rule-queue* nil)
 (defun actup-rule-start (name args)
   ;;(format t "start: ~s ~s" name args)
-  (setq *actup-rule-queue* (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)))
+  (push (cons (actup-time) name)
+	(procedural-memory-rule-queue (model-pm (current-actup-model)))))
 (defun actup-rule-end (_name _result)
   ;; (format t "end: ~s ~s" name result)
   (pass-time *dat*) ;; to do: randomization (:vpft parameter)
@@ -1335,9 +1344,7 @@ defined that invokes one of the rules assigned to GROUP."
 ;; this is, as of now, independent of the model
 (defparameter *actup-rulegroups* nil)
 
-;; this needs to go into the model structure
-(defparameter *actup-rule-utilities* nil)
-
+(export '(*egs*))
 (defparameter *egs* nil) ;; transient rule noise
 
 (defun declare-rule (groups name args)
@@ -1351,13 +1358,14 @@ defined that invokes one of the rules assigned to GROUP."
 
 	 (let ((group-cons (assoc g *actup-rulegroups*)))
 	   (if group-cons
-	       (setf (cdr group-cons)  
-		     (acons name args (cdr group-cons)))
+	       (unless (member name (cdr group-cons))
+		 (setf (cdr group-cons)  
+		       (cons name (cdr group-cons))))
 	       
 	       (setq *actup-rulegroups*
-		     (acons 
-		      g
-		      ( acons name args nil)
+		     (cons 
+		      (list g
+			    name)
 		      *actup-rulegroups*)))))))
 
   
@@ -1368,24 +1376,32 @@ defined that invokes one of the rules assigned to GROUP."
   "Evaluates an ACT-UP rule from rule group GROUP.
 Passes arguments ARG to the lisp function representing 
 the chose rule."
-
   ;; chose rule with highest utility
-  (let* ((rule-util
-	 (loop for r in (cdr (assoc group *actup-rulegroups*)) 
-	    with utility = 0.0
-	    with rule = nil
-	    for r-utility = (+ (or (cdr (assoc (sxhash r) *actup-rule-utilities*)) *iu*) (if *egs* (act-r-noise *egs*) 0.0))
-	    when (> r-utility utility)
+  ;; must randomize choice of rule even if *egs* is nil
+  (let ((grouprules (assoc group *actup-rulegroups*)))
+    (unless grouprules
+      (error (format nil "No rules defined for group ~a." grouprules)))
+    (let* ((utilities (procedural-memory-rule-utilities (model-pm (current-actup-model))))
+	 (rules)
+	 (rule-util
+	  (loop for r in (cdr grouprules) 
+	    with utility = -100000.0
+	    for r-utility = (+ (or (gethash r utilities) *iu*) 
+			       (if *egs* (act-r-noise *egs*) 0.0))
+	    when (>= r-utility utility)
 	    do
-	      (setq utility r-utility
-		    rule r)
+	      (setq rules  (if (> r-utility utility) (list r) (cons r rules))
+		    utility r-utility)
 	    finally
-	      (return (cons utility r ))))
+	      (return (list utility (choice rules)))))
 	(rule (second rule-util))
 	;; (util (car rule-util))
 	 )
-    (when rule
-      (apply rule args))))
+    (debug-print *informational* "Group ~a, choosing rule ~a (Utility ~a) from subset of ~a"
+	       group rule (first rule-util) (length rules))
+  (when rule
+    (apply rule args)))))
+
 
 (export '(*au-rpps* *iu* *alpha* *au-rfr* assign-reward))
 (defparameter *au-rpps* 0.05
@@ -1407,47 +1423,64 @@ See also the function `assign-reward'.")
 
 ;; just a linear backpropagatino over time
 ; quue elements: (time . hash)
-; (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)
 (defun assign-reward (reward)
   "Assign reward to recently invoked rules.
 Distributes reward value REWARD across the recently invoked rules.
-See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
-  (let ((time (actup-time))
+See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
+
+Reward must be greater than 0."
+  (let ((utilities (procedural-memory-rule-utilities (model-pm (current-actup-model))))
+	(time (actup-time))
 	(last-time (actup-time)))
-    (loop for rc in *actup-rule-queue* do
+    (debug-print *informational* "Assigning reward ~a~%" reward)
+    (loop for rc in (procedural-memory-rule-queue (model-pm (current-actup-model))) do
 
 	 (let* ((r-time (car rc))
-		(r-rule-signature (sxhash (cdr rc)))
+		(r-rule-signature (cdr rc))
 		(reward-portion (* reward
 				   (+ *au-rfr*
 				      (* *au-rpps* (- last-time r-time))))))
 
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
-	   
 	   ;; assign reward
-	   
-	   (let ((current (or (cdr (assoc r-rule-signature *actup-rule-utilities*)) *iu*)))
-	     (set-alist r-rule-signature (+ current
-		      (* *alpha* (- reward-portion current)))
-			'*actup-rule-utilities*)
-	     )))))
+	   (let* ((current (or (gethash r-rule-signature utilities) *iu*))
+		  (scaled (* *alpha* (- reward-portion current))))
+	     
+	     (if (< scaled 0) (return))
+	     (debug-print *informational* "Assigning reward ~a to ~a.~%" scaled r-rule-signature)
+	     (setf (gethash r-rule-signature utilities)
+		   (+ current scaled))
+	     )))
+    ;; (setf (procedural-memory-rule-utilities (model-pm (current-actup-model)))
+    ;; 	  utilities)
+    ))
 
 
 ;; test case
 
 (defun test-reward-assignment ()
+  (reset-model)
   (setq *actup-rulegroups* nil)
-  (defrule rule1 (arg1 _arg2) :group g1 (print arg1))
-  (defrule rule1b (arg1 _arg2) :group (g1 g5) (print arg1))
-  (defrule rule2 (arg2 _arg3) :group (g1 g2) (print arg2))
-  (defrule rule3 (arg3 arg4) :group g2 (print arg3))
+  (defrule rule1 (arg1 _arg2) :group g1 1)
+  (defrule rule1b (arg1 _arg2) :group (g1 g5) '1b)
+  (defrule rule2 (arg2 _arg3) :group (g1 g2) 2)
+  (defrule rule3 (arg3 arg4) :group g2 3)
   
+
+  (print (g1 5 6))
+  (print (g1 5 6))
+  (print (g1 5 6))
+  (print (g1 5 6))
   (rule1 1 2)
   (rule2 1 2)
   (assign-reward 10.0)
+  (print 'reward-mostly-to-rule2)
+  (print (g1 5 6))
 
-  (g1 5 6)
+  (print (g1 5 6))
+  (print (g1 5 6))
+  (print (g1 5 6))
 )
 
 
