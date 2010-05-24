@@ -389,12 +389,12 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 			       (format nil "~a: ~a" (get-chunk-name cue)
 				  (if  (and link (actup-link-sji link))
 				       (format nil "Sji: ~a " (actup-link-sji link))
-				       (format nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (if (and rji (> rji 0)) rji 0.0))))))))
+				       (format nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (if (and rji (> rji 0)) (log rji) 0.0))))))))
 		"")
 	    (if retr-spec 
 		(format nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
 		"-")
-	    (if *ans* (format nil "tr.noise: ~a " (actup-chunk-last-noise chunk)))
+	    (if *ans* (format nil "tr.noise: ~a " (actup-chunk-last-noise chunk)) "-")
 	    ))))
   
 
@@ -544,6 +544,12 @@ Returns the added chunk."
     (if (actup-chunk-p chunk)
 	(if (not (member chunk (model-chunks model))) ;; use object in DM if present
 	    (progn
+	      ;; make sure we don't have a chunk of the same name already present
+	      (let ((new-name (get-chunk-name chunk)))
+		(and new-name
+		     (get-chunk-by-name new-name)
+		     (error (format nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
+
 	      ;; upon adding, always reset first presentation time
 	      (setf (actup-chunk-first-presentation chunk) (actup-time))
 	      (push chunk (model-chunks model))))
@@ -655,7 +661,7 @@ Returns nil if name is nil."
 
 (defparameter *lf* 1.0)
 (defparameter *le* 1.0)
-
+(export '(*lf* *le*))
 (defun best-chunk (confusion-set cues &optional request-spec timeout &rest options)
 "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
@@ -696,6 +702,7 @@ See also the higher-level function `retrieve-chunk'."
 	    (pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
 	
 	(let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
+	  (debug-print *informational* "Retrieval duration: ~s~%" duration)
 	  (if (and timeout (> duration timeout))
 	      ;; time's up
 	      (progn 
@@ -874,10 +881,12 @@ functions and model-independent rules."
 		 (actup-chunk-references n)))))))
 
 (defparameter *maximum-associative-strength* 1.0 "Maximum associative strength ACT-R parameter (:mas)")
-(export '(*maximum-associative-strength*))
+(define-symbol-macro *mas* *maximum-associative-strength*) ; compatibility macro
+(export '(*maximum-associative-strength* *mas*))
 
 (defmacro count-occ-ji (val chunk)
-  `(count-if (lambda (slot) (eq ,val (slot-value ,chunk slot))) 
+  `(count-if (lambda (slot)
+		     (eq ,val (slot-value ,chunk slot))) 
 	     (slot-value ,chunk 'act-up::attrs)))
 
 ;; we're counting all mentions of a chunk in order to calculate the fan
@@ -894,13 +903,14 @@ functions and model-independent rules."
        (count-occ-ji name c)))
 
 (defun fan-ji (c n)
-  (let ((occ (count-occ-ji c n)))
+  (let ((occ (count-occ-ji (get-chunk-name c) n)))
+    ;; (format t "fan-ji: c:~s n:~s  occ:~s  occs: ~s~%" c n occ (count-occurrences c))
     (if (> occ 0)
 	(/ (1+ (count-occurrences c))
 	   (+ occ
 	      (if (eq c n) 1 0)))
-	;; is this right:?
-	1)))
+	
+	nil)))
 
 (defun chunk-get-rji-prior (c n) ;; c=j, n=i
   "Get Rji prior (in linear space)"
@@ -908,11 +918,13 @@ functions and model-independent rules."
 ; The fan is s_ji = S - log(fan_ji)
 ; so, it is s_ji = log(e^S/fan_ji)
 
-  (/ (if (numberp *maximum-associative-strength*)
-	 (exp *maximum-associative-strength*)  ; MAS is in log space
-	 (length (model-chunks (current-actup-model))))
-     (fan-ji c n)))  ; num refs for context c
-; was: (length (actup-chunk-related-chunks c))
+  (let ((fan (fan-ji c n)))
+    (if fan
+	(/ (if (numberp *maximum-associative-strength*)
+	       (exp *maximum-associative-strength*)  ; MAS is in log space
+	       (length (model-chunks (current-actup-model))))
+	   fan)  ; num refs for context c
+	1)))
 
 (defun chunk-get-rji (c n)
   "Get Rji (in linear space)"
@@ -933,9 +945,9 @@ functions and model-independent rules."
 		      (/ (+ (* *associative-learning* (chunk-get-rji-prior c n))
 			    (* f-c e-ji))
 			 (+ *associative-learning* f-c)))
-		    0)))
+		    1)))
 	    ; should this be 0, or the prior??
-	    0))
+	    1))
       ;; this implies the chunk's fan:
       (chunk-get-rji-prior c n)))
     
@@ -1107,21 +1119,6 @@ possible."
  (slot-value chunk slot-name))
  
 
-(defun chunk-get-fan  (j _i chunk-set)
-
-  (print "chunk-get-fan: not implemented.")
-
-  ;; how to iterate over all slots?
-
-  (let* ((j-al (structure-alist j))
-	 (j-len (length j-al)))
-    
-    (loop for c in chunk-set sum
-	 (structure-value-count c j (actup-chunk-id j))
-	 ;; to do
-)))
-
-
 (defun actup-chunk-get-noise (chunk)
   (if *ans* 
       (or (and (eq (actUP-time) (actup-chunk-last-noise-time chunk))
@@ -1228,7 +1225,9 @@ possible."
 			 (or
 			  (if link (actup-link-sji link)) ;; Sji
 			  ;; get Rji (prior) for fan effect if Sji isn't set
-			  (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji)))))
+			  (let ((rji (chunk-get-rji cue chunk))) 
+			    ;; convert RJI to log space!
+			    (if rji (log rji)))))
 		     ;; this doubles the lookup in related chunks - to revise!:
 		     0.0))) ;; Rji (actup-link-rji link)
 	    (length cues)))
