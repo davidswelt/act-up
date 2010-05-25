@@ -124,7 +124,7 @@
 
 
 ;; Truncating numbers down to 32 bits with ldb so make this a constant
-(defconstant *byte-32-0* (byte 32 0))
+(defvar *byte-32-0* (byte 32 0))
 ;(defconstant *b1* (byte 1 31))
 
 (defvar *default-random-module* (make-mersenne-twister))
