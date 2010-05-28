@@ -1432,21 +1432,23 @@ Rules and groupings of rules are not specific to the model."
 		  ((stringp keyw)
 		   (setq doc-string keyw))
 		  ((eq keyw :group)
+		   (pop body)
 		   (if group 
 		       (error 
 			(format nil "defrule ~s: more than one :GROUP keyword given."
 				name)))
-		   (setq group (pop body)))
+		   (setq group (car body)))
 		  ((or (eq keyw :initial-utility) (eq keyw :iu))
+		   (pop body)
 		   (if iu 
 		       (error 
 			(format nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
 				name)))
-		   (setq iu (pop body)))
-		  ((keywordp keyw) (pop body))
+		   (setq iu (car body)))
+		  ((keywordp keyw) t)
 		  (t (return nil))
 		  )
-		(setq body (cdr body))		 
+		(pop body)		 
 		) (if (consp group) group (list group)))))
     (if (member name groups)
 	(error (format nil "defrule: rule name %s must not coincide with group name."
