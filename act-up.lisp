@@ -61,7 +61,7 @@
   (:documentation "The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
 Anderson 2007, etc.).
-(C) 2010, David Reitter, Christian Lebiere. Carnegie Mellon University.")
+(C) 2010, David Reitter, Carnegie Mellon University.")
   (:use :common-lisp))
 
 (in-package :act-up)
@@ -1373,30 +1373,34 @@ Value in activation (log) space.")
 
 (defmacro defrule (name args &rest body)
   "Define an ACT-UP rule.
-The syntax follows the Lisp `defun' macro, except that after arguments
-to the function to be created, some keyword-argument parameters may follow.
+The syntax follows the Lisp `defun' macro, except that 
+some keyword-argument parameters may follow ARGS
+at the beginning of BODY.
+
+This macro will define a Lisp function of name NAME with
+arguments ARGS.  The Lisp function will execute the Lisp
+forms in BODY and return the value of the last form.
 
 The known parameters are:
-:GROUP the-group
+
+ :GROUP the-group
 A :group parameter defines one or or a list of rule
 groups that the rule will belong to.  All rules defined as part of a
 group must have the same argument footprint.
 
-This macro will define a Lisp function of name NAME with
-arguments ARGS.
 
 If GROUP is given, a function of name GROUP will also be
 defined that invokes one of the rules assigned to GROUP.
 For example:
 
-\(defrule subtract-digit-by-addition (minuend subtrahend)
+ (defrule subtract-digit-by-addition (minuend subtrahend)
    :group subtract
    \"Perform subtraction of a single digit via addition.\"
    (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
                                   :result ,minuend
                                   :add1 ,subtrahend))))
        (if chunk (addition-fact-add2 chunk))))
-\(defrule subtract-digit-by-decrement (minuend subtrahend)
+ (defrule subtract-digit-by-decrement (minuend subtrahend)
    :group subtract
    \"Perform subtraction of a single digit via subtraction knowledge.\"
    ...)
@@ -1405,12 +1409,12 @@ These rules can be invoked via a function call such as
 
  (subtract 5 2)
 
-ACT-UP will choose the rule that has the highest utility.  See
+ACT-Up will choose the rule that has the highest utility.  See
 `assign-reward' for manipulation of utilities (reinforcement
 learning), and `*rule-compilation*' for in-theory compilation of
 rules (routinization, internalization).
 
-:INITIAL-UTILITY u
+ :INITIAL-UTILITY u
 
 The :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
 If not given, the initial utility will be the value of `*iu*' at time of first invocation.
