@@ -1,9 +1,5 @@
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
-(defparameter *talking* t)
-(defun say (form &rest args)
-  (if *talking*
-       (format t "~a ~a: ~a~%" (meta-process-name *current-actUP-meta-process*) (actup-time) (apply 'format nil form args))))
 
 (defun mean (&rest list)
   (/ (apply 'sum list) (length list)))
@@ -89,21 +85,22 @@ on one side of the mean."
       (error "p>0.5 (s>0) violation in parameter for noise.")))
 
 
-(defun actr-noise-for-time (time1 time2 p)
-"Calculcate noise s parameter to achieve a probability distribution 
-of ((1-p),p) for the retrieval of two chunks (a,b),
-a learned at t-time1, and a learned at t-time2.
+;; actr function
+;; (defun actr-noise-for-time (time1 time2 p)
+;; "Calculcate noise s parameter to achieve a probability distribution 
+;; of ((1-p),p) for the retrieval of two chunks (a,b),
+;; a learned at t-time1, and a learned at t-time2.
 
-p>0.5, because the more recent chunk will always be more likely to be retrieved.
+;; p>0.5, because the more recent chunk will always be more likely to be retrieved.
 
-e.g., for 180sec and 0sec, activation decay (0,5) causes a decay of 2.596.
+;; e.g., for 180sec and 0sec, activation decay (0,5) causes a decay of 2.596.
 
-however, if chunks were presented at t-380 and t-200, the decay would be 2.1036."
+;; however, if chunks were presented at t-380 and t-200, the decay would be 2.1036."
 
-(let* ((decay (- (car (sgp :bll))))
-       (mult 12)
-       (act-delta (- (log (+ (* mult (expt time1 decay)) (* mult (expt time2 decay)))))))
- (actr-noise-for-activation-delta act-delta p)))
+;; (let* ((decay (- (car (sgp :bll))))
+;;        (mult 12)
+;;        (act-delta (- (log (+ (* mult (expt time1 decay)) (* mult (expt time2 decay)))))))
+;;  (actr-noise-for-activation-delta act-delta p)))
 
 
 ; In 1200 secs, decay (0.5) causes 0.0288 reduction in base-level activation

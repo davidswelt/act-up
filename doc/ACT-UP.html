@@ -11,12 +11,13 @@ Anderson 2007, etc.).
 see also the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>0.2</tt></blockquote>
 <a name="*ans*" /><p><b>*ans*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Transient noise parameter</blockquote>
+<blockquote>Transient noise parameter  for declarative memory.
+See also: ACT-R parameter :ans</blockquote>
 <blockquote>Initial value: <tt>0.2</tt></blockquote>
 <a name="*associative-learning*" /><p><b>*associative-learning*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>The trigger for associative learning, a in ROM Equation 4.5.
    Can be any non-negative value.</blockquote>
-<blockquote>Initial value: <tt>1.0</tt></blockquote>
+<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*au-rfr*" /><p><b>*au-rfr*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>base reward proportion for each rule
 e.g., the each rule before the reward trigger gets 10% of the reward.
@@ -29,16 +30,19 @@ time is in between rules.
 see also the parameter <a href="#*au-rfr*">*au-rfr*</a> and the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>0.05</tt></blockquote>
 <a name="*blc*" /><p><b>*blc*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Base-level constant parameter</blockquote>
+<blockquote>Base-level constant parameter for declarative memory.
+See also: ACT-R parameter :blc</blockquote>
 <blockquote>Initial value: <tt>0.0</tt></blockquote>
 <a name="*bll*" /><p><b>*bll*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Base-level learning decay parameter</blockquote>
+<blockquote>Base-level learning decay parameter for declarative memory.
+See also: ACT-R parameter :bll</blockquote>
 <blockquote>Initial value: <tt>0.5</tt></blockquote>
 <a name="*critical*" /><p><b>*critical*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>constant for <a href="#*debug*">*debug*</a>: Show only critical messages.</blockquote>
 <blockquote>Initial value: <tt>0</tt></blockquote>
 <a name="*dat*" /><p><b>*dat*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Default time that it takes to fire a production in seconds.</blockquote>
+<blockquote>Default time that it takes to execut an ACT-UP rule in seconds.
+See also: ACT-R parameter :dat  [which pertains to ACT-R productions]</blockquote>
 <blockquote>Initial value: <tt>0.05</tt></blockquote>
 <a name="*debug*" /><p><b>*debug*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>level of debug output currently in effect.
@@ -54,6 +58,13 @@ if t, act-up logs all debug messages not to standard output,
 but to a buffer that can be read with <a href="#debug-log">debug-log</a> and cleared with <a href="#debug-clear">debug-clear</a>.
 If a stream, ACT-UP logs to the stream.</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
+<a name="*detailed*" /><p><b>*detailed*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>constant for <a href="#*debug*">*debug*</a>: Show detailed log output .</blockquote>
+<blockquote>Initial value: <tt>300</tt></blockquote>
+<a name="*egs*" /><p><b>*egs*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Transient noise parameter for ACT-UP rules.
+See also: ACT-R parameter :egs</blockquote>
+<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*informational*" /><p><b>*informational*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>constant for <a href="#*debug*">*debug*</a>: Show informational and more important messages.</blockquote>
 <blockquote>Initial value: <tt>100</tt></blockquote>
@@ -61,7 +72,15 @@ If a stream, ACT-UP logs to the stream.</blockquote>
 <blockquote>initial utility
 see also the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>0.0</tt></blockquote>
-<a name="*maximum-associative-strength*" /><p><b>*maximum-associative-strength*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<a name="*le*" /><p><b>*le*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Latency Exponent parameter for declarative retrieval time calculation.
+See ACT-R parameter :le</blockquote>
+<blockquote>Initial value: <tt>1.0</tt></blockquote>
+<a name="*lf*" /><p><b>*lf*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Latency Factor parameter for declarative retrieval time calculation.
+See ACT-R parameter :lf</blockquote>
+<blockquote>Initial value: <tt>1.0</tt></blockquote>
+<a name="*mas*" /><a name="*maximum-associative-strength*" /><p><b>*maximum-associative-strength*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Maximum associative strength ACT-R parameter (:mas)</blockquote>
 <blockquote>Initial value: <tt>1.0</tt></blockquote>
 <a name="*md*" /><p><b>*md*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
@@ -79,9 +98,26 @@ mismatch (<a href="#set-similarities-fct">set-similarities-fct</a>) is linearly 
 Similarity penalty assigned when chunks are equal.
 Value in activation (log) space.</blockquote>
 <blockquote>Initial value: <tt>0</tt></blockquote>
+<a name="*ol*" /><p><b>*ol*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Optimized Learning parameter for base-level learning in Declarative Memory.
+OL is always on in ACT-UP.
+See also: ACT-R parameter :ol</blockquote>
+<blockquote>Initial value: <tt>3</tt></blockquote>
 <a name="*rt*" /><p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Reaction time parameter</blockquote>
+<blockquote>retrieval threshold parameter for declarative memory.
+chunks with activation lower than <a href="#*rt*">*rt*</a> are not retrieved.
+See also: ACT-R parameter :rt</blockquote>
 <blockquote>Initial value: <tt>0.0</tt></blockquote>
+<a name="*rule-compilation*" /><p><b>*rule-compilation*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>if non-nil, rule compilation is enabled.
+rule compilation causes act-up rules defined with <a href="#defrule">defrule</a> to be compiled (or: cached).
+after execution of a source rule,  name, execution arguments and the result are stored as
+compiled rule.  the compiled rule is added to each of the source rule's groups.
+
+when the group is executed, compiled rules compete for execution with the other rules in the group.  (the rule with the highest utility is chosen.)
+
+the initial utility of a compiled rule equals the initial utility of the source rule.  when a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the act-r difference learning equation).  see also <a href="#assign-reward">assign-reward</a> for reward assignment to regular rules.</blockquote>
+<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*warning*" /><p><b>*warning*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>constant for <a href="#*debug*">*debug*</a>: Show warnings and more important messages.</blockquote>
 <blockquote>Initial value: <tt>10</tt></blockquote>
@@ -102,7 +138,11 @@ indicating the point in time of their last joint occurrence (TIME is
 unused currently, but must be given.)</blockquote><a name="assign-reward" /><p>(<b>assign-reward</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>assign reward to recently invoked rules.
 distributes reward value reward across the recently invoked rules.
-see parameters <a href="#*au-rpps*">*au-rpps*</a>, <a href="#*au-rfr*">*au-rfr*</a>, <a href="#*alpha*">*alpha*</a>, and <a href="#*iu*">*iu*</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+see parameters <a href="#*au-rpps*">*au-rpps*</a>, <a href="#*au-rfr*">*au-rfr*</a>, <a href="#*alpha*">*alpha*</a>, and <a href="#*iu*">*iu*</a>.
+see <a href="#defrule">defrule</a> for documentation on how to use utility when
+selecting between rules.
+
+Reward must be greater than 0.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>retrieves the best chunk in confusion set.
 confusion-set is a list of chunks, out of which the chunk is returned.
 cues is a list of cues that spread activation.  cues may contain
@@ -139,10 +179,13 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-get-activation" /><a name="chunk-name" /><p>(<b>chunk-name</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Returns the unique name of a chunk.</blockquote><a name="chunk-type" /><a name="current-actup-model" /><p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><p>(<b>chunk-name</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Returns the unique name of a chunk.</blockquote><a name="current-actup-model" /><p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates to the currently active ACT-UP model.</blockquote><a name="debug-clear" /><p>(<b>debug-clear</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Clear the ACT-UP debug log buffer.</blockquote><a name="debug-log" /><p>(<b>debug-log</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Clear the ACT-UP debug log buffer.</blockquote><a name="debug-detail" /><p>(<b>debug-detail</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates BODY while outputting ACT-UP debug information.</blockquote><a name="debug-detail*" /><p>(<b>debug-detail*</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>evaluates body while logging act-up debug information.
+the log output can be retrieved with <a href="#debug-log">debug-log</a>.</blockquote><a name="debug-log" /><p>(<b>debug-log</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>returns logged act-r output.
 if <a href="#*debug-to-log*">*debug-to-log*</a> is set to t, the ACT-UP debug log may be
 retrieved using this function.</blockquote><a name="define-chunk-type" /><p>(<b>define-chunk-type</b> type &rest members)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -163,18 +206,65 @@ in the model). </blockquote><a name="define-slots" /><p>(<b>define-slots</b> &re
 Only slot names defined using this macro may be used in chunks.
 Overrides any slot set defined earlier.</blockquote><a name="defrule" /><p>(<b>defrule</b> name args &rest body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>define an act-up rule.
-the syntax follows the lisp <a href="#defun">defun</a> macro, except
-that after arguments to the function to be greated, a 
-:group GROUP parameter may follow, defining one or more
-rule groups that the rule will belong to.  All rules
-defined as part of GROUP must have the same argument
-footprint.
+the syntax follows the lisp <a href="#defun">defun</a> macro, except that after arguments
+to the function to be created, some keyword-argument parameters may follow.
 
-This macro will define a Lisp function of name NAME with
-arguments ARGS.
+the known parameters are:
+:group the-group
+a :group parameter defines one or or a list of rule
+groups that the rule will belong to.  all rules defined as part of a
+group must have the same argument footprint.
 
-If GROUP is given, a function of name GROUP will also be
-defined that invokes one of the rules assigned to GROUP.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+this macro will define a lisp function of name name with
+arguments args.
+
+if group is given, a function of name group will also be
+defined that invokes one of the rules assigned to group.
+for example:
+
+(defrule subtract-digit-by-addition (minuend subtrahend)
+   :group subtract
+   "perform subtraction of a single digit via addition."
+   (let ((chunk (retrieve-chunk <a href="#(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (if chunk (addition-fact-add2 chunk))))
+(defrule subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via subtraction knowledge."
+   ...)
+
+These rules can be invoked via a function call such as
+
+ (subtract 5 2)
+
+ACT-UP will choose the rule that has the highest utility.  See
+`assign-reward">(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (if chunk (addition-fact-add2 chunk))))
+(defrule subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via subtraction knowledge."
+   ...)
+
+These rules can be invoked via a function call such as
+
+ (subtract 5 2)
+
+ACT-UP will choose the rule that has the highest utility.  See
+`assign-reward</a> for manipulation of utilities (reinforcement
+learning), and <a href="#*rule-compilation*">*rule-compilation*</a> for in-theory compilation of
+rules (routinization, internalization).
+
+:initial-utility u
+
+the :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
+if not given, the initial utility will be the value of <a href="#*iu*">*iu*</a> at time of first invocation.
+
+Rule utilities, wether initial or acquired through rewards are always specific to the model.
+
+Rules and groupings of rules are not specific to the model.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -210,7 +300,7 @@ if chunk types are defined with <a href="#define-chunk-type">define-chunk-type</
 <a href="#make-TYPE">make-TYPE</a> syntax instead.</blockquote><a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>An ACT-UP meta process.
 A meta process keeps track of time for one or more models.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="name" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> stream obj)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -240,8 +330,16 @@ SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2).
 
 TIMEOUT, if given, specifies the maximum time allowed before
-the retrieval fails.</blockquote><a name="set-base-levels-fct" /><p>(<b>set-base-levels-fct</b> list)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Set base levels of several chunk.
+the retrieval fails.</blockquote><a name="set-base-level-fct" /><p>(<b>set-base-level-fct</b> chunk value &optional creation-time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Set base levels of CHUNK.
+If CREATION-TIME is specified, it contains the time at which the chunk
+was created in declarative memory, and VALUE contains the number of
+presentations (an integer value).  If TIME is not specified, VALUE is
+the chunk's absolute activation value (log space).
+
+For plausibility reasons, models should specify presentations and time
+when possible.</blockquote><a name="set-base-levels-fct" /><p>(<b>set-base-levels-fct</b> list)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Set base levels of several chunks.
 ACT-R compatibility function.
 LIST contains elements of form (CHUNK PRES TIME) or (CHUNK ACT),
 whereas CHUNK is a chunk object or the name of a chunk,
@@ -264,4 +362,7 @@ For example:
                          (steve hank -0.1)  
                          (mary john -0.9)))</blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>prints all chunks in model model subject to constraints.
-see the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
+see the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><a name="show-utilities" /><p>(<b>show-utilities</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Prints a list of all utilities in the current model.</blockquote><a name="stop-actup-time" /><p>(<b>stop-actup-time</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>returns execution time of body in current act-up model.
+evaluates body.  see also <a href="#actup-time">actup-time</a>.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>

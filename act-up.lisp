@@ -1,4 +1,4 @@
-(setq *print-level* 5)
+(setq *print-level* 10)
 ;; ACT-UP
 ;; (C) Carnegie Mellon University,
 ;; (C) David Reitter, 2010
@@ -17,6 +17,42 @@
 ;; that's not right.. it should be learned for this to happen
 ;; should retrieve-chunk return a copy? 
 
+;; Solution
+;; When first adding the chunk, make a copy of the chunk, where all attributes that are non-act-up internal
+;; are copied and marked as read-only.  
+;; if they are act-up chunks, they should probably be changed to the chunk's names.
+;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
+
+
+;; concept for production compilation:
+
+;; - defrule function must be side-effect free
+;; - we dynamically do a special "defrule" after the rule has finished, with 
+;;   a special :arguments tag, which turns the function into a "predicate"
+
+;; compiled rules
+
+;; compiled-ruls is a hash
+
+
+
+;; ((group1 . (comprule1a comprule2 ...))
+;;   (group2 . (comprule3 comprule1b ...))
+
+
+;; comprule:
+
+;; (comp-rule-name-1 . (result . argument-values))
+
+;; utilities is a hash.  hash code refers to the rule by comp-rule-name-1 etc.
+
+
+;; When the rule group is called, we check compiled rules alongside the normal rules for the highest
+;; utility.  The compiled rule is then executed, with a standard time delay according to its utility.
+;; :vpft
+;; The Variable Production Firing Time parameter controls whether the time of a production’s firing is constant or variable. If the parameter is nil (the default value) then each production takes its specified action time exactly each time it fires. If :vpft is t, then the randomize-time command is used to randomize the production’s action time. Note that randomize-time depends on the setting of the :randomize-time parameter and if it is nil then there will be no randomization.
+
+
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
@@ -34,6 +70,7 @@ Anderson 2007, etc.).
 
 (load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
 (load (format nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
+(load (format nil "~a/act-up-util.lisp" (directory-namestring *load-truename*)))
 
 (defstruct meta-process
   "An ACT-UP meta process.
@@ -124,8 +161,9 @@ The log output can be retrieved with `debug-log'."
 (export '(show-utilities))
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
-  (maphash (lambda (x y) (print (cons x y))) 
-	   (act-up::procedural-memory-rule-utilities (act-up::model-pm (current-actup-model))))
+  (maphash (lambda (x y) (print (cons x (rule-utility y))))
+	   (act-up::procedural-memory-regular-rules (act-up::model-pm (current-actup-model))))
+  (print "Compiled rules not shown.")
   nil)
 
 ;; CHUNKS
@@ -134,7 +172,7 @@ The log output can be retrieved with `debug-log'."
 ;; all chunks inherit from this structure:
 
 
-(export '(actup-chunk define-chunk-type name chunk-type))
+(export '(actup-chunk define-chunk-type))
 
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
@@ -181,9 +219,9 @@ Includes Sji/Rji weights and cooccurrence data."
   (fcn 0 :type integer))
   
 (defun safe-slot-value (obj slot)
- (handler-case
-     (slot-value obj slot)
-   (error (v) nil)))
+  (handler-case
+      (slot-value obj slot)
+    (error (_v) _v nil)))
 (export '(pc))
 (defun pc (stream obj) 
   "Print a human-readable representation of chunk OBJ to STREAM.
@@ -269,13 +307,19 @@ Overrides any slot set defined earlier."
 
 ;; parameters
 
-(defparameter *bll* 0.5 "Base-level learning decay parameter")
-(defparameter *blc* 0.0 "Base-level constant parameter") 
-(defparameter *rt* 0.0 "Reaction time parameter")  ; can be (cons 'pres 4)
+(defparameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
+See also: ACT-R parameter :bll")
+(defparameter *blc* 0.0 "Base-level constant parameter for declarative memory.
+See also: ACT-R parameter :blc") 
+(defparameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
+Chunks with activation lower than `*rt*' are not retrieved.
+See also: ACT-R parameter :rt")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  
+(defparameter *ans* 0.2 "Transient noise parameter  for declarative memory.
+See also: ACT-R parameter :ans") ;; transient noise  
 
-(defparameter *dat* 0.05 "Default time that it takes to fire a production in seconds.")
+(defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP rule in seconds.
+See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 (export '(*bll* *blc* *rt* *ans* *dat*))
 
 ;; a model
@@ -293,7 +337,8 @@ Overrides any slot set defined earlier."
   (total-presentations 0 :type integer))
 
 (defstruct procedural-memory
-  (rule-utilities (make-hash-table))
+  (regular-rules (make-hash-table))
+  (compiled-rules (make-tree))
   (rule-queue nil :type list))
 
 (defstruct model 
@@ -314,11 +359,12 @@ Overrides any slot set defined earlier."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time actUP-time pass-time model-chunks 
+(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time stop-actup-time
+	  pass-time model-chunks 
 	  defrule assign-reward
 	  define-slots define-chunk-type
 	  make-chunk
-	  show-chunks chunk-name explain-activation chunk-get-activation
+	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
 	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
@@ -340,7 +386,18 @@ The model object is returned, but not used as current ACT-UP model.
 See also `set-current-actUP-model'."
   (make-model))
 
-(defun actUP-time (&optional meta-process)
+
+(defmacro stop-actup-time (&body body)
+  "Returns execution time of BODY in current ACT-UP model.
+Evaluates BODY.  See also `actup-time'."
+
+  `(let* ((mp *current-actUP-meta-process*)
+	  (actup---actup-time-t0 (meta-process-actUP-time mp)))
+     ,@body
+     (- (meta-process-actUP-time mp) actup---actup-time-t0)))
+
+
+(defun actup-time (&optional meta-process)
   "Returns the current runtime.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
@@ -351,7 +408,7 @@ It defaults to the current meta-process."
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
   (if (> seconds 0)
-  (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
+      (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
 	    (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))))
 
 
@@ -482,26 +539,28 @@ CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
 returns a list of chunks in case (1) and a list of conses in case (2)."
 
-  (let ((csn nil))
+  ;(let ((csn nil))
   (loop for chunk-or-cons in chunk-set append
        (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
-       (handler-case
-	 (if (loop for argval on args by #'cddr finally (return t) do
-		  (let* ((slot (setq csn  (normalize-slotname (first argval))))
-			 (vv (second argval))
-			 (slot-value (slot-value c slot)))
-		    (unless (or (if (and (actup-chunk-p vv) (actup-chunk-p slot-value))
-				    (equal slot-value vv) 
-				    (eq (get-chunk-name vv) (get-chunk-name slot-value)))
-				(and (eq vv 'non-nil) slot-value))
-		      (return nil))))
-	     (list chunk-or-cons)
-	     nil)
-	 (error (_) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (chunk-name c) nil))
-	   nil ;; it's not really an error or a special situation
-	   ;; we're going through all chunks that we have
-		))
-       ))))
+	 (handler-case
+	     (if (loop for argval on args by #'cddr finally (return t) do
+		      (let* ((slot ;(setq csn  
+			      (normalize-slotname (first argval))) ;)
+			     (vv (second argval))
+			     (slot-value (slot-value c slot)))
+			(unless (or (if (and (actup-chunk-p vv) (actup-chunk-p slot-value))
+					(equal slot-value vv) 
+					(eq (get-chunk-name vv) (get-chunk-name slot-value)))
+				    (and (eq vv 'non-nil) slot-value))
+			  (return nil))))
+		 (list chunk-or-cons)
+		 nil)
+	   (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (chunk-name c) nil))
+	     _v
+	     nil ;; it's not really an error or a special situation
+	     ;; we're going through all chunks that we have
+	     ))
+	 )));)
 
 
 (defun chunk-name (chunk)
@@ -512,8 +571,14 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 (defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
   "Internal to ACT-UP.")
 
-(defvar *ol* 3  "Optimized Learning parameter.
-OL is always on in ACT-UP.")
+(defvar *ol* 3  "Optimized Learning parameter for base-level learning in Declarative Memory.
+OL is always on in ACT-UP.
+See also: ACT-R parameter :ol")
+
+(defparameter *associative-learning* nil ; would be 1.0 if on
+  "The trigger for associative learning, a in ROM Equation 4.5.
+   Can be any non-negative value.")
+(export '(*ol* *associative-learning*))
 
 (defun learn-chunk (chunk &optional co-presentations)
   "Learn chunk CHUNK.
@@ -659,8 +724,10 @@ Returns nil if name is nil."
 	  num))))
        
 
-(defparameter *lf* 1.0)
-(defparameter *le* 1.0)
+(defparameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
+See ACT-R parameter :lf")
+(defparameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
+See ACT-R parameter :le")
 (export '(*lf* *le*))
 (defun best-chunk (confusion-set cues &optional request-spec timeout &rest options)
 "Retrieves the best chunk in confusion set.
@@ -706,7 +773,7 @@ See also the higher-level function `retrieve-chunk'."
 	  (if (and timeout (> duration timeout))
 	      ;; time's up
 	      (progn 
-		(debug-print *informational* "Retrieval time-out ~a reached." ~a)
+		(debug-print *informational* "Retrieval time-out ~a reached." timeout)
 		(pass-time timeout) 
 		nil)
 	      ;; return nil
@@ -763,7 +830,6 @@ See also the higher-level function `blend-retrieve-chunk'."
   ;;convert flat list into assoc list
   (let ((cues (get-chunk-objects cues))
 	(auto-chunk-type nil) 
-	(empty-chunk (make-chunk))
 	(blend-activation 0)
 	(retrieval-spec-alist
 	 (loop for (a b) on retrieval-spec by #'cddr collect
@@ -859,10 +925,6 @@ functions and model-independent rules."
 
 ;; So that's not ideal.  That's why AL is off by default. 
 
-(defparameter *associative-learning* nil ; would be 1.0 if on
-  "The trigger for associative learning, a in ROM Equation 4.5.
-   Can be any non-negative value.")
-(export '(*associative-learning*))
 (defun inc-rji-copres-count (c n)
   "increase co-presentation count for chunks C,N"
   (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
@@ -880,7 +942,9 @@ functions and model-independent rules."
 		 (cons (get-chunk-name c) link)
 		 (actup-chunk-references n)))))))
 
-(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength ACT-R parameter (:mas)")
+(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory
+See also `*associative-learning*', `reset-sji-fct'.
+See also: ACT-R parameter :mas.")
 (define-symbol-macro *mas* *maximum-associative-strength*) ; compatibility macro
 (export '(*maximum-associative-strength* *mas*))
 
@@ -956,11 +1020,14 @@ functions and model-independent rules."
 ;; ACT-R 6.0 compatibility functions
 (defun reset-sji-fct (chunk)
   "Removes all references to CHUNK from all other chunks in the current model."
+ 
   ;;; remove chunk from reciprocal references 
   (loop with chunk-name = (get-chunk-name chunk)
-     for (c . l) in (actup-chunk-related-chunks chunk) do
-       (setf (actup-chunk-references c)
-	     (delete-if (lambda (x) (eq (car x) chunk-name)) (actup-chunk-references c))))
+     for (c . _l) in (actup-chunk-related-chunks chunk) do
+       (progn
+	 _l
+	 (setf (actup-chunk-references c)
+	       (delete-if (lambda (x) (eq (car x) chunk-name)) (actup-chunk-references c)))))
   (setf (actup-chunk-related-chunks chunk) nil))
 
 
@@ -1293,58 +1360,202 @@ Value in activation (log) space.")
   alist)
 
 
+(defstruct rule
+  name  ; also function name of rule
+  utility
+  firing-time  ; :at parameter in ACT-R
+)
+
+(defstruct (compiled-rule (:include rule))
+  result
+  args
+  original-rule)
+
 (defmacro defrule (name args &rest body)
   "Define an ACT-UP rule.
-The syntax follows the Lisp `defun' macro, except
-that after arguments to the function to be greated, a 
-:group GROUP parameter may follow, defining one or more
-rule groups that the rule will belong to.  All rules
-defined as part of GROUP must have the same argument
-footprint.
+The syntax follows the Lisp `defun' macro, except that after arguments
+to the function to be created, some keyword-argument parameters may follow.
+
+The known parameters are:
+:GROUP the-group
+A :group parameter defines one or or a list of rule
+groups that the rule will belong to.  All rules defined as part of a
+group must have the same argument footprint.
 
 This macro will define a Lisp function of name NAME with
 arguments ARGS.
 
 If GROUP is given, a function of name GROUP will also be
-defined that invokes one of the rules assigned to GROUP."
+defined that invokes one of the rules assigned to GROUP.
+For example:
+
+\(defrule subtract-digit-by-addition (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via addition.\"
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (if chunk (addition-fact-add2 chunk))))
+\(defrule subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via subtraction knowledge.\"
+   ...)
+
+These rules can be invoked via a function call such as
+
+ (subtract 5 2)
+
+ACT-UP will choose the rule that has the highest utility.  See
+`assign-reward' for manipulation of utilities (reinforcement
+learning), and `*rule-compilation*' for in-theory compilation of
+rules (routinization, internalization).
+
+:INITIAL-UTILITY u
+
+The :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
+If not given, the initial utility will be the value of `*iu*' at time of first invocation.
+
+Rule utilities, wether initial or acquired through rewards are always specific to the model.
+
+Rules and groupings of rules are not specific to the model."
   ;; remove keyword args from body
-  (let ((groups
-	 (let (keyw group)
-	   (loop while (keywordp (setq keyw (car body))) do
-	     (setq body (cdr body))
-	     (case keyw
-	       (:group (setq group (pop body)))
-	       ;; (t (push keyw extra-keywords) (push (pop body) extra-keywords))
-	       ))
-	   (if (consp group) group (list group)))))
+  (let* ((doc-string "Invoke ACT-UP rule.")
+	 iu
+	 (groups
+	 (let (group)
+	   (loop for keyw = (car body) do
+		(cond
+		  ((stringp keyw)
+		   (setq doc-string keyw))
+		  ((eq keyw :group)
+		   (if group 
+		       (error 
+			(format nil "defrule ~s: more than one :GROUP keyword given."
+				name)))
+		   (setq group (pop body)))
+		  ((or (eq keyw :initial-utility) (eq keyw :iu))
+		   (if iu 
+		       (error 
+			(format nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
+				name)))
+		   (setq iu (pop body)))
+		  ((keywordp keyw) (pop body))
+		  (t (return nil))
+		  )
+		(setq body (cdr body))		 
+		) (if (consp group) group (list group)))))
+    (if (member name groups)
+	(error (format nil "defrule: rule name %s must not coincide with group name."
+		       name)))
+    (if (eq 'quote (car groups))
+	(setq groups (second groups)))
 
     `(progn
     (defun ,name ,args
-       (actup-rule-start ',name ',args)
+       ,doc-string
 ;; to do: handle signals
-       (let ((actup---rule-result
+       (let (
+	     (actup---rule (actup-rule-start ',name ,(cons 'list args) ,iu))
+	     (actup---rule-result
 	      (progn
 		,@body)))
-	 (actup-rule-end ',name actup---rule-result)
+	 (actup-rule-end actup---rule ',(or groups (list name))
+			 ,(cons 'list args) actup---rule-result)
 	 actup---rule-result))
     (declare-rule ',groups
 		   ',name ',args)
 )))
 
-(defun actup-rule-start (name args)
+(defun actup-rule-start (name args initial-utility)
+  (declare (ignore args))
   ;;(format t "start: ~s ~s" name args)
-  (push (cons (actup-time) name)
-	(procedural-memory-rule-queue (model-pm (current-actup-model)))))
-(defun actup-rule-end (_name _result)
+
+  ;; look up rule object
+  (let ((rule (lookup-rule name initial-utility)))
+    ;; add rule to queue
+    (push (cons (actup-time) rule)
+	  (procedural-memory-rule-queue (model-pm (current-actup-model))))
+    
+    ;; return rule
+    rule))
+
+(defun make-compiled-rule-name (group args result)
+  (intern (format nil "~a/~a->~a"
+		  group (length args)
+		  (cond ((symbolp result) result)
+			((numberp (format nil "~2f" result)))
+			((actup-chunk-p result) (get-chunk-name result))
+			(t "*")))))
+
+
+(defparameter *rule-compilation* nil "If non-nil, rule compilation is enabled.
+Rule compilation causes ACT-UP rules defined with `defrule' to be compiled (or: cached).
+After execution of a source rule,  name, execution arguments and the result are stored as
+compiled rule.  The compiled rule is added to each of the source rule's groups.
+
+When the group is executed, compiled rules compete for execution with the other rules in the group.  (The rule with the highest utility is chosen.)
+
+The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular rules.")
+(export '(*rule-compilation*))
+
+(defun actup-rule-end (this-rule groups args result)
+
+  ;; possibly compile this rule
+
+  ;; compile rule
+  (when *rule-compilation*
+    (loop for group in groups 
+       for leaf = (get-tree-leaf-create (procedural-memory-compiled-rules 
+					 (model-pm (current-actup-model)))
+					(cons group args))
+	 do
+	 (or
+	  ;; rule already present in list:
+	  (loop for rule in (cdr leaf) do
+	       
+	       (when (equal result (compiled-rule-result rule))
+		 ;; update utility of this rule
+		 (assign-reward-to-rule (rule-utility this-rule) rule)
+		 (return t)))
+	  (setf (cdr (last leaf))
+		(list 
+		 (make-compiled-rule
+		  :name (make-compiled-rule-name group args result)
+		  :args args
+		  :result result
+		  :utility (rule-utility this-rule)
+		  :original-rule (rule-name this-rule)
+		  :firing-time (rule-firing-time this-rule)))))))
+
   ;; (format t "end: ~s ~s" name result)
-  (pass-time *dat*) ;; to do: randomization (:vpft parameter)
+  (pass-time (or (rule-firing-time this-rule) *dat*)) ;; to do: randomization (:vpft parameter)
 )
 
 ;; this is, as of now, independent of the model
 (defparameter *actup-rulegroups* nil)
 
-(export '(*egs*))
-(defparameter *egs* nil) ;; transient rule noise
+
+(defparameter *au-rpps* 0.05
+  "Reward proportion per second elapsed.
+e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
+time is in between rules.
+See also the parameter `*au-rfr*' and the function `assign-reward'.")
+
+(defparameter *au-rfr* 0.10
+  "base reward proportion for each rule
+e.g., the each rule before the reward trigger gets 10% of the reward.
+See also the parameter `*au-rpps*' and the function `assign-reward'.")
+
+(defparameter *alpha* 0.2  "utility learning rate
+See also the function `assign-reward'.")
+
+(defparameter *iu* 0.0 "initial utility
+See also the function `assign-reward'.")
+
+(defparameter *egs* nil "Transient noise parameter for ACT-UP rules.
+See also: ACT-R parameter :egs")
+
+(export '(*au-rpps* *iu* *alpha* *au-rfr* *iu* *egs* assign-reward))
 
 (defun declare-rule (groups name args)
   ;; to do: check number of arguments 
@@ -1368,121 +1579,120 @@ defined that invokes one of the rules assigned to GROUP."
 		      *actup-rulegroups*)))))))
 
   
+
+;; we cannot use a normal hash
+;; because sxhash is simply not very good with objects
+;; (only seems to depend on object type)
+;; (defun rule-result-hash (name args)
+
+;;   ;; problem here:
+;;   ;; arguments could be chunks
+;;   ;; which, internally, can be very different
+
+;;   (sxhash (list name args)))
+
 ;; test case:
 ;; (defun rule2 (a1 a2) (print a1))
 ;; (actup-eval-rule 'g2 1 2)
+
+
+    
+
+(defun fire-compiled-rule (rule)
+  (pass-time 0.05)
+  (compiled-rule-result rule))
+
+(defun lookup-rule (name &optional initial-utility)
+  "Look up a rule in current model PM from rule name.
+Add a rule object to current model PM if necessary."
+
+  ;; look up rule object
+  (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-actup-model))))
+	 (rule (gethash name regular-rules)))
+
+    (unless rule
+      (setq rule (make-rule :name name :utility initial-utility))
+      (setf (gethash name regular-rules) rule))
+    rule))
+    
 (defun actup-eval-rule (group &rest args)
   "Evaluates an ACT-UP rule from rule group GROUP.
 Passes arguments ARG to the lisp function representing 
 the chose rule."
   ;; chose rule with highest utility
   ;; must randomize choice of rule even if *egs* is nil
-  (let ((grouprules (assoc group *actup-rulegroups*)))
-    (unless grouprules
-      (error (format nil "No rules defined for group ~a." grouprules)))
-    (let* ((utilities (procedural-memory-rule-utilities (model-pm (current-actup-model))))
-	 (rules)
-	 (rule-util
-	  (loop for r in (cdr grouprules) 
-	    with utility = -100000.0
-	    for r-utility = (+ (or (gethash r utilities) *iu*) 
-			       (if *egs* (act-r-noise *egs*) 0.0))
-	    when (>= r-utility utility)
-	    do
-	      (setq rules  (if (> r-utility utility) (list r) (cons r rules))
-		    utility r-utility)
-	    finally
-	      (return (list utility (choice rules)))))
-	(rule (second rule-util))
-	;; (util (car rule-util))
-	 )
-    (debug-print *informational* "Group ~a, choosing rule ~a (Utility ~a) from subset of ~a"
-	       group rule (first rule-util) (length rules))
-  (when rule
-    (apply rule args)))))
+  (let ((regular-rules (mapcar #'lookup-rule (cdr (assoc group *actup-rulegroups*))))
+	(compiled-rules 
+	 ;; the leaf value from the tree structure is list of COMPILED-RULE structures
+	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-actup-model)))
+			 (cons group args))))
+    (unless regular-rules
+      (error (format nil "No rules defined for group ~a." regular-rules)))                                                              
+    (let* ((rules)
+	   (rule-util
+	 
+		 (loop with utility = -100000.0
+		    for rule in (append regular-rules compiled-rules)
+		    for r-utility = (+ (or (rule-utility rule) *iu*) 
+				       (if *egs* (act-r-noise *egs*) 0.0))
+		    when (>= r-utility utility)
+		    do
+		      (setq rules  (if (> r-utility utility) 
+				       (list rule)   ; better
+				       (cons rule rules)) ; as good as others
+			    utility r-utility)
+		    finally
+		      (return (cons utility (choice rules)))))
+	   (rule (cdr rule-util)))
+      (debug-print *informational* "Group ~a, ~a~a matches, choosing rule ~a (Utility ~a) from subset of best ~a~%"
+		   group 
+		   (length regular-rules)
+		   (if *rule-compilation*
+		       (format nil "+~a" (length compiled-rules)))
+		   (rule-name rule) (first rule-util) (length rules))
+      (when rule
+	(if (compiled-rule-p rule) ;; compiled rule?	    
+	    (fire-compiled-rule rule) ;; (car rule) is result
+	    ;; regular rule:
+	    (apply (rule-name rule) args))))))
 
 
-(export '(*au-rpps* *iu* *alpha* *au-rfr* assign-reward))
-(defparameter *au-rpps* 0.05
-  "Reward proportion per second elapsed.
-e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
-time is in between rules.
-See also the parameter `*au-rfr*' and the function `assign-reward'.")
-
-(defparameter *au-rfr* 0.10
-  "base reward proportion for each rule
-e.g., the each rule before the reward trigger gets 10% of the reward.
-See also the parameter `*au-rpps*' and the function `assign-reward'.")
-
-(defparameter *alpha* 0.2  "utility learning rate
-See also the function `assign-reward'.")
-
-(defparameter *iu* 0.0 "initial utility
-See also the function `assign-reward'.")
-
-;; just a linear backpropagatino over time
+;; just a linear backpropagation over time
 ; quue elements: (time . hash)
 (defun assign-reward (reward)
   "Assign reward to recently invoked rules.
 Distributes reward value REWARD across the recently invoked rules.
 See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
+See `defrule' for documentation on how to use utility when
+selecting between rules.
 
 Reward must be greater than 0."
-  (let ((utilities (procedural-memory-rule-utilities (model-pm (current-actup-model))))
-	(time (actup-time))
-	(last-time (actup-time)))
+  (let ((last-time (actup-time)))
     (debug-print *informational* "Assigning reward ~a~%" reward)
     (loop for rc in (procedural-memory-rule-queue (model-pm (current-actup-model))) do
-
 	 (let* ((r-time (car rc))
-		(r-rule-signature (cdr rc))
+		(r-rule (cdr rc))
 		(reward-portion (* reward
 				   (+ *au-rfr*
 				      (* *au-rpps* (- last-time r-time))))))
-
+	   (if (< reward-portion 0) (return nil))
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
-	   ;; assign reward
-	   (let* ((current (or (gethash r-rule-signature utilities) *iu*))
-		  (scaled (* *alpha* (- reward-portion current))))
-	     
-	     (if (< scaled 0) (return))
-	     (debug-print *informational* "Assigning reward ~a to ~a.~%" scaled r-rule-signature)
-	     (setf (gethash r-rule-signature utilities)
-		   (+ current scaled))
-	     )))
+	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
+	   ))
     ;; (setf (procedural-memory-rule-utilities (model-pm (current-actup-model)))
     ;; 	  utilities)
     ))
 
-
-;; test case
-
-(defun test-reward-assignment ()
-  (reset-model)
-  (setq *actup-rulegroups* nil)
-  (defrule rule1 (arg1 _arg2) :group g1 1)
-  (defrule rule1b (arg1 _arg2) :group (g1 g5) '1b)
-  (defrule rule2 (arg2 _arg3) :group (g1 g2) 2)
-  (defrule rule3 (arg3 arg4) :group g2 3)
-  
-
-  (print (g1 5 6))
-  (print (g1 5 6))
-  (print (g1 5 6))
-  (print (g1 5 6))
-  (rule1 1 2)
-  (rule2 1 2)
-  (assign-reward 10.0)
-  (print 'reward-mostly-to-rule2)
-  (print (g1 5 6))
-
-  (print (g1 5 6))
-  (print (g1 5 6))
-  (print (g1 5 6))
-)
-
-
+(defun assign-reward-to-rule (reward-portion rule)
+  "Assign reward to a specific rule."
+  ;; assign reward
+	   (let* ((current (or (rule-utility rule) *iu*))
+		  (scaled (* *alpha* (- reward-portion current))))
+	     (debug-print *informational* "Assigning reward ~a to ~a.~%" scaled (rule-name rule))
+	     (setf (rule-utility rule)
+		   (+ current scaled))
+	     ))
 
 
 

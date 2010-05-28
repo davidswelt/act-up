@@ -7,4 +7,7 @@
 ;; visual module (not modeled)
 
 (defun visual-move-attention (&key kind screen-x screen-y)
+  kind
+  screen-x
+  screen-y
 nil)

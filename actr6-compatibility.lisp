@@ -8,7 +8,8 @@
 (load (format nil "~a/misc-utils.lisp" (directory-namestring *load-truename*)))
 
 (defmacro define-module-fct (&rest args)
-	  nil)
+  (declare (ignore args))
+  nil)
 
 (defvar *actr-random-module* nil)
 
