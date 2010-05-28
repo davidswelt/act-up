@@ -1,0 +1,201 @@
+;; Siegler Model
+;; paralleling the ACT-R 6 tutorial
+;; translated to ACT-UP
+
+;; D. Reitter / J. Ajmani
+;; Carnegie Mellon University, 2010
+
+;; Unlike the model in the tutorial, this model does not describe any
+;; deterministic goings-on: aural module, encoding, decoding are left
+;; out, because these steps do not contribute to the variance in the
+;; data.  We achieve the same fit to the data.
+
+;; run like this:
+
+; (run-subjects 1000)
+
+;; parameter fitting (demo)
+
+; (fit-parameters)
+
+
+(load "../actr-stats.lisp")
+(require "act-up" "../act-up.lisp")
+(use-package :act-up)
+
+(setq *rt* -.45
+      *ans* .5 
+      *bll* nil  ; defaults to nil in ACT-R
+      *mp* 16)
+      
+
+(defvar *siegler-data* '((0   .05 .86  0  .02  0  .02  0   0  .06)
+                         (0   .04 .07 .75 .04  0  .02  0   0  .09)
+                         (0   .02  0  .10 .75 .05 .01 .03  0  .06)
+                         (.02  0  .04 .05 .80 .04  0  .05  0   0)
+                         (0    0  .07 .09 .25 .45 .08 .01 .01 .06)
+                         (.04  0   0  .05 .21 .09 .48  0  .02 .11))
+ "The experimental data to be fit")
+
+
+;;;; chunk-types
+(define-chunk-type plus-fact addend1 addend2 sum)
+(defun num-name (num)
+  (nth num '(zero one two three four five six seven eight nine ten)))
+(defun name-num (name)
+  (position name '(zero one two three four five six seven eight nine ten)))
+;; (defun name-num (name)
+;;   (if name
+;;       (position name '("zero" "one" "two" "three" "four" "five" "six" "seven" "eight" "nine" "ten") :test #'equal)))
+
+(defun init-model ()
+  (reset-model)
+;;;; committing chunks to memory
+  (loop for a from 0 to 5 do 
+       (loop for b from 0 to 5 
+	    when (< (+ a b) 10) do
+	    (set-base-level-fct 
+	     (learn-chunk (make-plus-fact :name (intern (format nil "~a+~a" a b))
+					  :addend1 (num-name a)
+					  :addend2 (num-name b) 
+					  :sum (num-name (+ a b))))
+			  (if (< (+ a b) 5) 0.65 0.0))))
+  (set-similarities-fct 
+   (loop for a from 0 to 5 append 
+	(loop for b from (1+ a) to 5 when (< (+ a b) 10) collect
+	     (list (num-name a) (num-name b) (- (float (/ (abs (- a b)) 10))))))))
+  
+
+;;;; defining productions
+(defrule test-fact (arg1 arg2)
+  ;; encoding /aural is deterministic in ACT-R
+  (pass-time 1.0)
+  (let ((cfd  (retrieve-chunk (list :chunk-type 'plus-fact)
+			      nil
+			      (list
+			       :addend1 arg1 :addend2 arg2))))
+    (pass-time 0.4)
+    (if cfd (plus-fact-sum cfd))))
+  
+(defun test-one-fact (arg1 arg2)
+  "Run the model once."
+  (init-model)
+  (test-fact arg1 arg2))
+
+(defun do-one-set ()
+
+  (init-model)
+  (list (test-one-fact 'one 'one)
+        (test-one-fact 'one 'two)
+        (test-one-fact 'one 'three)
+        (test-one-fact 'two 'two)
+        (test-one-fact 'two 'three)
+        (test-one-fact 'three 'three)))
+
+(defvar *responses* nil)
+(defun run-subjects (n)
+  (let ((responses nil))
+    (dotimes (i n)
+      (push (do-one-set) responses))
+    (setq *responses* responses)
+    (analyze responses)))
+
+(defun aggregate-responses (responses)
+  (mapcar (lambda (x) 
+             (mapcar (lambda (y) 
+                       (/ y (length responses))) x))
+     (apply #'mapcar 
+            (lambda (&rest z) 
+              (let ((res nil))
+                (dolist (i '(zero one two three four five six seven eight))
+                  (push (count i z ) res)
+                  (setf z (remove i z )))
+                (push (length z) res)
+                (reverse res)))
+            responses)))
+(defun analyze (responses)
+  (display-results 
+   (aggregate-responses responses)))
+
+(defun display-results (results)
+  (let ((questions '("1+1" "1+2" "1+3" "2+2" "2+3" "3+3")))
+    (correlation results *siegler-data*)
+    (mean-deviation results *siegler-data*)
+    (format t "       0     1     2     3     4     5     6     7     8   Other~%")
+    (dotimes (i 6)
+      (format t "~a~{~6,2f~}~%" (nth i questions) (nth i results)))))
+
+(defun fit-parameters ()
+
+  (loop for *mp* from 12.0 to 18.0 by 1.0
+       do
+       (loop for *ans* from 0.2 to 0.6 by 0.1 do
+	    (let ((responses nil))
+	      (dotimes (i 100)
+		(push (do-one-set) responses))
+	      (let ((results (aggregate-responses responses)))
+		(format t "                                  mp:~a  ans:~a   c:~a     d:~a  ~%"
+			*mp* *ans*
+			(correlation results *siegler-data*)
+			(mean-deviation results *siegler-data*)))))))
+
+(defun output-responses ()
+  (format t "~{~a ~}~%" '("c11" "c12" "c13" "c22" "c23" "c33"))
+  (loop for s in *responses* do
+      (format t "~{~a ~}~%"
+	      (mapcar 'name-num s))))
+ ;; d = read.table("/Users/dr/ACT-UP/siegler-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
+;; ds = read.table("/Users/dr/ACT-UP/siegler-actr-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
+;;  plot(density(d$c12,na.rm=T,n=18,from=0, to=8, kernel="g",adjust=10))
+
+s11 = c(0 ,  .05, .86 , 0  ,.02 , 0 , .02 , 0 ,  0 , .06)
+s12 = c(0 ,  .04 ,.07 ,.75 ,.04 , 0 , .02 , 0 ,  0 , .09)
+s13 = c(0 ,  .02 , 0  ,.10 ,.75 ,.05, .01 ,.03,  0 , .06)
+s22 = c(.02 , 0 , .04 ,.05 ,.80 ,.04 , 0 , .05 , 0 ,  0)
+s23 = c(0   , 0 , .07 ,.09 ,.25 ,.45 ,.08,.01, .01, .06)
+s33 = c(.04 , 0 ,  0  ,.05 ,.21 ,.09 ,.48 , 0 , .02, .11)
+
+pl <- function (problem, actup, actr, siegler, add=FALSE)
+{
+sx = c(0,1,2,3,4,5,6,7,8,NA)
+if (add)
+{
+  lines(names(table(actup)),table(actup)/length(actup), type="l", col="red", lty=2)
+} else
+{
+  plot(names(table(actup)),table(actup)/length(actup), type="l", col="red", lty=2,ylim=c(0,0.85),xlim=c(0,8),main=problem, ylab="p", xlab="response")
+}
+lines(sx,siegler, type="l", col="blue")
+lines(names(table(actr)),table(actr)/length(actr), lwd=2, col="black", lty=3)
+}
+
+quartz()
+pl("1+1", d$c11, ds$c11, s11)
+
+quartz()
+pl("1+2", d$c12, ds$c12, s12)
+
+quartz()
+pl("2+3", d$c23, ds$c23, s23)
+
+quartz()
+pl("3+3", d$c33, ds$c33, s33)
+
+quartz()
+pl("", d$c12, ds$c12, s12)
+pl("", d$c11, ds$c11, s11, TRUE)
+pl("", d$c33, ds$c33, s33, TRUE)
+
+# all others:
+pl("", d$c23, ds$c23, s23, TRUE)
+pl("", d$c22, ds$c22, s22, TRUE)
+pl("", d$c12, ds$c12, s12, TRUE)
+pl("", d$c22, ds$c22, s22, TRUE)
+pl("", d$c13, ds$c13, s13, TRUE)
+
+# legend
+pdf("response-legend.pdf", height=4, width=5)
+plot(c(0,5),c(0.1,0.1), type="l", col="blue", ylim=c(0,0.85),xlim=c(0,8),main="", ylab="p", xlab="response")
+lines(c(0,5),c(0.2,0.2),  type="l", col="red", lty=2)
+lines(c(0,5),c(0.3,0.3), lwd=2, col="black", lty=3)
+dev.off()
