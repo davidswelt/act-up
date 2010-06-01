@@ -446,7 +446,7 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 			       (format nil "~a: ~a" (get-chunk-name cue)
 				  (if  (and link (actup-link-sji link))
 				       (format nil "Sji: ~a " (actup-link-sji link))
-				       (format nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (if (and rji (> rji 0)) (log rji) 0.0))))))))
+				       (format nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
 		"")
 	    (if retr-spec 
 		(format nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
@@ -542,7 +542,7 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
   ;(let ((csn nil))
   (loop for chunk-or-cons in chunk-set append
        (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
-	 (handler-case
+	 ;; (handler-case
 	     (if (loop for argval on args by #'cddr finally (return t) do
 		      (let* ((slot ;(setq csn  
 			      (normalize-slotname (first argval))) ;)
@@ -555,11 +555,13 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 			  (return nil))))
 		 (list chunk-or-cons)
 		 nil)
-	   (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (chunk-name c) nil))
-	     _v
-	     nil ;; it's not really an error or a special situation
-	     ;; we're going through all chunks that we have
-	     ))
+	   ;; (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (chunk-name c) nil))
+	   ;;   (print _v)
+	   ;;   _v
+	   ;;   nil ;; it's not really an error or a special situation
+	   ;;   ;; we're going through all chunks that we have
+	   ;;   )
+	   )
 	 )));)
 
 
@@ -866,7 +868,7 @@ See also the higher-level function `blend-retrieve-chunk'."
 		   (cons act (slot-value c slot)) ;; value
 		   (cdr (assoc slot slot-values-by-name)))))))
     
-    (setq blend-activation (if (> blend-activation 0) (log blend-activation) 0)) 
+    (setq blend-activation (log-safe blend-activation) 0)
    
     ;; let's blend
     ;; currently, only numerical values are supported    
@@ -902,7 +904,6 @@ See also the higher-level function `blend-retrieve-chunk'."
 		      (when sum
 			(list (car sv) (/ sum boltzmann-total)))))))
        nil)))
-
 (defun reset-mp ()
   "Resets the current Meta process. 
 Resets the time in the meta process."
@@ -1287,14 +1288,14 @@ possible."
 		 (+ (or 
 		     (if *associative-learning*
 			 (+ (if link (actup-link-sji link) 0) ; add on Sji (is this the right thing to do?)
-			    (let ((rji (chunk-get-rji cue chunk))) (if rji (log rji))))
+			    (let ((rji (chunk-get-rji cue chunk))) (log-safe rji)))
 			 ;; assoc learning is off:
 			 (or
 			  (if link (actup-link-sji link)) ;; Sji
 			  ;; get Rji (prior) for fan effect if Sji isn't set
 			  (let ((rji (chunk-get-rji cue chunk))) 
 			    ;; convert RJI to log space!
-			    (if rji (log rji)))))
+			    (log-safe rji nil))))
 		     ;; this doubles the lookup in related chunks - to revise!:
 		     0.0))) ;; Rji (actup-link-rji link)
 	    (length cues)))

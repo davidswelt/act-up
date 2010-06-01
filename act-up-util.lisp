@@ -1,6 +1,13 @@
 
 (in-package :act-up)
 
+;; VARIOUS
+
+
+(defun log-safe (val &optional (default 0.0))
+  (if (and val (> val 0))
+      (log val)
+      default))
 
 ;; TREE STRUCTURE
 ;; this implements an unsorted tree
