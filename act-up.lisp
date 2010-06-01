@@ -1426,7 +1426,17 @@ Rule utilities, wether initial or acquired through rewards are always specific t
 
 Rules and groupings of rules are not specific to the model."
   ;; remove keyword args from body
-  (let* ((doc-string "Invoke ACT-UP rule.")
+  (let* (
+	 (args-filtered (loop for a in args 
+			     when (or (consp a)
+				      (and (symbolp a)
+					   (not (eq a '&optional))
+					   (not (eq a '&key))))
+			     collect
+			     (if (consp a)
+				 (car a)
+				 a)))
+	 (doc-string "Invoke ACT-UP rule.")
 	 iu
 	 (groups
 	 (let (group)
@@ -1464,12 +1474,12 @@ Rules and groupings of rules are not specific to the model."
        ,doc-string
 ;; to do: handle signals
        (let (
-	     (actup---rule (actup-rule-start ',name ,(cons 'list args) ,iu))
+	     (actup---rule (actup-rule-start ',name ,(cons 'list args-filtered) ,iu))
 	     (actup---rule-result
 	      (progn
 		,@body)))
 	 (actup-rule-end actup---rule ',(or groups (list name))
-			 ,(cons 'list args) actup---rule-result)
+			 ,(cons 'list args-filtered) actup---rule-result)
 	 actup---rule-result))
     (declare-rule ',groups
 		   ',name ',args)
