@@ -172,7 +172,9 @@ The log output can be retrieved with `debug-log'."
 ;; all chunks inherit from this structure:
 
 
-(export '(actup-chunk define-chunk-type))
+(export '(actup-chunk define-chunk-type 
+	  ;; public members of actup-chunk:
+	  name chunk-type))
 
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
