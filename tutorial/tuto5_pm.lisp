@@ -2,7 +2,7 @@
 
 ;; (load "act-up.lisp")
 
-(require "act-up" "../act-up.lisp")
+(require "act-up" "act-up.lisp")
 (use-package :act-up)
 (load "actr-stats")
 					;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
@@ -183,3 +183,8 @@
 	 (correlation rts *person-location-data*)
 	 (mean-deviation rts *person-location-data*))))
        
+
+
+(defrule test (person location &optional 
+		      target term)
+  nil)
