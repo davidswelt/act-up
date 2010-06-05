@@ -1,5 +1,9 @@
 ;; fan.lisp
 
+;; FAN EFFECT DEMONSTRATION
+
+; to run: (average-person-location)
+
 ;; (load "act-up.lisp")
 
 (require "act-up" "act-up.lisp")

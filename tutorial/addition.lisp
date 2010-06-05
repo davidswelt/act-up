@@ -1,4 +1,4 @@
-; addition in ACT-UP
+; simple addition in ACT-UP
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)

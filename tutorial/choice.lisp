@@ -1,3 +1,8 @@
+;; Choice.lisp
+;; demonstrates utility learning
+
+;; run with (do-set)
+
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 

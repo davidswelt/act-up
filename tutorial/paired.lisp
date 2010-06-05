@@ -1,4 +1,5 @@
 ;; paired associates model in ACT-UP
+;; to run:  (run-exp)
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
@@ -40,7 +41,7 @@
 	  ;; we wait until 5 seconds are over
 	  
 	  (print (- (actup-time) t0))
-	  (actUP-pass-time (- 5 (- (actup-time) t0)))))
+	  (pass-time (- 5 (- (actup-time) t0)))))
 
 
     ;; now, we get to see the digit and we can learn the chunk
@@ -49,7 +50,7 @@
 
     ;; we see it for 5 seconds
 
-    (actUP-pass-time 5)
+    (pass-time 5)
 
     ;; if retrieved, we type the probe's number (not modeled)
     (if ch (chunk-answer ch) nil)))
