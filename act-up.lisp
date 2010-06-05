@@ -24,35 +24,6 @@
 ;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
 
 
-;; concept for production compilation:
-
-;; - defrule function must be side-effect free
-;; - we dynamically do a special "defrule" after the rule has finished, with 
-;;   a special :arguments tag, which turns the function into a "predicate"
-
-;; compiled rules
-
-;; compiled-ruls is a hash
-
-
-
-;; ((group1 . (comprule1a comprule2 ...))
-;;   (group2 . (comprule3 comprule1b ...))
-
-
-;; comprule:
-
-;; (comp-rule-name-1 . (result . argument-values))
-
-;; utilities is a hash.  hash code refers to the rule by comp-rule-name-1 etc.
-
-
-;; When the rule group is called, we check compiled rules alongside the normal rules for the highest
-;; utility.  The compiled rule is then executed, with a standard time delay according to its utility.
-;; :vpft
-;; The Variable Production Firing Time parameter controls whether the time of a production’s firing is constant or variable. If the parameter is nil (the default value) then each production takes its specified action time exactly each time it fires. If :vpft is t, then the randomize-time command is used to randomize the production’s action time. Note that randomize-time depends on the setting of the :randomize-time parameter and if it is nil then there will be no randomization.
-
-
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
@@ -162,7 +133,7 @@ The log output can be retrieved with `debug-log'."
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
   (maphash (lambda (x y) (print (cons x (rule-utility y))))
-	   (act-up::procedural-memory-regular-rules (act-up::model-pm (current-actup-model))))
+	   (act-up::procedural-memory-regular-rules (act-up::model-pm (current-model))))
   (print "Compiled rules not shown.")
   nil)
 
@@ -182,6 +153,7 @@ Derive your own chunks using this as a base structure
 by using `define-chunk'."
   ;; helpful for debugging
   (name (gensym "CHUNK") :read-only t)
+  (comment) ;; documentation / comments
   (chunk-type nil)
   (attrs nil)  ;; list of user-defined slots
 
@@ -361,32 +333,43 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time stop-actup-time
+(export '(current-model set-current-model make-model with-current-model 
+	  actUP-time stop-actup-time
 	  pass-time model-chunks 
 	  defrule assign-reward
 	  define-slots define-chunk-type
-	  make-chunk
+	  make-chunk ; for untyped chunks
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
 	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
 
+(defun current-model ()
+  "Evaluates to the currently active ACT-UP model."
+  (or *current-actUP-model*
+      (error "No model active.")))
+
 (defun current-actUP-model ()
   "Evaluates to the currently active ACT-UP model."
   (or *current-actUP-model*
       (error "No model active.")))
 
-(defun set-current-actUP-model (new-model)
+(defun set-current-model (new-model)
   "Switches the currently active ACT-UP model.
 This may set a range of model parameters."
   (setq *current-actUP-model* new-model))
 
-(defun make-actUP-model ()
-  "Create an ACT-UP model.
-The model object is returned, but not used as current ACT-UP model.
-See also `set-current-actUP-model'."
-  (make-model))
+(defmacro with-current-model (model &body body)
+  "Execute forms in BODY with the ACT-UP model MODEL being current."
+  `(let ((*current-actUP-model* ,model))
+     ,@body))
+
+;; (defun make-model ()
+;;   "Create an ACT-UP model.
+;; The model object is returned, but not used as current ACT-UP model.
+;; See also `set-current-model'."
+;;   (make-model))
 
 
 (defmacro stop-actup-time (&body body)
@@ -494,7 +477,7 @@ the retrieval fails."
 					 spec))
 	 (best-chunk (best-chunk matching-chunks
 				 cues pm-soft-spec timeout)))
-    (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (chunk-name best-chunk) "one") "none") (length matching-chunks))
+    (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (actup-chunk-name best-chunk) "one") "none") (length matching-chunks))
     (debug-print *informational* "~a~%" (explain-activation best-chunk cues pm-soft-spec))
     ;; to do: add if to make fast
     (loop for c in matching-chunks do 
@@ -544,7 +527,7 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
   ;(let ((csn nil))
   (loop for chunk-or-cons in chunk-set append
        (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
-	 ;; (handler-case
+	 (handler-case
 	     (if (loop for argval on args by #'cddr finally (return t) do
 		      (let* ((slot ;(setq csn  
 			      (normalize-slotname (first argval))) ;)
@@ -557,19 +540,13 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 			  (return nil))))
 		 (list chunk-or-cons)
 		 nil)
-	   ;; (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (chunk-name c) nil))
-	   ;;   (print _v)
-	   ;;   _v
-	   ;;   nil ;; it's not really an error or a special situation
-	   ;;   ;; we're going through all chunks that we have
-	   ;;   )
-	   )
-	 )));)
+	   (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (actup-chunk-name c) nil))
+	     ;;   (print _v)
+	     _v
+	     nil ;; it's not really an error or a special situation
+	     ;;   ;; we're going through all chunks that we have
+	 )))))
 
-
-(defun chunk-name (chunk)
-  "Returns the unique name of a chunk."
-  (actup-chunk-name chunk))
 
 
 (defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
@@ -643,7 +620,7 @@ Returns the added chunk."
 
     ;; update occurs-in lists in other (contained) chunks
     ;; OPTIMIZE: don't do this if chunk is already (unchanged) in DM
-    (loop with name = (chunk-name chunk)
+    (loop with name = (actup-chunk-name chunk)
        for slot in (slot-value chunk 'act-up::attrs)  ;; (structure-alist c) do
        for val = (slot-value chunk slot)
        when (symbolp val)
@@ -694,13 +671,13 @@ If the object is not in the DM, add it."
   ;; we don't reuse get-chunk-object in order to not search the chunk set twice.
   (if (actup-chunk-p chunk-or-name)
       (progn 
-	(if (not (member chunk-or-name (model-chunks (current-actup-model))) )
-	    (push chunk-or-name (model-chunks (current-actup-model))))
+	(if (not (member chunk-or-name (model-chunks (current-model))) )
+	    (push chunk-or-name (model-chunks (current-model))))
 	chunk-or-name)
       (or (get-chunk-by-name chunk-or-name)
 	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
 	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
-	    (push chunk (model-chunks (current-actup-model)))
+	    (push chunk (model-chunks (current-model)))
 	    chunk
 	  ))))
 
@@ -748,6 +725,7 @@ See also the higher-level function `retrieve-chunk'."
   (if confusion-set
       (let* ((last-retrieved-activation nil)
 	     (cues (get-chunk-objects cues))
+	     (below-rt-count 0)
 	     (best  (loop  with bc = nil with bs = nil 
 		       for c in confusion-set
 		       when (if (eq options 'inhibit-cues) (not (member c cues)) t)
@@ -759,8 +737,10 @@ See also the higher-level function `retrieve-chunk'."
 				       (> (length (actup-chunk-presentations c)) (cdr *rt*))
 				       (> s *rt*)))
 			       (when (or (not bc) (> s bs)) (setq bc c bs s))
-			       
-					;	  (say "chunk ~a falls below RT" (concept-name c))
+			       (progn
+				 (debug-print *informational* "chunk ~a's activation (~a) falls below RT (~a)~%" (get-chunk-name c) s *rt*)
+				 (debug-print *detailed* "chunk ~a: ~a~%" (get-chunk-name c) c)
+				 (incf below-rt-count))
 			       ))
 		       finally
 			 (progn (setq last-retrieved-activation 
@@ -825,11 +805,13 @@ CHUNKS; attribute-value pairs in it will be included in the returned
 chunk as-is and not be blended from the CHUNKS.
 
 See also the higher-level function `blend-retrieve-chunk'."
- 
+  
 
- 
+  
   (if (and chunk-type (symbolp chunk-type))
       (setq chunk-type (find-class chunk-type)))
+
+  (debug-print *informational* "Blending ~a different chunks..." (length chunks))
 
   ;;convert flat list into assoc list
   (let ((cues (get-chunk-objects cues))
@@ -856,8 +838,8 @@ See also the higher-level function `blend-retrieve-chunk'."
 	 (let ((act (actup-chunk-get-activation c cues retrieval-spec)))
 	   (setq blend-activation (+ blend-activation
 				     (exp act)))
-	   (loop for slot in  (slot-value c 'act-up::attrs)  ;; (structure-alist c) do
-		do
+	   (loop for slot in  (slot-value c 'act-up::attrs)  ;; e.g., 'error
+	      do
 		(when (and (not (assoc slot retrieval-spec-alist))
 			   ;; not an internal slot from "chunk"
 			   ;; don't think we still need this
@@ -870,8 +852,8 @@ See also the higher-level function `blend-retrieve-chunk'."
 		   (cons act (slot-value c slot)) ;; value
 		   (cdr (assoc slot slot-values-by-name)))))))
     
-    (setq blend-activation (log-safe blend-activation) 0)
-   
+    (setq blend-activation (log-safe blend-activation 0))
+    
     ;; let's blend
     ;; currently, only numerical values are supported    
     
@@ -879,33 +861,43 @@ See also the higher-level function `blend-retrieve-chunk'."
     ;; to do: return real object
     ;; (class-of c) ??
     ;; (make-instance class ...)
+    (debug-print *informational* "blending ~a slots" (length slot-values-by-name))
+    (debug-print *detailed* "~a" slot-values-by-name)
 
-   (if (and (> blend-activation *rt*) (or retrieval-spec slot-values-by-name))
-       ;; (apply #'make-instance    does not work for structures (openmcl)
-       ;; 	      chunk-type 
-       (apply (find-symbol (format nil "MAKE-~a" (class-name chunk-type)))
-	      :last-bl-activation blend-activation
-	      :activation-time (actup-time)
-	      :comment 'blended
-	      (append
-	       retrieval-spec
-	       (loop for sv in slot-values-by-name append
-		  ;; calculate weighted mean
-		  ;; weights are determined by boltzmann activation of each chunk
-		  ;; i.e. retrieval probability
-		  ;; Pi = exp(Ai/t) / sum(j, exp(Aj/t))
-		    
-		    (let* ((boltzmann-total 0)
-			   (sum
-			    (loop for (a . n) in (cdr sv) sum
-				 (if (numberp n)
-				     (let ((boltzmann-act  (exp (/ a *blend-temperature*))))
-				       (setq boltzmann-total (+ boltzmann-total boltzmann-act)) ; denominator in boltzmann eq
-				       (* boltzmann-act n))
-				     (return nil)))))
-		      (when sum
-			(list (car sv) (/ sum boltzmann-total)))))))
-       nil)))
+    (if (> blend-activation *rt*)
+	;; (apply #'make-instance    does not work for structures (openmcl)
+	;; 	      chunk-type 
+	(if (or retrieval-spec slot-values-by-name)
+	    (apply (find-symbol (format nil "MAKE-~a" (class-name chunk-type)))
+		   :last-bl-activation blend-activation
+		   :activation-time (actup-time)
+		   :comment 'blended
+		   (append
+		    retrieval-spec
+		    (loop for sv in slot-values-by-name append
+		       ;; calculate weighted mean
+		       ;; weights are determined by boltzmann activation of each chunk
+		       ;; i.e. retrieval probability
+		       ;; Pi = exp(Ai/t) / sum(j, exp(Aj/t))
+			 
+			 (let* ((boltzmann-total 0)
+				(sum
+				 (loop for (a . n) in (cdr sv) sum
+				      (if (numberp n)
+					  (let ((boltzmann-act  (exp (/ a *blend-temperature*))))
+					    (setq boltzmann-total (+ boltzmann-total boltzmann-act)) ; denominator in boltzmann eq
+					    (* boltzmann-act n))
+					  (return nil)))))
+			   (when sum
+			     (list (find-symbol (symbol-name (car sv)) "KEYWORD")  ;; 'error-1 --> :error-1
+				   (/ sum boltzmann-total)))))))
+	    (progn
+	      (debug-print *warning* "No retrieval spec given, and no slots found to be blended.  Blending failed.")
+	      nil))
+	(progn
+	  (debug-print *warning* "Resulting blend activation ~a below retrieval threshold (*rt*=~a).  Blending failed." blend-activation *rt*)
+	  nil))))
+
 (defun reset-mp ()
   "Resets the current Meta process. 
 Resets the time in the meta process."
@@ -963,7 +955,7 @@ See also: ACT-R parameter :mas.")
 
 (defun count-occurrences (chunk)
   "Count occurrences of CHUNK as value in all other chunks"
-  (loop with name = (chunk-name chunk)
+  (loop with name = (actup-chunk-name chunk)
      for cn in (actup-chunk-occurs-in chunk) 
      for c = (get-chunk-object cn)
      sum
@@ -989,7 +981,7 @@ See also: ACT-R parameter :mas.")
     (if fan
 	(/ (if (numberp *maximum-associative-strength*)
 	       (exp *maximum-associative-strength*)  ; MAS is in log space
-	       (length (model-chunks (current-actup-model))))
+	       (length (model-chunks (current-model))))
 	   fan)  ; num refs for context c
 	1)))
 
@@ -1123,7 +1115,7 @@ unused currently, but must be given.)"
 (defun set-dm-total-presentations (npres)
   "Set the count of total presentations of all chunks in DM.
 This value is relevant for associative learning (Sji/Rji)."
-  (setf (declarative-memory-total-presentations (model-dm (current-actup-model))) npres))
+  (setf (declarative-memory-total-presentations (model-dm (current-model))) npres))
 
 (defun set-base-level-fct (chunk value &optional creation-time)
   "Set base levels of CHUNK.
@@ -1167,7 +1159,7 @@ possible."
        (apply #'set-base-level-fct el)))
 
 (defmacro chunks ()
-  '(model-chunks (current-actUP-model)))
+  '(model-chunks (current-model)))
 
 
 
@@ -1225,7 +1217,7 @@ possible."
    ;; set time
 
 
-;   (setf (declarative-memory-chunks (model-dm (current-actUP-model))) chunks)
+;   (setf (declarative-memory-chunks (model-dm (current-model))) chunks)
 
 
 (defun bll-sim (pres-count lifetime)
@@ -1235,17 +1227,16 @@ possible."
 
   ;; we're using the Optimized Learning function
 
-					;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-actUP-model)))
+					;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-model)))
 
   (+
-   *blc*
-   ;; initial BL activation  (e.g., from blending)
-   (or (actup-chunk-last-bl-activation chunk) 0)
+   ;; initial BL activation  (e.g., from blending, or from base-level constant)
+   (or (actup-chunk-last-bl-activation chunk) *blc*)
 
    (if *bll*
        (let ((time (actUP-time))
 	     (1-d (- 1 *bll*)))
-	 (log
+	 (log-safe
 	  (+
 	   ;; standard procedure
 	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
@@ -1464,7 +1455,7 @@ Rules and groupings of rules are not specific to the model."
 		(pop body)		 
 		) (if (consp group) group (list group)))))
     (if (member name groups)
-	(error (format nil "defrule: rule name %s must not coincide with group name."
+	(error (format nil "defrule: rule name ~a must not coincide with group name."
 		       name)))
     (if (eq 'quote (car groups))
 	(setq groups (second groups)))
@@ -1493,7 +1484,7 @@ Rules and groupings of rules are not specific to the model."
   (let ((rule (lookup-rule name initial-utility)))
     ;; add rule to queue
     (push (cons (actup-time) rule)
-	  (procedural-memory-rule-queue (model-pm (current-actup-model))))
+	  (procedural-memory-rule-queue (model-pm (current-model))))
     
     ;; return rule
     rule))
@@ -1525,7 +1516,7 @@ The initial utility of a compiled rule equals the initial utility of the source 
   (when *rule-compilation*
     (loop for group in groups 
        for leaf = (get-tree-leaf-create (procedural-memory-compiled-rules 
-					 (model-pm (current-actup-model)))
+					 (model-pm (current-model)))
 					(cons group args))
 	 do
 	 (or
@@ -1626,7 +1617,7 @@ See also: ACT-R parameter :egs")
 Add a rule object to current model PM if necessary."
 
   ;; look up rule object
-  (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-actup-model))))
+  (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
 	 (rule (gethash name regular-rules)))
 
     (unless rule
@@ -1643,7 +1634,7 @@ the chose rule."
   (let ((regular-rules (mapcar #'lookup-rule (cdr (assoc group *actup-rulegroups*))))
 	(compiled-rules 
 	 ;; the leaf value from the tree structure is list of COMPILED-RULE structures
-	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-actup-model)))
+	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
 			 (cons group args))))
     (unless regular-rules
       (error (format nil "No rules defined for group ~a." regular-rules)))                                                              
@@ -1688,7 +1679,7 @@ selecting between rules.
 Reward must be greater than 0."
   (let ((last-time (actup-time)))
     (debug-print *informational* "Assigning reward ~a~%" reward)
-    (loop for rc in (procedural-memory-rule-queue (model-pm (current-actup-model))) do
+    (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
 	 (let* ((r-time (car rc))
 		(r-rule (cdr rc))
 		(reward-portion (* reward
@@ -1699,7 +1690,7 @@ Reward must be greater than 0."
 		 last-time r-time)
 	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
 	   ))
-    ;; (setf (procedural-memory-rule-utilities (model-pm (current-actup-model)))
+    ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
     ;; 	  utilities)
     ))
 
