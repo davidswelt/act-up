@@ -2,7 +2,7 @@
 <blockquote>The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
 Anderson 2007, etc.).
-(C) 2010, David Reitter, Christian Lebiere. Carnegie Mellon University.</blockquote>
+(C) 2010, David Reitter, Carnegie Mellon University.</blockquote>
 <a name="*all*" /><p><b>*all*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Constant for <a href="#*debug*">*debug*</a>: Show all messages (maximum detail).</blockquote>
 <blockquote>Initial value: <tt>1000</tt></blockquote>
@@ -182,8 +182,7 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><p>(<b>chunk-name</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Returns the unique name of a chunk.</blockquote><a name="current-actup-model" /><p>(<b>current-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><a name="chunk-type" /><a name="current-model" /><p>(<b>current-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates to the currently active ACT-UP model.</blockquote><a name="debug-clear" /><p>(<b>debug-clear</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Clear the ACT-UP debug log buffer.</blockquote><a name="debug-detail" /><p>(<b>debug-detail</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates BODY while outputting ACT-UP debug information.</blockquote><a name="debug-detail*" /><p>(<b>debug-detail*</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -281,10 +280,7 @@ chunks is noted as 'presented'.
 
 CHUNK may be altered by side-effect.
 
-Returns the added chunk.</blockquote><a name="make-actup-model" /><p>(<b>make-actup-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Create an ACT-UP model.
-The model object is returned, but not used as current ACT-UP model.
-See also <a href="#set-current-actUP-model">set-current-actUP-model</a>.</blockquote><a name="make-chunk" /><p>(<b>make-chunk</b> &rest args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Returns the added chunk.</blockquote><a name="make-chunk" /><p>(<b>make-chunk</b> &rest args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Define an ACT-UP chunk.
 Arguments should consist of named chunk feature values: ARGS is a list
 of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
@@ -295,10 +291,11 @@ name of the chunk (the name may not be used for any other chunk in
 the model). 
 
 If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</a>, then use the
-<a href="#make-TYPE">make-TYPE</a> syntax instead.</blockquote><a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+<a href="#make-TYPE">make-TYPE</a> syntax instead.</blockquote><a name="make-model" /><p><b>MAKE-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>An ACT-UP meta process.
 A meta process keeps track of time for one or more models.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="name" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> stream obj)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -346,7 +343,7 @@ and TIME the life time of the chunk,
 and ACT the chunk's absolute activation.
 
 For plausibility reasons, models should not use the ACT form when
-possible.</blockquote><a name="set-current-actup-model" /><p>(<b>set-current-actup-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+possible.</blockquote><a name="set-current-model" /><p>(<b>set-current-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Switches the currently active ACT-UP model.
 This may set a range of model parameters.</blockquote><a name="set-dm-total-presentations" /><p>(<b>set-dm-total-presentations</b> npres)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Set the count of total presentations of all chunks in DM.
@@ -364,4 +361,5 @@ For example:
 See the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><a name="show-utilities" /><p>(<b>show-utilities</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Prints a list of all utilities in the current model.</blockquote><a name="stop-actup-time" /><p>(<b>stop-actup-time</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns execution time of BODY in current ACT-UP model.
-Evaluates BODY.  See also <a href="#actup-time">actup-time</a>.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
+Evaluates BODY.  See also <a href="#actup-time">actup-time</a>.</blockquote><a name="with-current-model" /><p>(<b>with-current-model</b> model &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Execute forms in BODY with the ACT-UP model MODEL being current.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
