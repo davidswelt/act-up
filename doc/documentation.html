@@ -182,8 +182,20 @@ or the chunk may be produced right there and then using the <a href="ACT-UP.html
 <PRE>
 (learn-chunk  (make-chunk :name 'guess :success 0.2))
 </PRE>
-This will create a new strategy chunk, setting two of its parameters, and commit it to memory.
-Note that even newly created chunks will be merged with existing chunks if they contain the same elements.
+This will create a new strategy chunk, setting two of its parameters,
+and commit it to memory.
+
+To reinforce the existing chunk, use the chunk's name:
+
+<PRE>
+(learn-chunk 'guess)
+</PRE>
+
+Note that making a new chunk and calling `learn-chunk' will always
+create a separate chunk.  It will not merge the new chunk with any
+existing chunk (this would not scale very well, computationally).  You
+must use the unique chunk name, or retrieve the chunk before
+comitting it. 
 
 <P>
 
