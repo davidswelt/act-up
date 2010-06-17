@@ -421,7 +421,7 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 	    (actup-chunk-get-base-level-activation chunk)
 	    (actup-chunk-total-presentations chunk) ;; (actup-chunk-recent-presentations chunk)
 	    (if cues
-		(format nil "  spreading: ~a~%     ~a" (actup-chunk-get-spreading-activation chunk (get-chunk-objects cues))
+		(format nil "  spreading: ~a~%     ~a" (actup-chunk-get-spreading-activation chunk (get-chunk-objects cues 'noerror))
 			;; explain
 			(when (>= *debug* *all*)
 			  (loop for cue in (get-chunk-objects cues) 
@@ -625,7 +625,7 @@ Returns the added chunk."
        for val = (slot-value chunk slot)
        when (symbolp val)
        do
-	 (let ((ca (get-chunk-object val)))
+	 (let ((ca (get-chunk-object-add-to-dm val)))
 	   (when val
 	     (pushnew name (actup-chunk-occurs-in ca)))))
 
@@ -648,18 +648,18 @@ Returns the added chunk."
        (let ((co (get-chunk-object c)))
 	 (if co (list co) nil))))
 
-(defun get-chunk-object (chunk-or-name)
+(defun get-chunk-object (chunk-or-name &optional noerror)
   "Returns chunk object for CHUNK-OR-NAME.
-Retrieves or creates chunk by name from current model DM
-if CHUNK-OR-NAME is a symbol otherwise
-returns CHUNK-OR-NAME."
+If CHUNK-OR-NAME is a chunk, return is.
+Otherwise, retrieves chunk by name CHUNK-OR-NAME
+from current model DM.
+Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be found."
   (if (actup-chunk-p chunk-or-name)
       chunk-or-name
       (or (get-chunk-by-name chunk-or-name)
-	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
-	    (push chunk (model-chunks *current-actUP-model*))
-	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
-	    chunk))))
+	  (if noerror
+	      nil
+	      (error (format nil "Chunk of name ~a not found in DM." chunk-or-name))))))
 
 (defun get-chunk-object-add-to-dm (chunk-or-name)
   "Returns chunk object for CHUNK-OR-NAME.
@@ -672,12 +672,15 @@ If the object is not in the DM, add it."
   (if (actup-chunk-p chunk-or-name)
       (progn 
 	(if (not (member chunk-or-name (model-chunks (current-model))) )
-	    (push chunk-or-name (model-chunks (current-model))))
+	    ;; we must call learn-chunk to initialize its presentations etc.
+	    (learn-chunk chunk-or-name))
+	;;(push chunk-or-name (model-chunks (current-model)))
 	chunk-or-name)
       (or (get-chunk-by-name chunk-or-name)
 	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
 	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
-	    (push chunk (model-chunks (current-model)))
+	    (learn-chunk chunk)
+	    ;(push chunk (model-chunks (current-model)))
 	    chunk
 	  ))))
 
@@ -1073,8 +1076,8 @@ For example:
                          (mary john -0.9)))"
 
   (loop for (c1a c2a s) in list 
-     for c1 = (get-chunk-object c1a)
-     for c2 = (get-chunk-object c2a)
+     for c1 = (get-chunk-object-add-to-dm c1a)
+     for c2 = (get-chunk-object-add-to-dm c2a)
      for c1n = (get-chunk-name c1)
      for c2n = (get-chunk-name c2)
      do
@@ -1096,8 +1099,8 @@ indicating frequency of C and N occurring together, and TIME
 indicating the point in time of their last joint occurrence (TIME is
 unused currently, but must be given.)"
   (loop for (c1a c2a s) in list 
-     for c1 = (get-chunk-object c1a)
-     for c2 = (get-chunk-object c2a)
+     for c1 = (get-chunk-object-add-to-dm c1a)
+     for c2 = (get-chunk-object-add-to-dm c2a)
      for c1n = (get-chunk-name c1)
      for c2n = (get-chunk-name c2)
      do
@@ -1127,7 +1130,7 @@ the chunk's absolute activation value (log space).
 For plausibility reasons, models should specify presentations and time
 when possible."
   
-    (let ((c (get-chunk-object chunk)))
+    (let ((c (get-chunk-object-add-to-dm chunk)))
       (if creation-time
 	  (let* ((presentations value)
 		 (age (- (actUP-time) creation-time))
@@ -1240,12 +1243,13 @@ possible."
 	  (+
 	   ;; standard procedure
 	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
-		(expt (max 1 (- time pres)) (- *bll*)))
+		(progn
+		  (format t "adding ~a~%" (- time pres))
+		(expt (max 1 (- time pres)) (- *bll*))))
 	   
-
-	   ;; optimized learning
 	   (let ((k (length (actup-chunk-recent-presentations chunk))))
 	     (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
+		 ;; optimized learning
 		 (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
 							  (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
 		       (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
@@ -1255,20 +1259,21 @@ possible."
 			 (/ (* (- (actup-chunk-total-presentations chunk) k) 
 			       (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
 			    (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
-		       0))
-
+		       0.3))
+		 ;; fall back to default decay
 		 ;; (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
-		 ;; 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
-		 ;; 	 (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
-		 ;;   (if (and first-pres-time
-		 ;; 	      (not (= first-pres-time last-pres-time)))
-		 ;; 	 (progn
-		 ;; 	   (/ (* (- (actup-chunk-total-presentations chunk) k) 
-		 ;; 		 (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
-		 ;; 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
-		 ;; 	 0))
-		 0)))))
-       0.0)
+;; 		 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+;; 		 	 (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
+;; 		   (if (and first-pres-time
+;; 		 	      (not (= first-pres-time last-pres-time)))
+;; 		 	 (progn
+;; 		 	   (/ (* (- (actup-chunk-total-presentations chunk) k) 
+;; 		 		 (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
+;; 		 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
+;; 		 	 0)
+		   
+		 0))))) ; !!!
+       0)
    ))
 
 (defun actup-chunk-get-spreading-activation (chunk cues)
@@ -1290,7 +1295,7 @@ possible."
 			    ;; convert RJI to log space!
 			    (log-safe rji nil))))
 		     ;; this doubles the lookup in related chunks - to revise!:
-		     0.0))) ;; Rji (actup-link-rji link)
+		     0))) ;; Rji (actup-link-rji link)
 	    (length cues)))
       0))
 
@@ -1322,7 +1327,9 @@ Value in activation (log) space.")
 
 (defun value-get-similarity (v1 v2) 
   (or 
-   (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks (get-chunk-object v1))))
+   (let ((v1o (get-chunk-object v1 'noerror)))
+     (if v1o
+	 (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks v1o)))))
    (if (eq (get-chunk-name v1) (get-chunk-name v2)) *ms*)
       ;; (if (and (numberp v1) (numberp v2))
       ;; 	  (if (= v1 v2)
