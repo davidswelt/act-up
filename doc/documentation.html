@@ -195,8 +195,18 @@ Note that making a new chunk and calling `learn-chunk' will always
 create a separate chunk.  It will not merge the new chunk with any
 existing chunk (this would not scale very well, computationally).  You
 must use the unique chunk name, or retrieve the chunk before
-comitting it. 
+comitting it, or use the `make-chunk*' syntax to extract a chunk from
+declarative memory for learning.  For example:
 
+<PRE>
+(learn-chunk (make-chunk :success 0.2))   [1]
+(learn-chunk (make-chunk* :success 0.2))  [2]
+</PRE>
+
+Case 1 would make a new chunk with the given success value, give it a
+unique name, and add it to declarative memory.  Case 2, on the other
+hand, would find the chunk that is already in declarative memory, and
+boost its presentation count via base-level learning.
 <P>
 
 <H4><A NAME="SECTION00020050">

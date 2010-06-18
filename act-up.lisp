@@ -23,11 +23,16 @@
 ;; if they are act-up chunks, they should probably be changed to the chunk's names.
 ;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
 
-
+;; (if (boundp 'emacs-version)
+;;     (load (format "%s/emacs-lisp-compat.el" (file-name-directory (or load-file-name default-directory))))
+;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
+(defun format-nil (form &rest args)
+  (apply #'format nil form args))
+(defun format-t (form &rest args)
+  (apply #'format t form args))
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
-
 (defpackage :act-up
   (:documentation "The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
@@ -39,9 +44,9 @@ Anderson 2007, etc.).
 
 
 
-(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
-(load (format nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
-(load (format nil "~a/act-up-util.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/act-up-util.lisp" (directory-namestring *load-truename*)))
 
 (defstruct meta-process
   "An ACT-UP meta process.
@@ -220,7 +225,7 @@ Set stream to t to output to standard output."
      (error (v) (progn (format stream "ERR~a" v) nil)))))
 
 (defun make-chunk (&rest args)
-  "Define an ACT-UP chunk.
+  "Create an ACT-UP chunk.
 Arguments should consist of named chunk feature values: ARGS is a list
 of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
 slot names as defined with `define-slots'.  
@@ -233,6 +238,35 @@ If chunk types are defined with `define-chunk-type', then use the
 `make-TYPE' syntax instead."
 
   (apply #'make-actup-chunk args))
+
+(defun make-chunk* (&rest args)
+ "Like `make-chunk', but returns matching chunk from declarative memory if one exists.
+
+Arguments should consist of named chunk feature values: ARGS is a list
+of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
+slot names as defined with `define-slots'.  
+
+An attribute called `:name' should be included to specify the 
+name of the chunk. Comparing the proposed chunks (in ARGS) to the existing
+chunks in Declarative Memory, the names of the chunks are ignored.
+
+The purpose of this function lies in the ability to boost a chunk existing in DM, when its contents are already known. For example:
+
+ (reset-model)
+ (learn-chunk (make-chunk* :one 1 :two 2))
+ (learn-chunk (make-chunk* :one 1 :two 2))
+
+will create a chunk (first call), and then boost it, while
+
+ (learn-chunk (make-chunk :one 1 :two 2))
+
+will always create new chunk and add it to declarative memory.
+
+If chunk types are defined with `define-chunk-type', then use the
+`make-TYPE*' syntax instead."
+
+  (apply #'make-actup-chunk* args))
+
 
 (defun defstruct-attr-list (members)
   (loop for m in members collect
@@ -252,9 +286,17 @@ Chunks make be created by invoking the make-TYPE function, whereas
 TYPE stands for the name of the chunk type as defined with this
 macro. An attribute called `:name' should be included to specify the
 unique name of the chunk (the name may not be used for any other chunk
-in the model). "
+in the model). 
+
+An additional function of name make-TYPE* is also provided, which
+creates a new chunk just like make-TYPE does, but only if such a chunk
+does not yet exist in declarative memory (of the current model). All
+slot values of the chunks are used in the comparison (unspecified ones
+at their default values), except the :name attribute.  If a matching
+chunk is found in DM, it is returned."
   
   (let* ((name-and-options type)
+	 (type (if (consp type) (car type) type))
 	 (incl
 	  (if (consp name-and-options)
 	      (list (car name-and-options)
@@ -264,9 +306,16 @@ in the model). "
 	      (list name-and-options `(:include actup-chunk
 				       (chunk-type ',type)
 				       (attrs ',(defstruct-attr-list members)))))))
-    `(defstruct ,incl
-       ,@members)
-    ))
+    `(progn
+       (defstruct ,incl
+	 ,@members)
+       ;; define special constructor
+       (defun ,(intern (format-nil "MAKE-~a*" type)) (&rest args)
+	 ,(format-nil 
+ "Like make-~a, but returns matching chunk from declarative memory if one exists."
+		  type)
+	 (apply #'act-up::make-match-chunk ',type args))
+       )))
  
 
 (defmacro define-slots (&rest slot-names)
@@ -415,28 +464,28 @@ CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals."
   (when chunk-or-name
     (let ((chunk (get-chunk-object chunk-or-name)))
-    (format nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a ~a"
+    (format-nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a ~a"
 	    (actUP-time)
 	    (actup-chunk-name chunk)
 	    (actup-chunk-get-base-level-activation chunk)
 	    (actup-chunk-total-presentations chunk) ;; (actup-chunk-recent-presentations chunk)
 	    (if cues
-		(format nil "  spreading: ~a~%     ~a" (actup-chunk-get-spreading-activation chunk (get-chunk-objects cues 'noerror))
+		(format-nil "  spreading: ~a~%     ~a" (actup-chunk-get-spreading-activation chunk (get-chunk-objects cues 'noerror))
 			;; explain
 			(when (>= *debug* *all*)
 			  (loop for cue in (get-chunk-objects cues) 
 			     for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
 			     
 			     collect
-			       (format nil "~a: ~a" (get-chunk-name cue)
+			       (format-nil "~a: ~a" (get-chunk-name cue)
 				  (if  (and link (actup-link-sji link))
-				       (format nil "Sji: ~a " (actup-link-sji link))
-				       (format nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
+				       (format-nil "Sji: ~a " (actup-link-sji link))
+				       (format-nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
 		"")
 	    (if retr-spec 
-		(format nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
+		(format-nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
 		"-")
-	    (if *ans* (format nil "tr.noise: ~a " (actup-chunk-last-noise chunk)) "-")
+	    (if *ans* (format-nil "tr.noise: ~a " (actup-chunk-last-noise chunk)) "-")
 	    ))))
   
 
@@ -561,6 +610,57 @@ See also: ACT-R parameter :ol")
    Can be any non-negative value.")
 (export '(*ol* *associative-learning*))
 
+
+(defun make-struct-instance (type &rest args)
+  ;; MAKE-INSTANCE is not guaranteed for `defstruct'-defined types
+  ;; (it is meant to CLASS types only)
+  (apply (intern (format-nil "MAKE-~a" type))
+	 args))
+
+;; for each chunk type, we define
+(defun make-match-chunk (type &rest chunk-spec)
+  "Make a chunk of TYPE or return matching chunk from DM.
+If a matching chunk is found in DM, return it.
+Otherwise, call `make-TYPE' constructor with CHUNK-SPEC to make a new chunk.
+This new chunk is not added to DM.
+
+For purposes of matching, the values of each slot are compared with the
+chunk created from TYPE and CHUNK-SPEC; any slots not specified
+in CHUNK-SPEC assume the default value (often nil) for purposes of
+comparison.
+
+CHUNK-SPEC may contain a single element, which must be a chunk.  In that case,
+this chunk is used for the comparison (and returned if no matching chunk is found.)
+
+Note that chunk type (see `define-chunk-type') also has a constructor
+function of name `make-TYPE*', taking just the CHUNK-SPEC argument,
+which calls this function."
+
+  (let ((template (if (actup-chunk-p chunk-spec)
+		      chunk-spec
+		      (apply #'make-struct-instance type chunk-spec)))
+	(filtered-chunks (model-chunks (current-model))))
+    (loop for slot in (cons 'act-up::chunk-type (slot-value template 'act-up::attrs)) ; this should exclude :name
+
+       for value = (slot-value template slot)
+       when (not (eq slot :name))
+       do
+	 (setq filtered-chunks
+	       (loop for chunk in filtered-chunks append
+					; chunk type is filtered first
+		  ;; so we should have a guarantee that all slots are present
+		    (if (equal (slot-value chunk slot) value)
+			(list chunk))
+		    )))
+
+    ;;
+    (if filtered-chunks
+	(progn
+	  (if (> (length filtered-chunks) 1)
+	      (debug-print *warning* "make-match-chunk (make-TYPE*): ~a matching chunks found in DM.  Returning first." (length filtered-chunks)))
+	  (car filtered-chunks))
+	template)))
+
 (defun learn-chunk (chunk &optional co-presentations)
   "Learn chunk CHUNK.
 
@@ -594,7 +694,7 @@ Returns the added chunk."
 	      (let ((new-name (get-chunk-name chunk)))
 		(and new-name
 		     (get-chunk-by-name new-name)
-		     (error (format nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
+		     (error (format-nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
 
 	      ;; upon adding, always reset first presentation time
 	      (setf (actup-chunk-first-presentation chunk) (actup-time))
@@ -659,7 +759,7 @@ Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be 
       (or (get-chunk-by-name chunk-or-name)
 	  (if noerror
 	      nil
-	      (error (format nil "Chunk of name ~a not found in DM." chunk-or-name))))))
+	      (error (format-nil "Chunk of name ~a not found in DM." chunk-or-name))))))
 
 (defun get-chunk-object-add-to-dm (chunk-or-name)
   "Returns chunk object for CHUNK-OR-NAME.
@@ -871,7 +971,7 @@ See also the higher-level function `blend-retrieve-chunk'."
 	;; (apply #'make-instance    does not work for structures (openmcl)
 	;; 	      chunk-type 
 	(if (or retrieval-spec slot-values-by-name)
-	    (apply (find-symbol (format nil "MAKE-~a" (class-name chunk-type)))
+	    (apply (find-symbol (format-nil "MAKE-~a" (class-name chunk-type)))
 		   :last-bl-activation blend-activation
 		   :activation-time (actup-time)
 		   :comment 'blended
@@ -966,7 +1066,7 @@ See also: ACT-R parameter :mas.")
 
 (defun fan-ji (c n)
   (let ((occ (count-occ-ji (get-chunk-name c) n)))
-    ;; (format t "fan-ji: c:~s n:~s  occ:~s  occs: ~s~%" c n occ (count-occurrences c))
+    ;; (format-t "fan-ji: c:~s n:~s  occ:~s  occs: ~s~%" c n occ (count-occurrences c))
     (if (> occ 0)
 	(/ (1+ (count-occurrences c))
 	   (+ occ
@@ -1171,14 +1271,14 @@ possible."
 
 ; private 
 ;; (defun chunk-slot (chunk slot-name)
-;;   (let ((sym (find-symbol (format nil "~A-~A" (type-of chunk) slot-name)
+;;   (let ((sym (find-symbol (format-nil "~A-~A" (type-of chunk) slot-name)
 ;;                              ;; #.(package-name *package*
 ;; 			     )))
 ;;     (if sym
 ;; 	(funcall (symbol-function
 ;; 		  sym)
 ;; 		 chunk)
-;; 	(error (format nil "Slot ~a not found." slot-name)))))
+;; 	(error (format-nil "Slot ~a not found." slot-name)))))
 
 (defun chunk-slot (chunk slot-name)
  (slot-value chunk slot-name))
@@ -1244,7 +1344,7 @@ possible."
 	   ;; standard procedure
 	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
 		(progn
-		  (format t "adding ~a~%" (- time pres))
+		  (format-t "adding ~a~%" (- time pres))
 		(expt (max 1 (- time pres)) (- *bll*))))
 	   
 	   (let ((k (length (actup-chunk-recent-presentations chunk))))
@@ -1446,14 +1546,14 @@ Rules and groupings of rules are not specific to the model."
 		   (pop body)
 		   (if group 
 		       (error 
-			(format nil "defrule ~s: more than one :GROUP keyword given."
+			(format-nil "defrule ~s: more than one :GROUP keyword given."
 				name)))
 		   (setq group (car body)))
 		  ((or (eq keyw :initial-utility) (eq keyw :iu))
 		   (pop body)
 		   (if iu 
 		       (error 
-			(format nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
+			(format-nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
 				name)))
 		   (setq iu (car body)))
 		  ((keywordp keyw) t)
@@ -1462,7 +1562,7 @@ Rules and groupings of rules are not specific to the model."
 		(pop body)		 
 		) (if (consp group) group (list group)))))
     (if (member name groups)
-	(error (format nil "defrule: rule name ~a must not coincide with group name."
+	(error (format-nil "defrule: rule name ~a must not coincide with group name."
 		       name)))
     (if (eq 'quote (car groups))
 	(setq groups (second groups)))
@@ -1485,7 +1585,7 @@ Rules and groupings of rules are not specific to the model."
 
 (defun actup-rule-start (name args initial-utility)
   (declare (ignore args))
-  ;;(format t "start: ~s ~s" name args)
+  ;;(format-t "start: ~s ~s" name args)
 
   ;; look up rule object
   (let ((rule (lookup-rule name initial-utility)))
@@ -1497,10 +1597,10 @@ Rules and groupings of rules are not specific to the model."
     rule))
 
 (defun make-compiled-rule-name (group args result)
-  (intern (format nil "~a/~a->~a"
+  (intern (format-nil "~a/~a->~a"
 		  group (length args)
 		  (cond ((symbolp result) result)
-			((numberp (format nil "~2f" result)))
+			((numberp (format-nil "~2f" result)))
 			((actup-chunk-p result) (get-chunk-name result))
 			(t "*")))))
 
@@ -1544,7 +1644,7 @@ The initial utility of a compiled rule equals the initial utility of the source 
 		  :original-rule (rule-name this-rule)
 		  :firing-time (rule-firing-time this-rule)))))))
 
-  ;; (format t "end: ~s ~s" name result)
+  ;; (format-t "end: ~s ~s" name result)
   (pass-time (or (rule-firing-time this-rule) *dat*)) ;; to do: randomization (:vpft parameter)
 )
 
@@ -1580,7 +1680,7 @@ See also: ACT-R parameter :egs")
     (loop for g in groups when g do
 	 ;; (re)define lisp function with group name
 	 (eval `(defun ,g ,args 
-		  ,(format nil "Choose a rule out of group %s" g)
+		  ,(format-nil "Choose a rule out of group %s" g)
 		  (actup-eval-rule ',g ,@args)))
 
 	 (let ((group-cons (assoc g *actup-rulegroups*)))
@@ -1644,7 +1744,7 @@ the chose rule."
 	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
 			 (cons group args))))
     (unless regular-rules
-      (error (format nil "No rules defined for group ~a." regular-rules)))                                                              
+      (error (format-nil "No rules defined for group ~a." regular-rules)))                                                              
     (let* ((rules)
 	   (rule-util
 	 
@@ -1665,7 +1765,7 @@ the chose rule."
 		   group 
 		   (length regular-rules)
 		   (if *rule-compilation*
-		       (format nil "+~a" (length compiled-rules)))
+		       (format-nil "+~a" (length compiled-rules)))
 		   (rule-name rule) (first rule-util) (length rules))
       (when rule
 	(if (compiled-rule-p rule) ;; compiled rule?	    
@@ -1720,7 +1820,7 @@ Reward must be greater than 0."
 
 ;;   ;; handle dynamic, global variables as model-parameters
 ;;   (loop for p in *actUP-model-parameters* do
-;;        (let ((sym (format nil "*~a*" p)))
+;;        (let ((sym (format-nil "*~a*" p)))
 
 
 ;;        (if (boundp sym) ;; dynamically bound
@@ -1743,8 +1843,8 @@ Reward must be greater than 0."
     screen-x
   screen-y)
 
-(load (format nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
-(load (format nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
 
 
 
