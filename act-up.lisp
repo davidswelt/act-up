@@ -23,14 +23,6 @@
 ;; if they are act-up chunks, they should probably be changed to the chunk's names.
 ;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
 
-;; (if (boundp 'emacs-version)
-;;     (load (format "%s/emacs-lisp-compat.el" (file-name-directory (or load-file-name default-directory))))
-;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
-(defun format-nil (form &rest args)
-  (apply #'format nil form args))
-(defun format-t (form &rest args)
-  (apply #'format t form args))
-
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
 (defpackage :act-up
@@ -42,6 +34,16 @@ Anderson 2007, etc.).
 
 (in-package :act-up)
 
+
+;; (if (boundp 'emacs-version)
+;;     (load (format "%s/emacs-lisp-compat.el" (file-name-directory (or load-file-name default-directory))))
+;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
+
+(defun format-nil (form &rest args)
+  (apply #'format nil form args))
+
+(defun format-t (form &rest args)
+  (apply #'format t form args))
 
 
 (load (format-nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
@@ -144,6 +146,9 @@ The log output can be retrieved with `debug-log'."
 
 ;; CHUNKS
 
+(defun actup-noise (s)
+  (act-r-noise *ans*))
+
 
 ;; all chunks inherit from this structure:
 
@@ -174,7 +179,7 @@ by using `define-chunk'."
   ;; if time is constant
   (last-noise nil)
   (last-noise-time nil)
- 
+  (permanent-noise (actup-noise *pas*) :type float)
   (id (gensym "actupchunk") :type atom)
   (related-chunks nil :type list)  ;; references to other chunks
   ;; this chunk may serve as cue for the chunks listed here.
@@ -338,12 +343,15 @@ See also: ACT-R parameter :blc")
 Chunks with activation lower than `*rt*' are not retrieved.
 See also: ACT-R parameter :rt")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2 "Transient noise parameter  for declarative memory.
+(defparameter *ans* 0.2 "Transient noise parameter for declarative memory.
 See also: ACT-R parameter :ans") ;; transient noise  
+
+(defparameter *pas* nil "Permanent noise parameter for declarative memory.
+See also: ACT-R parameter :pas") ;; permanent noise  
 
 (defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP rule in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
-(export '(*bll* *blc* *rt* *ans* *dat*))
+(export '(*bll* *blc* *rt* *ans* *pas* *dat*))
 
 ;; a model
 
@@ -388,6 +396,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  defrule assign-reward
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
+	  make-chunk* ; for untyped chunks
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
@@ -1283,16 +1292,18 @@ possible."
 (defun chunk-slot (chunk slot-name)
  (slot-value chunk slot-name))
  
-
 (defun actup-chunk-get-noise (chunk)
-  (if *ans* 
-      (or (and (eq (actUP-time) (actup-chunk-last-noise-time chunk))
-	       (actup-chunk-last-noise chunk))
-	  (progn
-	    (setf (actup-chunk-last-noise chunk) (act-r-noise *ans*)
-		  (actup-chunk-last-noise-time chunk) (actUP-time))
-	    (actup-chunk-last-noise chunk)))
-      0))
+  (+  (if *ans* 
+	  (or (and (eq (actUP-time) (actup-chunk-last-noise-time chunk))
+		   (actup-chunk-last-noise chunk))
+	      (progn
+		(setf (actup-chunk-last-noise chunk) (actup-noise *ans*)
+		      (actup-chunk-last-noise-time chunk) (actUP-time))
+		(actup-chunk-last-noise chunk)))
+	  0)
+      (if *pas*
+	  (actup-chunk-permanent-noise chunk)
+	  0)))
 
 (defun actup-chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
   "Calculate current activation of chunk"

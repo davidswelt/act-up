@@ -11,7 +11,7 @@ Anderson 2007, etc.).
 See also the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>0.2</tt></blockquote>
 <a name="*ans*" /><p><b>*ans*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Transient noise parameter  for declarative memory.
+<blockquote>Transient noise parameter for declarative memory.
 See also: ACT-R parameter :ans</blockquote>
 <blockquote>Initial value: <tt>0.2</tt></blockquote>
 <a name="*associative-learning*" /><p><b>*associative-learning*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
@@ -106,6 +106,10 @@ Value in activation (log) space.</blockquote>
 OL is always on in ACT-UP.
 See also: ACT-R parameter :ol</blockquote>
 <blockquote>Initial value: <tt>3</tt></blockquote>
+<a name="*pas*" /><p><b>*pas*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Permanent noise parameter for declarative memory.
+See also: ACT-R parameter :pas</blockquote>
+<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*rt*" /><p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Retrieval Threshold parameter for declarative memory.
 Chunks with activation lower than <a href="#*rt*">*rt*</a> are not retrieved.
@@ -204,7 +208,14 @@ Chunks make be created by invoking the make-TYPE function, whereas
 TYPE stands for the name of the chunk type as defined with this
 macro. An attribute called <a href="#:name">:name</a> should be included to specify the
 unique name of the chunk (the name may not be used for any other chunk
-in the model). </blockquote><a name="define-slots" /><p>(<b>define-slots</b> &rest slot-names)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+in the model). 
+
+An additional function of name make-TYPE* is also provided, which
+creates a new chunk just like make-TYPE does, but only if such a chunk
+does not yet exist in declarative memory (of the current model). All
+slot values of the chunks are used in the comparison (unspecified ones
+at their default values), except the :name attribute.  If a matching
+chunk is found in DM, it is returned.</blockquote><a name="define-slots" /><p>(<b>define-slots</b> &rest slot-names)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Define slots to be used in chunks of this process.
 Only slot names defined using this macro may be used in chunks.
 Overrides any slot set defined earlier.</blockquote><a name="defrule" /><p>(<b>defrule</b> name args &rest body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -281,7 +292,7 @@ chunks is noted as 'presented'.
 CHUNK may be altered by side-effect.
 
 Returns the added chunk.</blockquote><a name="make-chunk" /><p>(<b>make-chunk</b> &rest args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Define an ACT-UP chunk.
+<blockquote>Create an ACT-UP chunk.
 Arguments should consist of named chunk feature values: ARGS is a list
 of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
 slot names as defined with <a href="#define-slots">define-slots</a>.  
@@ -291,7 +302,33 @@ name of the chunk (the name may not be used for any other chunk in
 the model). 
 
 If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</a>, then use the
-<a href="#make-TYPE">make-TYPE</a> syntax instead.</blockquote><a name="make-model" /><p><b>MAKE-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
+<a href="#make-TYPE">make-TYPE</a> syntax instead.</blockquote><a name="make-chunk*" /><p>(<b>make-chunk*</b> &rest args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Like <a href="#make-chunk">make-chunk</a>, but returns matching chunk from declarative memory if one exists.
+
+Arguments should consist of named chunk feature values: ARGS is a list
+of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
+slot names as defined with <a href="#define-slots">define-slots</a>.  
+
+An attribute called <a href="#:name">:name</a> should be included to specify the 
+name of the chunk. Comparing the proposed chunks (in ARGS) to the existing
+chunks in Declarative Memory, the names of the chunks are ignored.
+
+The purpose of this function lies in the ability to boost a chunk existing in DM, when its contents are already known. For example:
+
+<pre>
+ (reset-model)
+ (learn-chunk (make-chunk* :one 1 :two 2))
+ (learn-chunk (make-chunk* :one 1 :two 2))</pre>
+
+will create a chunk (first call), and then boost it, while
+
+<pre>
+ (learn-chunk (make-chunk :one 1 :two 2))</pre>
+
+will always create new chunk and add it to declarative memory.
+
+If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</a>, then use the
+<a href="#make-TYPE*">make-TYPE*</a> syntax instead.</blockquote><a name="make-model" /><p><b>MAKE-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
 <a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>An ACT-UP meta process.
 A meta process keeps track of time for one or more models.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
