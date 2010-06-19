@@ -147,7 +147,9 @@ The log output can be retrieved with `debug-log'."
 ;; CHUNKS
 
 (defun actup-noise (s)
-  (act-r-noise *ans*))
+  (if s
+      (act-r-noise s)
+      0.0))
 
 
 ;; all chunks inherit from this structure:
@@ -1355,8 +1357,8 @@ possible."
 	   ;; standard procedure
 	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
 		(progn
-		  (format-t "adding ~a~%" (- time pres))
-		(expt (max 1 (- time pres)) (- *bll*))))
+		  ;; (format-t "adding ~a~%" (- time pres))
+		  (expt (max 1 (- time pres)) (- *bll*))))
 	   
 	   (let ((k (length (actup-chunk-recent-presentations chunk))))
 	     (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
