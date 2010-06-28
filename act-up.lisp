@@ -56,9 +56,12 @@ A meta process keeps track of time for one or more models."
   (actUP-time 0.0 :type number)
   name
 )
-(export '(meta-process))
-
-(defparameter *current-actUP-meta-process* (make-meta-process))
+(defparameter *current-actUP-meta-process* (make-meta-process)
+  "The current ACT-UP meta-process.
+The meta process keeps track of simulation time.
+May be read and manipulated by setting it to a different
+instance of type `meta-process'.")
+(export '(meta-process make-meta-process meta-process-name *current-actUP-meta-process*))
 
 ;; Debugging
 
@@ -374,7 +377,8 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   (compiled-rules (make-tree))
   (rule-queue nil :type list))
 
-(defstruct model 
+(defstruct model
+  (name nil) ;; may be used for debugging purposes
   (parms nil :type list)
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
@@ -392,7 +396,8 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-model set-current-model make-model with-current-model 
+(export '(current-model set-current-model with-current-model 
+	  make-model model-name
 	  actUP-time stop-actup-time
 	  pass-time model-chunks 
 	  defrule assign-reward
@@ -401,7 +406,8 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  make-chunk* ; for untyped chunks
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
-	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
+	  filter-chunks learn-chunk best-chunk blend 
+	  reset-mp reset-model
 	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
 
@@ -754,9 +760,9 @@ Returns the added chunk."
     (pass-time *dat*) ;; 50ms
     chunk))
 
-(defun get-chunk-objects (chunks-or-names)
+(defun get-chunk-objects (chunks-or-names &optional noerror)
   (loop for c in chunks-or-names append
-       (let ((co (get-chunk-object c)))
+       (let ((co (get-chunk-object c noerror)))
 	 (if co (list co) nil))))
 
 (defun get-chunk-object (chunk-or-name &optional noerror)
