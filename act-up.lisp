@@ -160,7 +160,8 @@ The log output can be retrieved with `debug-log'."
 
 (export '(actup-chunk define-chunk-type 
 	  ;; public members of actup-chunk:
-	  name chunk-type))
+	  ;;name 
+	  chunk-type))
 
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
@@ -406,7 +407,8 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  make-chunk* ; for untyped chunks
 	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
-	  filter-chunks learn-chunk best-chunk blend 
+	  filter-chunks non-nil
+	  learn-chunk best-chunk blend 
 	  reset-mp reset-model
 	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
@@ -539,10 +541,12 @@ TIMEOUT, if given, specifies the maximum time allowed before
 the retrieval fails."
   (debug-print *informational* "retrieve-chunk:~%   spec: ~a~%  cues: ~a~%  pmat: ~a~%" spec cues pm-soft-spec)
 
-  (let* ((matching-chunks (filter-chunks (model-chunks *current-actUP-model*)
-					 spec))
-	 (best-chunk (best-chunk matching-chunks
-				 cues pm-soft-spec timeout)))
+  (let* ((matching-chunks (let ((*debug* (max *debug* *warning*)))
+			    (filter-chunks (model-chunks *current-actUP-model*)
+					   spec)))
+	 (best-chunk  (let ((*debug* (max *debug* *warning*)))
+			(best-chunk matching-chunks
+				    cues pm-soft-spec timeout))))
     (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (actup-chunk-name best-chunk) "one") "none") (length matching-chunks))
     (debug-print *informational* "~a~%" (explain-activation best-chunk cues pm-soft-spec))
     ;; to do: add if to make fast
@@ -591,27 +595,33 @@ of the form ((X . chunk1) (Y . chunk2) ...).
 returns a list of chunks in case (1) and a list of conses in case (2)."
 
   ;(let ((csn nil))
-  (loop for chunk-or-cons in chunk-set append
-       (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
-	 (handler-case
-	     (if (loop for argval on args by #'cddr finally (return t) do
-		      (let* ((slot ;(setq csn  
-			      (normalize-slotname (first argval))) ;)
-			     (vv (second argval))
-			     (slot-value (slot-value c slot)))
-			(unless (or (if (and (actup-chunk-p vv) (actup-chunk-p slot-value))
-					(equal slot-value vv) 
-					(eq (get-chunk-name vv) (get-chunk-name slot-value)))
-				    (and (eq vv 'non-nil) slot-value))
-			  (return nil))))
-		 (list chunk-or-cons)
-		 nil)
-	   (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (actup-chunk-name c) nil))
-	     ;;   (print _v)
-	     _v
-	     nil ;; it's not really an error or a special situation
-	     ;;   ;; we're going through all chunks that we have
-	 )))))
+  (let ((matching-chunks 
+	 (loop for chunk-or-cons in chunk-set append
+	      (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
+		(handler-case
+		    (if (loop for argval on args by #'cddr finally (return t) do
+			     (let* ((slot ;(setq csn  
+				     (normalize-slotname (first argval))) ;)
+				    (vv (second argval))
+				    (slot-value (slot-value c slot)))
+			       ;; should nt make a difference:
+			       ;; (if (actup-chunk-p vv) (setq vv (actup-chunk-name vv)))
+			       ;; (if (actup-chunk-p slot-value) (setq slot-value (actup-chunk-name slot-value)))
+			       (unless (or (if (and (actup-chunk-p vv) (actup-chunk-p slot-value))
+					       (equal slot-value vv) 
+					       (eq (get-chunk-name vv) (get-chunk-name slot-value)))
+					   (and (eq vv 'non-nil) slot-value))
+				 (return nil))))
+			(list chunk-or-cons)
+			nil)
+		  (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (actup-chunk-name c) nil))
+		    ;;   (print _v)
+		    _v
+		    nil ;; it's not really an error or a special situation
+		    ;;   ;; we're going through all chunks that we have
+		    ))))))
+    (debug-print  *informational* "filtered ~a matching chunks.~%" (length matching-chunks))
+    matching-chunks))
 
 
 
@@ -674,9 +684,19 @@ which calls this function."
     (if filtered-chunks
 	(progn
 	  (if (> (length filtered-chunks) 1)
-	      (debug-print *warning* "make-match-chunk (make-TYPE*): ~a matching chunks found in DM.  Returning first." (length filtered-chunks)))
+	      (debug-print *warning* "make-match-chunk (make-TYPE*): ~a matching chunks found in DM.  Returning first.~%" (length filtered-chunks))
+	      (debug-print *informational* "make-match-chunk (make-TYPE*): Found matching chunk of name ~a~%" (actup-chunk-name (car filtered-chunks))))
 	  (car filtered-chunks))
-	template)))
+	(progn
+	  ;; check that we don't have a chunk of the same name in DM
+	  (let ((name (actup-chunk-name template)))
+	    (when (get-chunk-by-name name)
+	      (debug-print *informational* "New chunk:~a~%Existing chunk in DM:~a~%" template (get-chunk-by-name name))
+	      (error (format nil "make-match-chunk (make-TYPE*): Novel chunk with name ~a to be created, different chunk of same name already in DM."
+			     name))))
+
+	  (debug-print *informational* "make-match-chunk (make-TYPE*): No such chunk in DM.  Returning new chunk (not in DM) of name ~a~%" (actup-chunk-name template))
+	  template))))
 
 (defun learn-chunk (chunk &optional co-presentations)
   "Learn chunk CHUNK.
@@ -708,10 +728,16 @@ Returns the added chunk."
 	(if (not (member chunk (model-chunks model))) ;; use object in DM if present
 	    (progn
 	      ;; make sure we don't have a chunk of the same name already present
-	      (let ((new-name (get-chunk-name chunk)))
+	      (let ((new-name (get-chunk-name chunk))
+		    (existing-chunk))
 		(and new-name
-		     (get-chunk-by-name new-name)
-		     (error (format-nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
+		     (setq existing-chunk (get-chunk-by-name new-name))
+		     (not (equal existing-chunk chunk))
+		     (progn (debug-print *informational*
+				  "Existing chunk: ~a ~%New chunk: ~a~%"
+				  existing-chunk
+				  chunk)
+			    (error (format-nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk)))))
 
 	      ;; upon adding, always reset first presentation time
 	      (setf (actup-chunk-first-presentation chunk) (actup-time))
@@ -740,6 +766,7 @@ Returns the added chunk."
     (loop with name = (actup-chunk-name chunk)
        for slot in (slot-value chunk 'act-up::attrs)  ;; (structure-alist c) do
        for val = (slot-value chunk slot)
+	 when val
        when (symbolp val)
        do
 	 (let ((ca (get-chunk-object-add-to-dm val)))
