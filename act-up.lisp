@@ -23,7 +23,7 @@
 ;; if they are act-up chunks, they should probably be changed to the chunk's names.
 ;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
 
-(declaim (optimize (speed 0) (space 0) (debug 3)))
+(declaim (optimize (speed 3) (space 0) (debug 0)))
  
 (defpackage :act-up
   (:documentation "The ACT-UP library.  Defines a number of functions
@@ -199,6 +199,7 @@ by using `define-chunk'."
   ;; similarities
   (similar-chunks nil :type list)
   (fan nil) ; internal)
+  (model nil)  ; pointer to the chunk's model  (to ensure it's unique)
 )
 
 (defstruct actup-link
@@ -379,7 +380,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   (rule-queue nil :type list))
 
 (defstruct model
-  (name nil) ;; may be used for debugging purposes
+  (name (gensym "MODEL")) ;; may be used for debugging purposes
   (parms nil :type list)
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
@@ -387,7 +388,9 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   ;; than the global binding.
   ;; NOT IMPLEMENTED YET.
   (pm (make-procedural-memory) :type procedural-memory)
-  (dm (make-declarative-memory) :type declarative-memory))
+  (dm (make-declarative-memory) :type declarative-memory)
+  ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
+  (time 0))
 
 
 
@@ -400,7 +403,8 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 (export '(current-model set-current-model with-current-model 
 	  make-model model-name
 	  actUP-time stop-actup-time
-	  pass-time model-chunks 
+	  pass-time wait-for-model
+	  model-chunks 
 	  defrule assign-reward
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
@@ -460,10 +464,34 @@ It defaults to the current meta-process."
   "Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
-  (if (> seconds 0)
-      (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
-	    (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))))
+  (when (> seconds 0.0)
+    (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
+	  (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))
+    (setf (model-time *current-actUP-model*)
+	  (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
+    )
+  ;; (format t "~a: ~a ~a ~%"
+  ;; 	  (meta-process-name *current-actUP-meta-process*) 
+  ;; 	  (model-time *current-actUP-model*) (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
+  )
 
+(defun wait-for-model (&optional model)
+  "Waits until meta-process and MODEL are synchronized.
+When a model is assigned a new meta-process, it can happen that
+the meta-process time is behind the model's time (since the model
+was operated with a different meta-process before).
+This function waits (see `pass-time') until the model is ready, that
+is, it sets the meta process time to the model time if the model time
+is more advanced, plus the current value of `*dat*'.
+MODEL defaults to the current model."
+
+  (let ((diff (- (model-time (or model *current-actUP-model*)) (actup-time))))
+    (when (> diff 0.0)
+      ;; (format t "~a: waiting for model ~a (t=~a): ~A~%" (meta-process-name *current-actUP-meta-process*) 
+      ;; 	      (model-name (or model *current-actUP-model*)) (model-time (or model *current-actUP-model*))
+      ;; 	      diff)
+      (setf (meta-process-actUP-time *current-actUP-meta-process*)
+	    (+ (meta-process-actUP-time *current-actUP-meta-process*) (+ *dat* diff))))))
 
 (defmacro model-chunks (model)
   "Evaluates to the list of chunks in the given model MODEL."
@@ -727,6 +755,12 @@ Returns the added chunk."
     (if (actup-chunk-p chunk)
 	(if (not (member chunk (model-chunks model))) ;; use object in DM if present
 	    (progn
+	      ;; make sure the chunk isn't assigned to a different model
+	      (if (actup-chunk-model chunk)
+		  (if (not (eq (actup-chunk-model chunk) model))
+		      (error (format-nil "learn-chunk: chunk belonging to model ~a being added to model ~a." (model-name (actup-chunk-model chunk)) (model-name model))))
+		  ;; else: not set
+		  (setf (actup-chunk-model chunk) model))
 	      ;; make sure we don't have a chunk of the same name already present
 	      (let ((new-name (get-chunk-name chunk))
 		    (existing-chunk))
@@ -737,7 +771,7 @@ Returns the added chunk."
 				  "Existing chunk: ~a ~%New chunk: ~a~%"
 				  existing-chunk
 				  chunk)
-			    (error (format-nil "Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk)))))
+			    (error (format-nil "learn-chunk: Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk)))))
 
 	      ;; upon adding, always reset first presentation time
 	      (setf (actup-chunk-first-presentation chunk) (actup-time))
@@ -749,6 +783,12 @@ Returns the added chunk."
 		      
     ;; (car (search-for-chunks model chunk-descr)) ;; use unifiable object 
     
+    (debug-print *informational* "Presentation of chunk ~a (MP: ~a t=~a.  M: ~a, t=~a.~%"
+		 (actup-chunk-name chunk) 
+		 (meta-process-name *current-actUP-meta-process*)
+		 (actup-time)
+		 (model-name model)
+		 (model-time model))
 
     (incf (actup-chunk-total-presentations chunk))
     (push (actUP-time) (actup-chunk-presentations chunk))
@@ -894,11 +934,6 @@ See also the higher-level function `retrieve-chunk'."
 				      bs)
 				(return bc))
 			 )))
-
-	;; timing
-	(if last-retrieved-activation
-	    (pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
-	
 	(let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
 	  (debug-print *informational* "Retrieval duration: ~s~%" duration)
 	  (if (and timeout (> duration timeout))
@@ -1376,6 +1411,7 @@ possible."
 
   ;; we're using the Optimized Learning function
 
+  ;; This assumes that at least *dat* time has passed since the initial presentation.
 					;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-model)))
 
   (+
@@ -1388,24 +1424,32 @@ possible."
 	 (log-safe
 	  (+
 	   ;; standard procedure
-	   (loop for pres in (actup-chunk-recent-presentations chunk) sum
-		(progn
-		  ;; (format-t "adding ~a~%" (- time pres))
-		  (expt (max 1 (- time pres)) (- *bll*))))
+	   (loop for pres in (actup-chunk-recent-presentations chunk) 
+	      sum
+		(let ((decay-time  (- time pres)))
+		  ;; (format-t "~a: adding ~a s, ~a~%" (actup-chunk-name chunk) (- time pres) decay)
+		  (when (< decay-time *dat*)
+		      (debug-print *warning* "~a: Warning: retrieval (or: base-level activation) of chunk ~a measured too shortly (~a-~a<~asec) after its latest presentation (learn-chunk). Model-time: ~a.~%"
+				   (meta-process-name *current-actUP-meta-process*)
+				   (actup-chunk-name chunk)
+				   time pres *dat* (model-time *current-actUP-model*))
+		      ;; (error 'warning)
+		      )	   
+		  (expt (max *dat* decay-time) (- *bll*))))
 	   
 	   (let ((k (length (actup-chunk-recent-presentations chunk))))
 	     (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
 		 ;; optimized learning
-		 (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
+		 (let ((last-pres-time (max *dat* (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
 							  (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
-		       (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
+		       (first-pres-time (max *dat* (- time (actup-chunk-first-presentation chunk)))))
 		   (if (and first-pres-time
 			    (not (= first-pres-time last-pres-time)))
 		       (progn
 			 (/ (* (- (actup-chunk-total-presentations chunk) k) 
 			       (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
-			    (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
-		       0.3))
+			    (* 1-d (max *dat* (- first-pres-time last-pres-time)))))
+		       0.0))
 		 ;; fall back to default decay
 		 ;; (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
 ;; 		 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
@@ -1418,8 +1462,8 @@ possible."
 ;; 		 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
 ;; 		 	 0)
 		   
-		 0))))) ; !!!
-       0)
+		 0.0))))) ; !!!
+       0.0)
    ))
 
 (defun actup-chunk-get-spreading-activation (chunk cues)
