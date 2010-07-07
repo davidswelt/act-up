@@ -1,4 +1,4 @@
-(setq *print-level* 10)
+(setq *print-level* 4)
 ;; ACT-UP
 ;; (C) Carnegie Mellon University,
 ;; (C) David Reitter, 2010
@@ -142,8 +142,19 @@ The log output can be retrieved with `debug-log'."
 (export '(show-utilities))
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
-  (maphash (lambda (x y) (print (cons x (rule-utility y))))
-	   (act-up::procedural-memory-regular-rules (act-up::model-pm (current-model))))
+
+  (loop for g in act-up::*actup-rulegroups* do
+       (loop for name in (cdr g) do
+	  ;; look up rule object
+	    (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
+		   (rule (gethash name regular-rules)))
+	      (print (cons name
+			   (if rule
+			       (rule-utility (lookup-rule name))
+			       (if (get name 'initial-utility)
+				   (list 'rule-iu (get name 'initial-utility))
+				   (list '*iu* *iu*))))))))
+		     
   (print "Compiled rules not shown.")
   nil)
 
@@ -1662,23 +1673,24 @@ Rules and groupings of rules are not specific to the model."
        ,doc-string
 ;; to do: handle signals
        (let (
-	     (actup---rule (actup-rule-start ',name ,(cons 'list args-filtered) ,iu))
+	     (actup---rule (actup-rule-start ',name ,(cons 'list args-filtered)))
 	     (actup---rule-result
 	      (progn
 		,@body)))
 	 (actup-rule-end actup---rule ',(or groups (list name))
 			 ,(cons 'list args-filtered) actup---rule-result)
 	 actup---rule-result))
+    (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
     (declare-rule ',groups
 		   ',name ',args)
 )))
 
-(defun actup-rule-start (name args initial-utility)
+(defun actup-rule-start (name args)
   (declare (ignore args))
   ;;(format-t "start: ~s ~s" name args)
 
   ;; look up rule object
-  (let ((rule (lookup-rule name initial-utility)))
+  (let ((rule (lookup-rule name t)))
     ;; add rule to queue
     (push (cons (actup-time) rule)
 	  (procedural-memory-rule-queue (model-pm (current-model))))
@@ -1741,16 +1753,17 @@ The initial utility of a compiled rule equals the initial utility of the source 
 ;; this is, as of now, independent of the model
 (defparameter *actup-rulegroups* nil)
 
-
-(defparameter *au-rpps* 0.05
+(defparameter *au-rpps* nil
   "Reward proportion per second elapsed.
 e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
 time is in between rules.
+Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
-(defparameter *au-rfr* 0.10
+(defparameter *au-rfr* nil
   "base reward proportion for each rule
 e.g., the each rule before the reward trigger gets 10% of the reward.
+Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
 
 (defparameter *alpha* 0.2  "utility learning rate
@@ -1772,7 +1785,7 @@ See also: ACT-R parameter :egs")
 	 (eval `(defun ,g ,args 
 		  ,(format-nil "Choose a rule out of group %s" g)
 		  (actup-eval-rule ',g ,@args)))
-
+	 
 	 (let ((group-cons (assoc g *actup-rulegroups*)))
 	   (if group-cons
 	       (unless (member name (cdr group-cons))
@@ -1809,17 +1822,17 @@ See also: ACT-R parameter :egs")
   (pass-time 0.05)
   (compiled-rule-result rule))
 
-(defun lookup-rule (name &optional initial-utility)
+(defun lookup-rule (name &optional add)
   "Look up a rule in current model PM from rule name.
 Add a rule object to current model PM if necessary."
 
   ;; look up rule object
   (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
 	 (rule (gethash name regular-rules)))
-
     (unless rule
-      (setq rule (make-rule :name name :utility initial-utility))
-      (setf (gethash name regular-rules) rule))
+      (setq rule (make-rule :name name :utility (or (get name 'initial-utility) *iu*)))
+      (when add
+	  (setf (gethash name regular-rules) rule)))
     rule))
     
 (defun actup-eval-rule (group &rest args)
@@ -1851,11 +1864,12 @@ the chose rule."
 		    finally
 		      (return (cons utility (choice rules)))))
 	   (rule (cdr rule-util)))
-      (debug-print *informational* "Group ~a, ~a~a matches, choosing rule ~a (Utility ~a) from subset of best ~a~%"
+      (debug-print *informational* "Group ~a with ~a~a matching rules, choosing rule ~a (Utility ~a) from subset of best ~a~%"
 		   group 
 		   (length regular-rules)
 		   (if *rule-compilation*
-		       (format-nil "+~a" (length compiled-rules)))
+		       (format-nil "+~a" (length compiled-rules))
+		       "")
 		   (rule-name rule) (first rule-util) (length rules))
       (when rule
 	(if (compiled-rule-p rule) ;; compiled rule?	    
@@ -1879,9 +1893,12 @@ Reward must be greater than 0."
     (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
 	 (let* ((r-time (car rc))
 		(r-rule (cdr rc))
-		(reward-portion (* reward
-				   (+ *au-rfr*
-				      (* *au-rpps* (- last-time r-time))))))
+		(reward-portion (if (and *au-rfr* *au-rpps*)
+				    (* reward
+				       (+ *au-rfr*
+					  (* *au-rpps* (- last-time r-time))))
+				    (- reward (- (actup-time) r-time)) ; as in ACT-R
+				    )))
 	   (if (< reward-portion 0) (return nil))
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
