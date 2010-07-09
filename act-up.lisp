@@ -143,18 +143,21 @@ The log output can be retrieved with `debug-log'."
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
 
-  (loop for g in act-up::*actup-rulegroups* do
-       (loop for name in (cdr g) do
-	  ;; look up rule object
-	    (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
-		   (rule (gethash name regular-rules)))
-	      (print (cons name
-			   (if rule
-			       (rule-utility (lookup-rule name))
-			       (if (get name 'initial-utility)
-				   (list 'rule-iu (get name 'initial-utility))
-				   (list '*iu* *iu*))))))))
-		     
+  (let ((rs)
+	(regular-rules (procedural-memory-regular-rules (model-pm (current-model)))))
+    (loop for g in act-up::*actup-rulegroups* do
+	 (loop for name in (cdr g) do
+	      (pushnew name rs)))
+
+    (loop for name in (sort rs (lambda (a b) (string-lessp (symbol-name a) (symbol-name b)))) do
+       ;; look up rule object
+	 (let ((rule (gethash name regular-rules)))
+	   (print (cons name
+			(if rule
+			    (rule-utility (lookup-rule name))
+			    (if (get name 'initial-utility)
+				(list (get name 'initial-utility) 'rule-iu)
+				(list  *iu* '*iu*))))))))
   (print "Compiled rules not shown.")
   nil)
 
@@ -1779,6 +1782,10 @@ See also: ACT-R parameter :egs")
 
 (defun declare-rule (groups name args)
   ;; to do: check number of arguments 
+  ; remove rule from all groups first
+  (loop for grs in *actup-rulegroups* do
+       (setf (cdr grs) (delete name (cdr grs))))
+  (setq *actup-rulegroups* (delete-if (lambda (x) (not (cdr x))) *actup-rulegroups*))
   (when groups
     (loop for g in groups when g do
 	 ;; (re)define lisp function with group name
