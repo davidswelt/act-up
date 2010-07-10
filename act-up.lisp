@@ -314,6 +314,8 @@ macro. An attribute called `:name' should be included to specify the
 unique name of the chunk (the name may not be used for any other chunk
 in the model). 
 
+Chunk contents must not be changed after a chunk has been created.
+
 An additional function of name make-TYPE* is also provided, which
 creates a new chunk just like make-TYPE does, but only if such a chunk
 does not yet exist in declarative memory (of the current model). All
@@ -332,6 +334,13 @@ chunk is found in DM, it is returned."
 	      (list name-and-options `(:include actup-chunk
 				       (chunk-type ',type)
 				       (attrs ',(defstruct-attr-list members)))))))
+    ;; mark each member as read-only
+    (setq members 
+	  (loop for m in members collect
+	       (append
+		(if (consp m) 
+		    (if (cdr m) m (list (car m))) (list m nil))
+		'(:read-only t))))
     `(progn
        (defstruct ,incl
 	 ,@members)
