@@ -419,7 +419,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  actUP-time stop-actup-time
 	  pass-time wait-for-model
 	  model-chunks 
-	  defrule assign-reward
+	  defrule assign-reward assign-reward* flush-rule-queue
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
 	  make-chunk* ; for untyped chunks
@@ -1694,9 +1694,10 @@ Rules and groupings of rules are not specific to the model."
 
   ;; look up rule object
   (let ((rule (lookup-rule name t)))
-    ;; add rule to queue
-    (push (cons (actup-time) rule)
-	  (procedural-memory-rule-queue (model-pm (current-model))))
+    (when *ul* ; utility learning on
+      ;; add rule to queue
+      (push (cons (actup-time) rule)
+	    (procedural-memory-rule-queue (model-pm (current-model)))))
     
     ;; return rule
     rule))
@@ -1745,7 +1746,7 @@ The initial utility of a compiled rule equals the initial utility of the source 
 		  :name (make-compiled-rule-name group args result)
 		  :args args
 		  :result result
-		  :utility (rule-utility this-rule)
+		  :utility *nu* ; (rule-utility this-rule)
 		  :original-rule (rule-name this-rule)
 		  :firing-time (rule-firing-time this-rule)))))))
 
@@ -1770,15 +1771,61 @@ Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
 
 (defparameter *alpha* 0.2  "utility learning rate
-See also the function `assign-reward'.")
+See also the function `assign-reward'.
+See also: ACT-R parameter :alpha")
 
-(defparameter *iu* 0.0 "initial utility
-See also the function `assign-reward'.")
+(defparameter *nu* 0.0 "Utility assigned to compiled rules.
+
+This is the starting utility for a newly learned rule (those created
+by the production compilation mechanism). This is the U(0) value for
+such a rule if utility learning is enabled and the default utility if
+learning is not enabled. The default value is 0.
+
+See also the function `assign-reward' and the variable `*rule-compilation*'.
+See also: ACT-R parameter :nu")
+
+(defparameter *iu* 0.0 "Initial rule utility.
+
+The initial utility value for a user-defined rule (`defrule'). This is
+the U(0) value for a production if utility learning is enabled and the
+default utility if learning (`*ul*') is not enabled. The default value
+is 0.
+
+See also the function `assign-reward'.
+See also: ACT-R parameter :iu")
+
+(defparameter *ul* t "Utility learning flag.
+
+If this is set to t, then the utility learning equation used above
+will be used to learn the utilities as the model runs. If it is set to
+nil then the explicitly set utility values for the rules are
+used (though the noise will still be added if `*egs*' is
+non-zero). The default value is nil.
+
+See also the function `assign-reward'.
+Only if `assign-reward' is called will this parameter have any effect.
+
+See also: ACT-R parameter :ul")
+
+(defparameter *ut* nil "Utility threshold.
+
+This is the utility threshold. If it is set to a number then that is
+the minimum utility value that a rule must have to compete in
+conflict resolution. Rules with a lower utility value than that
+will not be selected. The default value is nil which means that there
+is no threshold value and all rules will be considered.
+
+See also: ACT-R parameter :ut")
 
 (defparameter *egs* nil "Transient noise parameter for ACT-UP rules.
+
+This is the expected gain s parameter. It specifies the s parameter
+for the noise added to the utility values. It defaults to 0 which
+means there is no noise in utilities.
+
 See also: ACT-R parameter :egs")
 
-(export '(*au-rpps* *iu* *alpha* *au-rfr* *iu* *egs* assign-reward))
+(export '(*au-rpps* *alpha* *au-rfr* *iu* *nu* *ut* *ul* *egs* assign-reward))
 
 (defun declare-rule (groups name args)
   ;; to do: check number of arguments 
@@ -1863,6 +1910,7 @@ the chose rule."
 		    for r-utility = (+ (or (rule-utility rule) *iu*) 
 				       (if *egs* (act-r-noise *egs*) 0.0))
 		    when (>= r-utility utility)
+		    when (or (not *ut*) (>= r-utility *ut*))
 		    do
 		      (setq rules  (if (> r-utility utility) 
 				       (list rule)   ; better
@@ -1894,7 +1942,23 @@ See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
 See `defrule' for documentation on how to use utility when
 selecting between rules.
 
-Reward must be greater than 0."
+Reward must be greater than 0.
+
+The reward is only distributed to rules invoked since the last call to
+`assign-reward' (or `flush-rule-queue', or `reset-model').  See also
+`assign-reward*' for a function that does not reset this set of
+rules."
+
+  (assign-reward* reward)
+  (flush-rule-queue)
+  ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
+  ;; 	  utilities)
+  )
+
+(defun assign-reward* (reward)
+  "Like `assign-reward', but does not flush the rule queue.
+See also `flush-rule-queue'."
+
   (let ((last-time (actup-time)))
     (debug-print *informational* "Assigning reward ~a~%" reward)
     (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
@@ -1910,10 +1974,14 @@ Reward must be greater than 0."
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
 	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
-	   ))
-    ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
-    ;; 	  utilities)
-    ))
+	   ))))
+
+(defun flush-rule-queue ()
+  "Empties the queue of rules in the current model.
+This resets the list of rules to which rewards can be distributed (see
+`assign-reward' and `assign-reward*'."
+
+    (setf (procedural-memory-rule-queue (model-pm (current-model))) nil))
 
 (defun assign-reward-to-rule (reward-portion rule)
   "Assign reward to a specific rule."
