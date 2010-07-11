@@ -395,6 +395,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 (defstruct declarative-memory
   (chunks nil :type list)
+  (indexes `((name . ,(make-hash-table))) :type list)  ; These are indexes.  Currently an alist with one entry:  (name . hash-table)
   (total-presentations 0 :type integer))
 
 (defstruct procedural-memory
@@ -776,14 +777,17 @@ Returns the added chunk."
 
     ;; we must take care not to create a copy of the chunk object.
     (if (actup-chunk-p chunk)
-	(if (not (member chunk (model-chunks model))) ;; use object in DM if present
+	(if (let ((existing-chunk (get-chunk-by-name (get-chunk-name chunk))))
+	      (or (not existing-chunk) ; not chunk of such name
+		  (not (eq existing-chunk chunk))))
+	    ;;(not (member chunk (model-chunks model))) ;; use object in DM if present
 	    (progn
 	      ;; make sure the chunk isn't assigned to a different model
 	      (if (actup-chunk-model chunk)
-		  (if (not (eq (actup-chunk-model chunk) model))
+		  (if (not (eq (actup-chunk-model chunk) (model-name model)))
 		      (error (format-nil "learn-chunk: chunk belonging to model ~a being added to model ~a." (model-name (actup-chunk-model chunk)) (model-name model))))
 		  ;; else: not set
-		  (setf (actup-chunk-model chunk) model))
+		  (setf (actup-chunk-model chunk) (model-name model)))
 	      ;; make sure we don't have a chunk of the same name already present
 	      (let ((new-name (get-chunk-name chunk))
 		    (existing-chunk))
@@ -794,11 +798,16 @@ Returns the added chunk."
 				  "Existing chunk: ~a ~%New chunk: ~a~%"
 				  existing-chunk
 				  chunk)
-			    (error (format-nil "learn-chunk: Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk)))))
+			    (error (format-nil "learn-chunk: Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
 
 	      ;; upon adding, always reset first presentation time
 	      (setf (actup-chunk-first-presentation chunk) (actup-time))
-	      (push chunk (model-chunks model))))
+	      (push chunk (model-chunks model))
+	      ;; this is the only location where we're manipulating model-chunks.
+	      ;; update index:
+
+	      (let ((index (cdr (assoc 'name (declarative-memory-indexes (model-dm (current-model)))))))
+		(push chunk (gethash new-name index))))))
 	     ; else: already a member.
 	; else: get from DM by name
 	; maybe learn implicitly?
@@ -900,10 +909,15 @@ If the object is not in the DM, add it."
 ;; To Do:  use hash to speed this up 
 (defun get-chunk-by-name (name)
   "Returns first chunks of name NAME"
-  (loop for c in (model-chunks *current-actUP-model*)
-     do
-       (if (equal name (actup-chunk-name c))
-	   (return c))))
+		
+  (let ((index (cdr (assoc 'name (declarative-memory-indexes (model-dm (current-model)))))))
+    (if index
+	(car (gethash name index))  ; there should only be one chunk of any given name, so we do `car'
+	;; no index available, for whatever reason
+	(loop for c in (model-chunks *current-actUP-model*)
+	   do
+	     (if (equal name (actup-chunk-name c))
+		 (return c))))))
 (defun chunk-name-not-unique (name)
   "Returns non-nil if more than one chunk of name NAME exists.
 Returns nil if name is nil."
