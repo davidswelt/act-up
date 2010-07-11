@@ -96,9 +96,9 @@
 ;;; The code
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#+:packaged-actr (in-package :act-r)
-#+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
-#-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
+;; #+:packaged-actr (in-package :act-r)
+;; #+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
+;; #-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
 
 ;(eval-when (:compile-toplevel :Load-toplevel :execute)
 ;  (proclaim '(optimize (speed 3) (space 0) (saftey 0))))
@@ -282,22 +282,21 @@
 (defun genrand_real2(&optional (state *default-random-module*))
     (/  (genrand_int32 state) 4294967296.0))
 
-#|
-This function should produce the same numbers as the 2000 
-in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
 
-(defun test-mt-generator ()
-  (let ((res1 nil)
-        (res2 nil)
-        (init (make-array 4 :initial-contents 
-                          '(#x123 #x234 #x345 #x456))))
-    (init_by_array init)
-    (dotimes (i 1000)
-      (push (genrand_int32) res1))
-    (dotimes (i 1000)
-      (push (genrand_real2) res2))
-    (list (reverse res1) (reverse res2))))
-|#
+;; This function should produce the same numbers as the 2000 
+;; in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
+
+;; (defun test-mt-generator ()
+;;   (let ((res1 nil)
+;;         (res2 nil)
+;;         (init (make-array 4 :initial-contents 
+;;                           '(#x123 #x234 #x345 #x456))))
+;;     (init_by_array init)
+;;     (dotimes (i 1000)
+;;       (push (genrand_int32) res1))
+;;     (dotimes (i 1000)
+;;       (push (genrand_real2) res2))
+;;     (list (reverse res1) (reverse res2))))
 
 ;; Here's the actual module definition code
 
@@ -481,18 +480,18 @@ in the test output file provided with mt19937ar.c -> mt19937ar.out.txt
            ((null temp) result))
     nil))
     
-#|
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
 
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 2.1 of the License, or (at your option) any later version.
 
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-|#
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Lesser General Public License for more details.
+
+;; You should have received a copy of the GNU Lesser General Public
+;; License along with this library; if not, write to the Free Software
+;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+

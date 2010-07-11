@@ -2,6 +2,12 @@
 
 (if (boundp 'emacs-version)
     (progn
+      (defmacro defconstant (var val &optional doc)
+	`(set (defvar ,var nil ,(or doc "")) ,val))
+      (defmacro byte (high low)
+	`(cons ,high ,low))
+      (defmacro defparameter (var val &optional doc)
+	`(set (defvar ,var nil ,(or doc "")) ,val))
       (defun format-cl2el (form)
  	(replace-regexp-in-string "~\\([a-z]\\)" "%\\1"
          (replace-regexp-in-string "~a" "%s"

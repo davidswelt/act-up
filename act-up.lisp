@@ -1,4 +1,3 @@
-(setq *print-level* 4)
 ;; ACT-UP
 ;; (C) Carnegie Mellon University,
 ;; (C) David Reitter, 2010
@@ -10,18 +9,11 @@
 ;; (use-package :act-up)
 
 
-;; to do:
-;; when retrieving a chunk from DM
-;; i can modify it (it's not read-only)
-;; and that would modify the original chunk in DM
-;; that's not right.. it should be learned for this to happen
-;; should retrieve-chunk return a copy? 
+;; (if (boundp 'emacs-version)
+;;     (load (format "%semacs-lisp-compat.el"  (file-name-directory (or load-file-name default-directory))))
+;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
 
-;; Solution
-;; When first adding the chunk, make a copy of the chunk, where all attributes that are non-act-up internal
-;; are copied and marked as read-only.  
-;; if they are act-up chunks, they should probably be changed to the chunk's names.
-;; we could probably also offer a "retrieve-chunk-copy" function that retrieves a read/write copy.
+
 
 (declaim (optimize (speed 3) (space 0) (debug 0)))
  
@@ -29,16 +21,17 @@
   (:documentation "The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
 Anderson 2007, etc.).
-(C) 2010, David Reitter, Carnegie Mellon University.")
+ (C) 2010, David Reitter, Carnegie Mellon University.")
   (:use :common-lisp))
 
 (in-package :act-up)
 
 
-;; (if (boundp 'emacs-version)
-;;     (load (format "%s/emacs-lisp-compat.el" (file-name-directory (or load-file-name default-directory))))
-;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
+;; prevent some issues
+(setq *print-level* 4)
 
+
+;; Emacs Lisp compatibility
 (defun format-nil (form &rest args)
   (apply #'format nil form args))
 
