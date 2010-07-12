@@ -1,18 +1,19 @@
-(load "act-up.lisp")
+;;; Filename: paired.lisp
+
+;;; Author: Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
+;;; To run use command: collect-data 100
+
 (load "actr-stats")
 
-(require "act-up" "act-up.lisp")
+(require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
 (setf *rt* -2)
 (setf *ans* 0.5)
 (setf *bll* 0.4)
 (setf *lf* 0.3)
-  
-;;; Return some element of the list, chosen at random
-
-(defun random-element (list)
-  (cons (nth (random (length list)) list) ()))
 
 (defvar *pairs* '(("bank" "0") ("card" "1") ("dart" "2") ("face" "3") ("game" "4")
                   ("hand" "5") ("jack" "6") ("king" "7") ("lamb" "8") ("mask" "9")
@@ -22,10 +23,10 @@
 (defvar *paired-latencies* '(0.0 2.158 1.967 1.762 1.680 1.552 1.467 1.402))
 (defvar *paired-probability* '(0.000 .526 .667 .798 .887 .924 .958 .954))
 
-;;;; define chunk type
+;;;; Define chunk type
 (define-chunk-type pair probe answer)
 
-;;;; defining productions
+;;;; Test harness for the experiment
 
 (defun do-experiment (size trials)
     (do-experiment-model size trials))
@@ -81,9 +82,16 @@
   (format t "Trial    1       2       3       4       5       6       7       8~%")
   (format t "     ~{~8,3f~}~%" predicted))
 
+;;;; Defining procedural rule
+
 (defrule paired (arg)
-  (let* ((p (or (retrieve-chunk (list :chunk-type 'pair :probe (first arg)))
-	       (make-pair :probe (first arg) :answer (second arg)))))    
-    (progn
-      (learn-chunk p)
-      (pair-answer p))))
+  (let ((p (retrieve-chunk (list :chunk-type 'pair 
+				 :probe (first arg)))))
+    (if (not p)
+	(progn
+	  (setq p (make-pair :probe (first arg) 
+			     :answer (second arg)))
+	  (learn-chunk p))
+      (progn
+	(learn-chunk p)
+	(pair-answer p)))))

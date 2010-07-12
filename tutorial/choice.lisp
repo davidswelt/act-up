@@ -1,11 +1,19 @@
-(load "act-up")
+;;; Filename: choice.lisp
+
+;;; Author: Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
 (load "actr-stats")
+(require "act-up" "../act-up.lisp")
 (use-package :act-up)
+
 (setq *egs* nil)
 
 (defvar *choice-data* '(0.66 0.78 0.82 0.84))
 
 (defvar *response*)
+
+;;;; Test harness for the experiment
 
 (defun do-trial-model ()
   (setf *response* (choose-coin))
@@ -45,6 +53,8 @@
    (format t " Original     Current~%")
    (dotimes (i 4)
      (format t "~8,3F    ~8,3F~%" (nth i *choice-data*) (nth i results))))
+
+;;;; Defrules that return the choice as symbol heads or tails
 
 (defrule decide-tails ()
   :group choose-coin

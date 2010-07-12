@@ -1,14 +1,17 @@
-(load "act-up")
+;;; Filename: semantic.lisp
 
-(require "act-up" "act-up.lisp")
+;;; Author: Jasmeet Ajmani
+
+(require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
 (setf *lf* 0.5)
+(setf *rt* -1)
 
-;;;; defining chunk types
+;;;; Defining chunk type
 (define-chunk-type property object attribute value)
 
-;;;; adding chunks to memory
+;;;; Committing chunks to memory
 
 (defun init-model ()
 (reset-model)
@@ -33,18 +36,24 @@
 (learn-chunk (make-property :object 'bird :attribute 'locomotion :value 'flying))
 (learn-chunk (make-property :object 'bird :attribute 'category :value 'animal))  
 )    
-;;;; defining productions
+
+;;;; Defining procedural rules
 
 (defrule semantic (arg1 arg2)
-  (init-model)
-  (let* ((p (retrieve-chunk (list :chunk-type 'property :object arg1 :attribute 'category))))
+  (let ((p (retrieve-chunk (list :chunk-type 'property 
+				 :object arg1 
+				 :attribute 'category))))
     (if (not p)
 	(print nil)
       (if (eq (property-value p) arg2)
 	  (print 'yes)
-	(let* ((q (retrieve-chunk (list :chunk-type 'property :object (property-value p) :attribute 'category))))
+	(let ((q (retrieve-chunk (list :chunk-type 'property 
+				       :object (property-value p) 
+				       :attribute 'category))))
 	  (if (eq (property-value q) arg2)
 	      (print 'yes)
 	    (print 'no)))))))
+
+(init-model)
 	    
       
