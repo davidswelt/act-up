@@ -22,10 +22,10 @@
 
 (defvar *paired-latencies* '(0.0 2.158 1.967 1.762 1.680 1.552 1.467 1.402))
 (defvar *paired-probability* '(0.000 .526 .667 .798 .887 .924 .958 .954))
-
+ 
 ;;;; Define chunk type
 (define-chunk-type pair probe answer)
-
+ 
 ;;;; Test harness for the experiment
 
 (defun do-experiment (size trials)
@@ -33,9 +33,9 @@
 
 (defun do-experiment-model (size trials)
   (let ((result nil))
-    
+
     (reset-model) 
-    
+
     (dotimes (i trials) 
       (let ((score 0.0)
             (time 0.0)
@@ -45,18 +45,18 @@
           (setf *response* nil)                   
           (setf *response-time* nil)
           (setf start-time (actup-time))
-          
+
 	  (setf *response* (paired x))
 	  (setf *response-time* (actup-time))
 	  (pass-time 3.5)
-          
+
           (when (equal (second x) *response*)      
             (incf score 1.0)    
             (incf time (- *response-time* start-time))))
 	 (pass-time 5)
-
+	  
         (push (list (/ score size) (and (> score 0) (/ time score ))) result)))
-    
+
     (reverse result)))
 
 (defun collect-data (n)
@@ -74,7 +74,7 @@
         (latency (mapcar #'(lambda (x) (/ (or (second x) 0) n)) data)))
     (print-results latency *paired-latencies* "Latency")
      (print-results probability *paired-probability* "Accuracy")))
-    
+
 (defun print-results (predicted data label)
  (format t "~%~%~A:~%" label)
   (correlation predicted data)

@@ -66,7 +66,17 @@ How do I...</A>
 </H4>
 
 <P>
-Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#chunk">chunk</a>.
+
+Unlike ACT-R, ACT-UP is not normally strongly typed.
+All slot names are declared initially, but ACT-UP does not distinguish chunk types within a type hierarchy.
+Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#actup-chunk">actup-chunk</a>.  This type exists once the `define-slots' macro is called:
+
+<PRE>
+(define-slots name dampen success)
+</PRE>
+
+<small>
+If you do want to define a type hierarchy, ACT-UP provides the necessary macros.
 For example, the following structure defines a chunk type of name <a href="ACT-UP.html#strategy">strategy</a> with four slots.
 One of these slots is assigned a default value (<a href="ACT-UP.html#strategy">strategy</a>).
 
@@ -92,6 +102,7 @@ To define an inherited type, use this construction:
 ...
 </PRE>
 
+</small>
 <P>
 
 <H4><A NAME="SECTION00020030">
@@ -104,6 +115,58 @@ The model is defined automatically when <a href="ACT-UP.html#act-up.lisp">act-up
 <P>
 The ACT-UP meta-process keeps track of model time that is common to all models.  You may define several meta-processes and use/reuse them as you like with the function <a href="ACT-UP.html#make-meta-process">make-meta-process</a>.  You can bind *current-actUP-meta-process* to a meta-process to switch.  Use <a href="ACT-UP.html#reset-mp">reset-mp</a> to discard and reset the current meta-process.
 
+
+<P>
+
+<H4><A NAME="SECTION00020080">
+... define a procedural rule ("production")?</A>
+</H4>
+
+<P> ACT-UP does not use IF-THEN production rules as known from ACT-R.
+Instead, it allows you define Lisp functions that we call
+<em>rules</em>; they represent multiple, theoretical ACT-R productions.  An important property of
+ACT-UP models is that the rules are not always tested in parallel; flow
+control is achieved through standard Lisp programming.
+
+Define rules using <a href="ACT-UP.html#defrule">defrule</a>, similar to the way you would define a Lisp function with the `defun' macro:
+
+<P>
+<PRE>
+(defrule subtract-digit (minuend subtrahend)
+   "Perform subtraction of a single digit"
+   (- minuend subtrahend))
+</PRE>
+
+<H4><A NAME="SECTION00020030">
+...define a chunk?</A>
+</H4>
+
+<P>
+Chunks are Lisp structures that are of type `chunk', or of a type
+defined with `define-chunk-type'.  They can be created with the
+`make-chunk' function, or with the creator functions of the more
+specific type.
+
+<P>
+When a chunk is created, a unique name should be assigned.  Otherwise,
+this name is assigned automatically when the chunk is added to the DM.
+
+<P><PRE>
+(make-chunk :name 'andrew :age 42 :spouse 'louise)
+(make-chunk :name 'louise :age 35 :spouse 'andrew)
+</PRE>
+<P>
+When assigning values to the attributes defining a chunk, symbols are
+interpreted as names of other chunks in DM.  This is often more
+comfortable than assigning the values directly.
+
+<P>
+Note, however, that certain actions - such as defining Sji weights
+between chunks - will cause ACT-UP to implicitly define an empty chunk
+of a given name in the DM, if that chunk is not found in DM.
+
+
+
 <P>
 
 <H4><A NAME="SECTION00020040">
@@ -113,15 +176,37 @@ The ACT-UP meta-process keeps track of model time that is common to all models. 
 <P>
 To specify the "presentation" of a specific chunk, use the function <a href="ACT-UP.html#learn">learn</a>.
 The chunk reference may be supplied in a normal variable (equivalent to ACT-R's buffer),
-or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-type</a> syntax , as in the following example:
+or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-chunk</a> function, as in the following example:
 
 <P>
 <PRE>
-(learn-chunk  (make-strategy :name 'guess :success 0.2))
+(learn-chunk  (make-chunk :name 'guess :success 0.2))
 </PRE>
-This will create a new strategy chunk, setting two of its parameters, and commit it to memory.
-Note that even newly created chunks will be merged with existing chunks if they contain the same elements.
+This will create a new strategy chunk, setting two of its parameters,
+and commit it to memory.
 
+To reinforce the existing chunk, use the chunk's name:
+
+<PRE>
+(learn-chunk 'guess)
+</PRE>
+
+Note that making a new chunk and calling `learn-chunk' will always
+create a separate chunk.  It will not merge the new chunk with any
+existing chunk (this would not scale very well, computationally).  You
+must use the unique chunk name, or retrieve the chunk before
+comitting it, or use the `make-chunk*' syntax to extract a chunk from
+declarative memory for learning.  For example:
+
+<PRE>
+(learn-chunk (make-chunk :success 0.2))   [1]
+(learn-chunk (make-chunk* :success 0.2))  [2]
+</PRE>
+
+Case 1 would make a new chunk with the given success value, give it a
+unique name, and add it to declarative memory.  Case 2, on the other
+hand, would find the chunk that is already in declarative memory, and
+boost its presentation count via base-level learning.
 <P>
 
 <H4><A NAME="SECTION00020050">
@@ -178,25 +263,10 @@ Use the <a href="ACT-UP.html#add-sji-fct">add-sji-fct</a> and reset-sji-fct' fun
 
 <P>
 
-<H4><A NAME="SECTION00020080">
-... define a procedural rule ("production")?</A>
-</H4>
-
-<P> ACT-UP does not use if-then production rules as known from ACT-R.  Instead, it allows you define Lisp functions that act as rules (or better: groups of rules).  Define rules using <a href="ACT-UP.html#defrule">defrule</a>, similar to the way you would define a Lisp function with the `defun' macro.
-
-<P>
-<PRE>
-(defrule subtract-digit (minuend subtrahend)
-   "Perform subtraction of a single digit"
-   (- minuend subtrahend))
-</PRE>
-
-<P>
-
 <H4><A NAME="SECTION00020090">
 ... select a procedural rule using subsymbolic utility learning?</A>
 </H4>
-
+<h5>Quick Answer</h5>
 <P>
 Define competing rules as above and give each a <TT>:group</TT> attribute in order to group them into a competition set:
 
@@ -234,6 +304,133 @@ using the <a href="ACT-UP.html#defrule">defrule</a> macro (rather than just bein
 <P>
 Configure utility learning via the parameters <a href="ACT-UP.html#*au-rpps*">*au-rpps*</a>, <a href="ACT-UP.html#*au-rfr*">*au-rfr*</a>, <a href="ACT-UP.html#*alpha*">*alpha*</a>, and <a href="ACT-UP.html#*iu*">*iu*</a>.
 
+
+
+<h5>Worked Example</h5>
+Note that ACT-UP supports utility learning and even rule compilation.
+Utility learning means that multiple rules may compete for execution,
+and that the actually executed rules are assigned rewards if they lead
+to some form of success.  To define competing rules, they must be
+grouped together in a <em>Group</em>.  A group is a set of rules, such
+as the following:
+
+<P>
+<PRE>
+(defrule subtract-digit-by-addition (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via addition."
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (when chunk
+          (learn-chunk chunk)
+          (addition-fact-add2 chunk))))
+(defrule subtract-digit-by-subtraction (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via subtraction knowledge."
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :min ,minuend
+                                  :sub subtrahend))))
+       (print "addition by subtraction.")
+       (when chunk
+          (learn-chunk chunk)
+          (subtraction-fact-result chunk))))
+(defrule subtract-digit-by-addition-faulty (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via addition.  Faulty strategy."
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :add2 ,minuend
+                                  :result ,subtrahend))))
+       (when chunk
+          (learn-chunk chunk)
+          (addition-fact-add2 chunk))))
+(defrule subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   "Perform subtraction of a single digit via subtraction knowledge."
+   ...)
+</PRE>
+
+Note that each rule in the group takes the same, two arguments
+(minuend, subtrahend).  In order to execute a subtraction, we simply
+call a function that is named after the group:
+
+<pre>(subtract 7 3)</pre>
+
+ACT-UP will automatically choose one of rules in the <em>subtract</em>
+group.  In order to gauge the utility of each group, we must propagate
+rewards to the rules.  This can be done with the `assign-reward'
+function:
+
+<pre>
+;; model entry point:
+(defrule subtraction-model (a b)
+  (let ((result (subtract a b)))
+     ;; obtain feedback from experimental environment:
+     (if (get-feedback a b result)
+         (assign-reward 2.0))))
+
+;; environment:
+(defun get-feedback (a b result)
+  "Environment function (experimental setup) - not part of the model.
+Return T if problem solved correctly."
+  (if result  ;; note result may be nil
+      (= result (- a b))))
+</pre>
+
+After a short period of time, this model should learn to choose an effective, reliable strategy to
+carry out a subtraction.
+<p>
+Rewards are assigned to ACT-UP rules just like they would be assigned
+to production rules in ACT-R.  The most recently invoked rule received
+the largest portion of the reward; Difference-Learning governs how much of
+a rule benefits from its reward portion.
+
+<P>
+<H4><A NAME="SECTION00020030">
+...model effects via production compilation?</A>
+</H4>
+
+ACT-UP may not have productions, but it does have <em>rules</em>.
+These rules can be compiled.  To do so, we need to keep in mind that
+rule compilation will side-step any intemediate action that a model
+might undertake in order to execute a rule.  This includes retrievals
+from declarative memory, but also any other side-effects such as
+sensory-motor interaction, or even Lisp code.
+<p>
+ACT-UP's rule compilation can be enabled by setting the
+<tt>*rule-compilation*</tt> parameter to t. 
+<p>
+Every time a rule ("source rule") is invoked, rule compilation will create a compiled
+rule (specific to the arguments given to the rule at invokation); its
+initial utility will we <tt>*iu*</tt>.  If the source rule is compiled a
+second time, the utility of the compiled rule will be boosted by the
+utility of the source rule according to reward assignment mechanism
+(difference learning equation, as above).  The compiled rule will,
+eventually, have a higher utility than the source rule, and it will be
+executed instead.  In the subtraction example from above, the
+following gives a sample of the acquired compiled rules:
+<pre>
+(subtract-digit-by-subtraction 8 3) --&gt;5
+(subtract-digit-by-addition 6 2) --&gt;4
+(subtract-digit-by-addition-faulty 7 3) --&gt; nil
+(subtraction-model 3 1) --&gt; 2
+</pre>
+
+<p>
+Note that in order to execute the best rule among one or more source
+rules, and all their compiled equivalents, the modeler must define a
+group for the rules and invoke them via the group name.  Reward
+assignment and rule compilation will take place no matter how the rule
+was invoked.  So, in the above example, the `subtraction-model' will
+never be run in its compiled form, and rewards will always be
+propagated, because it does not belong to a group and cannot be
+called that way.
+<P>
+Again, note that in its compiled form, the rule merely returns its
+result.  No side-effects are observed.  For instance, the
+`subtract-digit-by-subtraction' rule will print the debug message
+"Addition by subtraction!" every time it is run - as long as it isn't
+compiled.  Once compiled, it will always just return the result. 
 
 </BODY>
 </HTML>

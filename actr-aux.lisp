@@ -1,9 +1,5 @@
 (declaim (optimize (speed 0) (space 0) (debug 3)))
  
-(defparameter *talking* t)
-(defun say (form &rest args)
-  (if *talking*
-       (format t "~a ~a: ~a~%" (meta-process-name *current-actUP-meta-process*) (actup-time) (apply 'format nil form args))))
 
 (defun mean (&rest list)
   (/ (apply 'sum list) (length list)))
@@ -19,12 +15,12 @@
 
 
 (defun structure-alist (object)
-  (let ((spec (cdr (second (read-from-string (concatenate 'string "( \\" (prin1-to-string object) " )"))))))
+  (let ((spec (cdr (second (read-from-string (concatenate 'string "( \\" (let ((*print-circle* t)) (prin1-to-string object)) " )"))))))
     (loop for argval on spec by #'cddr collect
 	 (cons (first argval) (second argval)))))
 
 (defun structure-value-count (object &rest values)
-  (let ((spec (cdr (second (read-from-string (concatenate 'string "( \\" (prin1-to-string object) " )"))))))
+  (let ((spec (cdr (second (read-from-string (concatenate 'string "( \\" (let ((*print-circle* t)) (prin1-to-string object)) " )"))))))
     (loop for argval on spec by #'cddr sum
 	 (if (member (second argval) values) 1 0))))
 
@@ -71,138 +67,6 @@ We're using inverse transform sampling to obtain the sample."
   (/ (or xm 1) (expt (random 1.0 my-random-state) (/ 1 (or k 1)))))
 
 
-(defmacro with-all-models (&body body)
-  `(dolist (model-name *agent-list*)
-   (let ((mp (current-mp)))
-     (if mp
-         (if (valid-model-name model-name)
-             (let ((previous-model (current-model-struct)))
-               (setf (meta-p-current-model (current-mp)) 
-                 (gethash model-name (meta-p-models mp)))
-               (unwind-protect (progn ,@body)
-		 (setf (meta-p-current-model (current-mp)) previous-model)
-               ))
-           (print-warning "~S does not name a model in the current meta-process (wiht-all-models)" model-name))
-       (print-warning "No actions taken in with-model because there is no current meta-process")))))
-
-(defun special-goal-focus (chunk)
-  (if (query-buffer 'production '((state . busy)))
-      (print (format nil "scheduling goal focus on ~a, retval: ~a" chunk
-		     (schedule-event-after-module 'procedural 
-						  'goal-focus-fct :params (list chunk))))
-      (progn
-	(print (format nil "regular goal-focus ~a" chunk))
-	(goal-focus-fct chunk))))
-
-
-(defun special-set-imaginal (chunk)
-  (if (query-buffer 'production '((state . busy)))
-      (schedule-event-after-module 'procedural 
-				   'set-buffer-chunk :params (list 'imaginal chunk))
-      (set-buffer-chunk 'imaginal chunk)))
-(defun special-clear-imaginal ()
-  (if (query-buffer 'production '((state . busy)))
-     (schedule-event-after-module 'procedural 
-				   'clear-buffer :params (list 'imaginal))
-      (clear-buffer 'imaginal)))
-
-
-
-(defun init-meaning-chunk (cname)
-    (set-base-levels-fct (list (list cname base-level-num-access -1000000))))
- 
-
-(defun run-monitor-base-levels (timeout)
-  (let ( (models)  (levels-at-start (make-hash-table)))
-    (with-all-models
-      (push (current-model-name) models)
-      (loop for c in (chunks) do
-	     (setf (gethash (true-chunk-name-fct c) levels-at-start) nil)))
-
-    (maphash (lambda (chunk-name v)
-
-	       (setf (gethash chunk-name levels-at-start)
-		     (mapcar (lambda (mod)
-			     (with-model-fct mod
-			       `((car (get-base-level-fct (list ',chunk-name))))))
-			   models)))
-	     levels-at-start)
-;    (print (gethash 'concept109 levels-at-start)))
-		 
-    (run timeout)
-
-    ;; capture any novel chunks
-    (with-all-models
-      (loop for c in (chunks) do
-	   (if (not (gethash (true-chunk-name-fct c) levels-at-start))
-	     (setf (gethash (true-chunk-name-fct c) levels-at-start) (mapcar (lambda (x) nil) models)))))
-
-
-    (let ((chunks )) 
-      (maphash (lambda (k v) (push (cons k v) chunks)) levels-at-start)
-      (setq chunks (sort chunks 'string-lessp :key (lambda (x) (symbol-name (car x)))))
-     
-      ;; (sort chunks (lambda (a b) (string-lessp (symbol-name (car a)) (symbol-name (car b)))))
-    (mapcar (lambda (entry)
-	   (let ((chunk-name (car entry)) (prior-levels (cdr entry)))
-	       (if (or (numberp (car prior-levels)) (not (car prior-levels)))
-		   (print (format nil "~s: ~a" chunk-name 
-			      (apply 'concatenate 'string 
-			      (loop for plev in prior-levels for mod in models collect
-				   (with-model-fct mod
-				       `(
-					 (let ((blev (car (get-base-level-fct (list ',chunk-name)))))
-					   (if (numberp ,plev)
-					       (if (numberp blev)
-						   (format nil " ~t~3f" (- blev
-									   ,plev))
-						   "DEL")
-					       (if (numberp blev)
-						   (format nil " ~tN~3f" blev)
-						   "N/A"))))))))))))
-	       chunks))) nil)
-			
-
-
-(defun mp-wait-for (time &key (real-time nil) )
-  "Set a meta-process to time 0 and clear the events"
-
-  (if real-time
-      (sleep time)
-    (setf (meta-p-time (current-mp)) (+ time (meta-p-time (current-mp)))))) 
-
-
-(defun current-model-name ()
-  (act-r-model-name (current-model-struct)))
-
-(defun trace-on (&optional act-trace)
-  (setq *dialog-trace* t)
-  (with-all-models
-    (sgp-fct `(:v t :act ,act-trace))))
-
-(defun trace-off ()
-  (with-all-models
-    (sgp :v nil)))
-
-(defun clear-queue ()
-  (setf (meta-p-events (current-mp)) nil)
-  (setf (meta-p-delayed (current-mp)) nil) 
-  (with-all-models
-    (schedule-event-relative 0 'conflict-resolution :module 'procedural
-			     :destination 'procedural
-			     :output 'medium)))
-
-;;  (setf (meta-p-events (current-mp)) nil)
-;;   (setf (meta-p-delayed (current-mp)) nil) 
-;;   (with-all-models (reset-module 'procedural)))
-
-;
-(defun kick-off-conflict-resolution ()
-  (with-all-models
-    (un-delay-conflict-resolution)))
-
-
-
 ;; calculate necessary noise
 
 (defun actr-noise-for-activation-delta (x p)
@@ -221,21 +85,22 @@ on one side of the mean."
       (error "p>0.5 (s>0) violation in parameter for noise.")))
 
 
-(defun actr-noise-for-time (time1 time2 p)
-"Calculcate noise s parameter to achieve a probability distribution 
-of ((1-p),p) for the retrieval of two chunks (a,b),
-a learned at t-time1, and a learned at t-time2.
+;; actr function
+;; (defun actr-noise-for-time (time1 time2 p)
+;; "Calculcate noise s parameter to achieve a probability distribution 
+;; of ((1-p),p) for the retrieval of two chunks (a,b),
+;; a learned at t-time1, and a learned at t-time2.
 
-p>0.5, because the more recent chunk will always be more likely to be retrieved.
+;; p>0.5, because the more recent chunk will always be more likely to be retrieved.
 
-e.g., for 180sec and 0sec, activation decay (0,5) causes a decay of 2.596.
+;; e.g., for 180sec and 0sec, activation decay (0,5) causes a decay of 2.596.
 
-however, if chunks were presented at t-380 and t-200, the decay would be 2.1036."
+;; however, if chunks were presented at t-380 and t-200, the decay would be 2.1036."
 
-(let* ((decay (- (car (sgp :bll))))
-       (mult 12)
-       (act-delta (- (log (+ (* mult (expt time1 decay)) (* mult (expt time2 decay)))))))
- (actr-noise-for-activation-delta act-delta p)))
+;; (let* ((decay (- (car (sgp :bll))))
+;;        (mult 12)
+;;        (act-delta (- (log (+ (* mult (expt time1 decay)) (* mult (expt time2 decay)))))))
+;;  (actr-noise-for-activation-delta act-delta p)))
 
 
 ; In 1200 secs, decay (0.5) causes 0.0288 reduction in base-level activation
@@ -281,20 +146,37 @@ however, if chunks were presented at t-380 and t-200, the decay would be 2.1036.
 ;; other stuff
 
 
-;;; insert-by-weight will add new child states to an ordered list of 
-;;; states-to-try.  
-(defun insert-by-weight (children sorted-list)
-  (cond ((null children) sorted-list)
-        (t (insert (car children) 
-           (insert-by-weight (cdr children) sorted-list)))))
+;;; insert-by-weight will add a child to an ordered list
 
-(defun insert (item sorted-list)
-  (cond ((null sorted-list) (list item))
-        ((> (car item) (car (car sorted-list)))
-         (cons item sorted-list))
-        (t (cons (car sorted-list) (insert item (cdr sorted-list))))))
+(defun insert-by-weight (item sorted-list &optional accessor) 
+  (let* ((s2 (cons nil sorted-list))
+	(prev s2)
+	(accessor (or accessor #'car)))
+    (loop for i on sorted-list 
+	 finally (setf (cdr prev) (cons item i))
+       do
+	 (if (>  (funcall accessor item) 
+		 (funcall accessor (car i)))
+	     (progn (setf (cdr prev) (cons item i))
+		    (return)))
+	 (setq prev i))
+    (cdr s2)))
 
+;; (insert-by-weight '(a 5 x)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
 
+;; (insert-by-weight '(g 2 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
+
+;; (insert-by-weight '(g 8 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
+
+;; (insert-by-weight '(g 0 y)
+;; 		  (list '(b 6 k) '(c 2 l) '(d 1 z))
+;; 		  #'second)
 
 
 ;; aggregation

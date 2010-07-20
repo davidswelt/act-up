@@ -58,6 +58,8 @@
 ;;; 2006.09.11 Dan
 ;;;             : * Take the unnecessary zerop test out of act-r-noise because
 ;;;             :   the plusp already rejects that case.
+;;; 2009.09.10 Dan
+;;;             : * Moved permute-list here from the act-gui-interface.lisp file.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; General Docs:
@@ -94,9 +96,9 @@
 ;;; The code
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#+:packaged-actr (in-package :act-r)
-#+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
-#-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
+;; #+:packaged-actr (in-package :act-r)
+;; #+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
+;; #-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
 
 ;(eval-when (:compile-toplevel :Load-toplevel :execute)
 ;  (proclaim '(optimize (speed 3) (space 0) (saftey 0))))
@@ -122,7 +124,7 @@
 
 
 ;; Truncating numbers down to 32 bits with ldb so make this a constant
-(defconstant *byte-32-0* (byte 32 0))
+(defvar *byte-32-0* (byte 32 0))
 ;(defconstant *b1* (byte 1 31))
 
 (defvar *default-random-module* (make-mersenne-twister))
@@ -280,22 +282,21 @@
 (defun genrand_real2(&optional (state *default-random-module*))
     (/  (genrand_int32 state) 4294967296.0))
 
-#|
-This function should produce the same numbers as the 2000 
-in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
 
-(defun test-mt-generator ()
-  (let ((res1 nil)
-        (res2 nil)
-        (init (make-array 4 :initial-contents 
-                          '(#x123 #x234 #x345 #x456))))
-    (init_by_array init)
-    (dotimes (i 1000)
-      (push (genrand_int32) res1))
-    (dotimes (i 1000)
-      (push (genrand_real2) res2))
-    (list (reverse res1) (reverse res2))))
-|#
+;; This function should produce the same numbers as the 2000 
+;; in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
+
+;; (defun test-mt-generator ()
+;;   (let ((res1 nil)
+;;         (res2 nil)
+;;         (init (make-array 4 :initial-contents 
+;;                           '(#x123 #x234 #x345 #x456))))
+;;     (init_by_array init)
+;;     (dotimes (i 1000)
+;;       (push (genrand_int32) res1))
+;;     (dotimes (i 1000)
+;;       (push (genrand_real2) res2))
+;;     (list (reverse res1) (reverse res2))))
 
 ;; Here's the actual module definition code
 
@@ -464,20 +465,33 @@ in the test output file provided with mt19937ar.c -> mt19937ar.out.txt
 (defun rand-time (time)
   "If time randomizing is on, do the EPIC time randomizing thing."
   (randomize-time time))
-    
-    
-#|
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
 
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
 
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-|#
+;;; PERMUTE-LIST  [Function]
+;;; Description : This function returns a randomly ordered copy of the passed
+;;;             : in list.
+
+(defun permute-list (lis)
+  "Return a random permutation of the list"
+  (if (and (listp lis) lis)
+      (do* ((item (nth (act-r-random (length lis)) lis) (nth (act-r-random (length temp)) temp))
+        (temp (remove item lis :count 1) (remove item temp :count 1))
+        (result (list item) (cons item result)))
+           ((null temp) result))
+    nil))
+    
+
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 2.1 of the License, or (at your option) any later version.
+
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Lesser General Public License for more details.
+
+;; You should have received a copy of the GNU Lesser General Public
+;; License along with this library; if not, write to the Free Software
+;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+

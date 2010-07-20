@@ -8,8 +8,9 @@
 ;; manual module (not modeled)
 
 (defun manual-move-cursor (&key loc)
-nil)
+  loc
+  nil)
 (defun manual-click-mouse ()
-nil)
+  nil)
 
 

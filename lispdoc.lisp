@@ -137,25 +137,74 @@
 		  :skip)
 	       ,(symbol-name symbol))))))
 
+(defun render-quotes (text)
+  (repl-string "'" "&#39;"
+	   (repl-string "`" "#96;"
+		    text)))
+(defun repl-string (search subst string)
+  (loop with target = nil
+     for pos = (search search string
+		       :test #'char=)
+     when pos
+       do
+     ;;       (replace string subst :start1 pos :end1 (1+ pos))
+       (setq string (concatenate 'string
+       			       (subseq string 0 pos)
+       			       subst
+       			       (subseq string (+ (length search) pos))))
+       while pos
+  )
+  string)
+; (render-quotes "hello `quoted' and!")
+
+(defun render-html-code (text)
+  "Format all code lines in HTML.
+Code lines begin with a sapce."
+  (loop with target = nil
+     for pos = (search (format nil "~% ") text
+		       :test #'char=)
+     for pos2 = (if pos (or (search (format nil "~%") text
+				    :start2 (1+ pos)
+				    :test #'char=)
+			    (length text)))
+     when pos when pos2 do
+       (decf pos2)
+       (setq target
+	     (cons
+	      (let ((line (subseq text pos (1+ pos2))))
+		(format nil "~a
+<pre>~a</pre>"
+			(subseq text 0 pos)
+			(render-quotes line)))
+	      target))
+       (setq text (subseq text (1+ pos2)))
+       ;; the replacement is always longer than the replaced text
+       ;; so old-pos does not need updating
+     while pos while pos2
+     finally (return (repl-string (format nil "</pre>~%<pre>")
+				  (format nil "")
+				  (apply #'concatenate 'string (reverse (cons text target)))))))
+
 (defun render-html-links (text)
+  "Replace `links' with HTML links."
   (loop with target = nil
      for pos = (search "`" text
 		       :test #'char=)
      for pos2 = (if pos (search "'" text
 				:start2 pos
 				:test #'char=))
-     when pos do
+     when pos when pos2 do
        (setq target
 	     (cons
 	      (let ((label (subseq text (1+ pos) pos2)))
 		(format nil "~a<a href=\"#~a\">~a</a>"
-			(string-downcase (subseq text 0 pos))
+			(subseq text 0 pos)
 			label label))
 	      target))
        (setq text (subseq text (1+ pos2)))
        ;; the replacement is always longer than the replaced text
        ;; so old-pos does not need updating
-     while pos
+     while pos while pos2
      finally (return (apply #'concatenate 'string (reverse (cons text target))))))
 ;; (render-html-links "Hello `world' how are `you'?")
 
@@ -194,13 +243,13 @@
 	   (format stream
 		   "&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>"
 		   (string-downcase type)
-		   (render-html-links docstring))))
+		   (render-html-links (render-html-code docstring)))))
 	(:variable
 	 (format stream
 		 "<p><b>~a</b>&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>~%"
 		 (symbol-name-tree (second symboldoc))
 		 (string-downcase (first symboldoc))
-		 (render-html-links (third symboldoc)))
+		 (render-html-links (render-html-code (third symboldoc))))
 	 (if (eq (fourth symboldoc) :unbound)
 	     (format stream "<blockquote>Initially unbound</blockquote>")
 	     (format stream
@@ -211,7 +260,7 @@
 		 "<p><b>~a</b>&nbsp;&nbsp;&nbsp;<i>~a</i></p>~%<blockquote>~a</blockquote>"
 		 (symbol-name-tree (second symboldoc))
 		 (string-downcase (first symboldoc))
-		 (render-html-links (third symboldoc)))
+		 (render-html-links (render-html-code (third symboldoc))))
 	 (when (fourth symboldoc)
 	   (format stream
 		   "<blockquote>Class precedence list: <tt>~{ ~a~}</tt></blockquote>~%"

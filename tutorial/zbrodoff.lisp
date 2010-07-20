@@ -137,7 +137,7 @@
 (define-chunk-type problem arg1 arg2 r)
 (define-chunk-type seqfact identity next)
 
-;;;; Committing chunks to memory
+;;;; committing chunks to memory
 
 (defun init-model ()
 (reset-model)

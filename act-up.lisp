@@ -1,61 +1,188 @@
 ;; ACT-UP
+;; (C) Carnegie Mellon University,
+;; (C) David Reitter, 2010
 
-;; DR, 04/2009
-
-;; NOT FULLY FUNCTIONAL       
+;; reitter@cmu.edu
 
 ;; to load:
 ;; (require "act-up" "act-up.lisp")
 ;; (use-package :act-up)
 
 
+;; (if (boundp 'emacs-version)
+;;     (load (format "%semacs-lisp-compat.el"  (file-name-directory (or load-file-name default-directory))))
+;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
 
-;; production rules?
 
-;; (load "lispdoc.lisp")
-;; (lispdoc:lispdoc-html "doc/" :act-up)
 
-(declaim (optimize (speed 1) (space 0) (debug 3)))
+(declaim (optimize (speed 3) (space 0) (debug 0)))
  
-
 (defpackage :act-up
+  (:documentation "The ACT-UP library.  Defines a number of functions
+and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
+Anderson 2007, etc.).
+ (C) 2010, David Reitter, Carnegie Mellon University.")
   (:use :common-lisp))
 
 (in-package :act-up)
 
 
+;; prevent some issues
+(setq *print-level* 4)
 
-(load (format nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
-(load (format nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
+
+;; Emacs Lisp compatibility
+(defun format-nil (form &rest args)
+  (apply #'format nil form args))
+
+(defun format-t (form &rest args)
+  (apply #'format t form args))
+
+
+(load (format-nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/act-up-util.lisp" (directory-namestring *load-truename*)))
 
 (defstruct meta-process
-  "An ACT-UP meta process."
+  "An ACT-UP meta process.
+A meta process keeps track of time for one or more models."
   (actUP-time 0.0 :type number)
   name
 )
-(export '(meta-process))
+(defparameter *current-actUP-meta-process* (make-meta-process)
+  "The current ACT-UP meta-process.
+The meta process keeps track of simulation time.
+May be read and manipulated by setting it to a different
+instance of type `meta-process'.")
+(export '(meta-process make-meta-process meta-process-name *current-actUP-meta-process*))
 
-(defparameter *current-actUP-meta-process* (make-meta-process))
+;; Debugging
 
+
+
+
+(defvar *critical* 0 "Constant for `*debug*': Show only critical messages.")
+(defvar *error* 5 "Constant for `*debug*': Show errors and more important messages.")
+(defvar *warning* 10 "Constant for `*debug*': Show warnings and more important messages.")
+(defvar *informational* 100 "Constant for `*debug*': Show informational and more important messages.")
+(defvar *detailed* 300 "Constant for `*debug*': Show detailed log output .")
+(defvar *all* 1000 "Constant for `*debug*': Show all messages (maximum detail).")
+(export '(*critical* *warning* *informational* *detailed* *all* *debug*
+	  *debug-to-log* debug-log debug-clear debug-detail debug-detail*))
+
+(defparameter *debug* *warning*
+  "Level of debug output currently in effect.
+The following constants may be used:
+
+*critical* *warning* *informational* *all*
+
+The parameter `*debug-to-log*' is helpful in logging debug messages to a file.")
+
+(defparameter *debug-to-log* nil
+"Enable off-screen logging of debug output.
+If t, ACT-UP logs all debug messages not to standard output,
+but to a buffer that can be read with `debug-log' and cleared with `debug-clear'.
+If a stream, ACT-UP logs to the stream.")
+
+(defvar *debug-stream* nil)
+
+(defun debug-log ()
+  "Returns logged ACT-R output.
+If `*debug-to-log*' is set to t, the ACT-UP debug log may be
+retrieved using this function."
+  (if *debug-stream* 
+      (get-output-stream-string *debug-stream*))) 
+
+(defun debug-clear ()
+  "Clear the ACT-UP debug log buffer."
+  (when *debug-stream*
+      (close *debug-stream*)
+      (setq *debug-stream* nil)))
+
+(defmacro debug-print (level format &rest args)
+  `(when (and *debug*
+	      (<= ,level *debug*))
+     (debug-print-internal ',format ,@args)))
+ 
+(defun debug-print-internal (format &rest args)
+  (if *debug-to-log*
+    (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
+	(setq *debug-stream* (make-string-output-stream))))
+  
+  (when format
+      (let ((*print-circle* t) (*print-pretty* t)
+	    (*print-pprint-dispatch* *print-pprint-dispatch*))
+	(set-pprint-dispatch 'actup-chunk #'pc)	    
+
+	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* (if *debug-to-log* *debug-stream*)) t) format args)
+	(set-pprint-dispatch 'actup-chunk nil)
+	)))
+
+
+(defmacro debug-detail (&body body)
+  "Evaluates BODY while outputting ACT-UP debug information."
+  `(let  ((*debug* *all*))
+    ,@body))
+
+
+(defmacro debug-detail* (&body body)
+  "Evaluates BODY while logging ACT-UP debug information.
+The log output can be retrieved with `debug-log'."
+  `(let  ((*debug* *all*) (*debug-to-log* t))
+     (debug-clear)
+    ,@body))
+
+(export '(show-utilities))
+(defun show-utilities ()
+  "Prints a list of all utilities in the current model."
+
+  (let ((rs)
+	(regular-rules (procedural-memory-regular-rules (model-pm (current-model)))))
+    (loop for g in act-up::*actup-rulegroups* do
+	 (loop for name in (cdr g) do
+	      (pushnew name rs)))
+
+    (loop for name in (sort rs (lambda (a b) (string-lessp (symbol-name a) (symbol-name b)))) do
+       ;; look up rule object
+	 (let ((rule (gethash name regular-rules)))
+	   (print (cons name
+			(if rule
+			    (rule-utility (lookup-rule name))
+			    (if (get name 'initial-utility)
+				(list (get name 'initial-utility) 'rule-iu)
+				(list  *iu* '*iu*))))))))
+  (print "Compiled rules not shown.")
+  nil)
 
 ;; CHUNKS
+
+(defun actup-noise (s)
+  (if s
+      (act-r-noise s)
+      0.0))
 
 
 ;; all chunks inherit from this structure:
 
 
-(export '(chunk define-chunk-type))
+(export '(actup-chunk define-chunk-type 
+	  ;; public members of actup-chunk:
+	  ;;name 
+	  chunk-type))
 
-(defstruct chunk
+(defstruct actup-chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
-by specifying (:include chunk)."
+by using `define-chunk'."
   ;; helpful for debugging
-  name
-  (comment nil)
+  (name (gensym "CHUNK") :read-only t)
+  (comment) ;; documentation / comments
+  (chunk-type nil)
+  (attrs nil)  ;; list of user-defined slots
+
   ;; internal ACT-UP structures
   (total-presentations 0 :type integer)
-  (first-presentation nil)
+  (first-presentation (actup-time))
   (recent-presentations nil :type list) ; with the most recent one in car!
   (presentations nil :type list)
   (last-bl-activation 0)
@@ -65,58 +192,189 @@ by specifying (:include chunk)."
   ;; if time is constant
   (last-noise nil)
   (last-noise-time nil)
- 
-  (id (gensym "chunk") :type atom)
-  (related-chunks nil :type list)
-
-  ;; working on this:
-  (references nil :type list)  ; list of chunks that this chunk references
-  (referenced-by nil :type list) ; list of chunks that reference this chunk
-
+  (permanent-noise (actup-noise *pas*) :type float)
+  (id (gensym "actupchunk") :type atom)
+  (related-chunks nil :type list)  ;; references to other chunks
+  ;; this chunk may serve as cue for the chunks listed here.
+  ;; assoc list with entries of form (chunk-name . <actup-link>)
+  (references nil :type list) ;; other chunks referring to this one
+  ;; this chunk will receive spreading activation if any of the cues listed here are in the context
+  ;; assoc list with entries of form (chunk-name . <actup-link>)
+  
+  ;; other chunks that mention this chunk in one of their values
+  (occurs-in nil :type list) 
+  ;; similarities
+  (similar-chunks nil :type list)
   (fan nil) ; internal)
+  (model nil)  ; pointer to the chunk's model  (to ensure it's unique)
 )
-;; (defparameter chunk-standard-slots '(total-presentations first-presentation recent-presentations presentations last-bl-activation activation-time last-noise last-noise-time id related-chunks references referenced-by fan))
 
-(defmacro define-chunk-type (name &rest members)
-  "Define a chunk type of name NAME.
+(defstruct actup-link
+  "Link between two chunks.
+Includes Sji/Rji weights and cooccurrence data."
+  (sji nil) ; if not set, rji (learning) is used.
+  (rji 0.0)
+  (fcn 0 :type integer))
+  
+(defun safe-slot-value (obj slot)
+  (handler-case
+      (slot-value obj slot)
+    (error (_v) _v nil)))
+(export '(pc))
+(defun pc (stream obj) 
+  "Print a human-readable representation of chunk OBJ to STREAM.
+Set stream to t to output to standard output."
+  (let ((obj (get-chunk-object obj))
+	(*print-circle* t)
+	(*print-level* 3)
+	(stream (or stream t)))
+    (handler-case
+     (progn
+       (format stream "~a~%" (actup-chunk-name obj))
+       (loop for slot in (actup-chunk-attrs obj)
+	  for val = (safe-slot-value obj slot)
+	 
+	  do
+	    (format stream "~a: ~a~%"  slot (get-chunk-name val)))
+       (format stream "~%")
+       
+       ;; (if (actup-chunk-related-chunks obj)
+       ;; 	   (format stream "related chunks: ~a~%" (mapcar (lambda (x) (if (actup-chunk-p x) (actup-chunk-name x) x)) (actup-chunk-related-chunks obj))))
+       (format stream "~%"))
+     (error (v) (progn (format stream "ERR~a" v) nil)))))
+
+(defun make-chunk (&rest args)
+  "Create an ACT-UP chunk.
+Arguments should consist of named chunk feature values: ARGS is a list
+of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
+slot names as defined with `define-slots'.  
+
+An attribute called `:name' should be included to specify the unique
+name of the chunk (the name may not be used for any other chunk in
+the model). 
+
+If chunk types are defined with `define-chunk-type', then use the
+`make-TYPE' syntax instead."
+
+  (apply #'make-actup-chunk args))
+
+(defun make-chunk* (&rest args)
+ "Like `make-chunk', but returns matching chunk from declarative memory if one exists.
+
+Arguments should consist of named chunk feature values: ARGS is a list
+of the form (:name1 val1 :name2 val2 ...), whereas names correspond to
+slot names as defined with `define-slots'.  
+
+An attribute called `:name' should be included to specify the 
+name of the chunk. Comparing the proposed chunks (in ARGS) to the existing
+chunks in Declarative Memory, the names of the chunks are ignored.
+
+The purpose of this function lies in the ability to boost a chunk existing in DM, when its contents are already known. For example:
+
+ (reset-model)
+ (learn-chunk (make-chunk* :one 1 :two 2))
+ (learn-chunk (make-chunk* :one 1 :two 2))
+
+will create a chunk (first call), and then boost it, while
+
+ (learn-chunk (make-chunk :one 1 :two 2))
+
+will always create new chunk and add it to declarative memory.
+
+If chunk types are defined with `define-chunk-type', then use the
+`make-TYPE*' syntax instead."
+
+  (apply #'make-actup-chunk* args))
+
+
+(defun defstruct-attr-list (members)
+  (loop for m in members collect
+       (if (consp m)
+	   (car m) m)))
+
+(defmacro define-chunk-type (type &rest members)
+  "Define a chunk type of name TYPE.
 MEMBERS should contain all possible elements of the chunk type.
-NAME may be a symbol or a list of form (name2 :include parent-type),
+TYPE may be a symbol or a list of form (name2 :include parent-type),
 whereas PARENT-TYPE refers to another defined chunk type whose
 elements will be inherited.
 MEMBERS may be a list of symbols, or also a list of member
-specifiers as used with the lisp `defstruct' macro, which see."
+specifiers as used with the lisp `defstruct' macro, which see.
   
-  (let* ((name-and-options name)
+Chunks make be created by invoking the make-TYPE function, whereas
+TYPE stands for the name of the chunk type as defined with this
+macro. An attribute called `:name' should be included to specify the
+unique name of the chunk (the name may not be used for any other chunk
+in the model). 
+
+Chunk contents must not be changed after a chunk has been created.
+
+An additional function of name make-TYPE* is also provided, which
+creates a new chunk just like make-TYPE does, but only if such a chunk
+does not yet exist in declarative memory (of the current model). All
+slot values of the chunks are used in the comparison (unspecified ones
+at their default values), except the :name attribute.  If a matching
+chunk is found in DM, it is returned."
+  
+  (let* ((name-and-options type)
+	 (type (if (consp type) (car type) type))
 	 (incl
 	  (if (consp name-and-options)
 	      (list (car name-and-options)
 		    (if (eq (cadr name-and-options) :include)
 			`(:include ,(caddr name-and-options))
 			(error "define-chunk-type: faulty options in NAME.")))
-	      (list name-and-options '(:include chunk)))))
-    `(defstruct ,incl
-       ,@members)
-    ))
+	      (list name-and-options `(:include actup-chunk
+				       (chunk-type ',type)
+				       (attrs ',(defstruct-attr-list members)))))))
+    ;; mark each member as read-only
+    (setq members 
+	  (loop for m in members collect
+	       (append
+		(if (consp m) 
+		    (if (cdr m) m (list (car m))) (list m nil))
+		'(:read-only t))))
+    `(progn
+       (defstruct ,incl
+	 ,@members)
+       ;; define special constructor
+       (defun ,(intern (format-nil "MAKE-~a*" type)) (&rest args)
+	 ,(format-nil 
+ "Like make-~a, but returns matching chunk from declarative memory if one exists."
+		  type)
+	 (apply #'act-up::make-match-chunk ',type args))
+       )))
  
 
-;; (macroexpand '(define-chunk-type test one two))
+(defmacro define-slots (&rest slot-names)
+  "Define slots to be used in chunks of this process.
+Only slot names defined using this macro may be used in chunks.
+Overrides any slot set defined earlier."
+  `(define-chunk-type chunk ,@slot-names))
 
-(defun update-chunk-references (chunk)
-  ;;(loop for (_slot . _value) in (structure-alist chunk) do
-       ;; to do
-       (print "update-chunk-references: not implemented")
-       )
+
+;; (macroexpand '(define-chunk-type test one two))
 
 
 ;; parameters
 
-(defparameter *bll* 0.5 "Base-level learning decay parameter")
-(defparameter *blc* 1.7 "Base-level constant parameter") ; 1.7  ;; seems to result in a ceiling
-(defparameter *rt* 1.0 "Reaction time parameter")  ; can be (cons 'pres 4)
+(defparameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
+See also: ACT-R parameter :bll")
+(defparameter *blc* 0.0 "Base-level constant parameter for declarative memory.
+See also: ACT-R parameter :blc") 
+(defparameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
+Chunks with activation lower than `*rt*' are not retrieved.
+See also: ACT-R parameter :rt")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2 "Transient noise parameter") ;; transient noise  0.2
+(defparameter *ans* 0.2 "Transient noise parameter for declarative memory.
+See also: ACT-R parameter :ans") ;; transient noise  
 
-(export '(*bll* *blc* *rt* *ans*))
+(defparameter *pas* nil "Permanent noise parameter for declarative memory.
+See also: ACT-R parameter :pas") ;; permanent noise  
+
+(defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP rule in seconds.
+See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
+(export '(*bll* *blc* *rt* *ans* *pas* *dat*))
 
 ;; a model
 
@@ -129,17 +387,28 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;; )
 
 (defstruct declarative-memory
-  (chunks nil :type list))
+  (chunks nil :type list)
+  (indexes `((name . ,(make-hash-table))) :type list)  ; These are indexes.  Currently an alist with one entry:  (name . hash-table)
+  (total-presentations 0 :type integer))
 
-(defstruct model 
-  (parms nil :type list) 
+(defstruct procedural-memory
+  (regular-rules (make-hash-table))
+  (compiled-rules (make-tree))
+  (rule-queue nil :type list))
+
+(defstruct model
+  (name (gensym "MODEL")) ;; may be used for debugging purposes
+  (parms nil :type list)
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
   ;; if an entry for PARM is present, it will be used rather
   ;; than the global binding.
   ;; NOT IMPLEMENTED YET.
+  (pm (make-procedural-memory) :type procedural-memory)
+  (dm (make-declarative-memory) :type declarative-memory)
+  ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
+  (time 0))
 
-  (dm (make-declarative-memory) :type declarative-memory))
 
 
 (defparameter *current-actUP-model* (make-model))
@@ -148,41 +417,98 @@ specifiers as used with the lisp `defstruct' macro, which see."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CLIENT FUNCTIONS
 
-(export '(current-actUP-model set-current-actUP-model make-actUP-model actUP-time actUP-time actUP-pass-time model-chunks 
-	  defrule assign-reward
-	  define-chunk-type
-	  show-chunks chunk-name explain-activation chunk-get-activation
+(export '(current-model set-current-model with-current-model 
+	  make-model model-name
+	  actUP-time stop-actup-time
+	  pass-time wait-for-model
+	  model-chunks 
+	  defrule assign-reward assign-reward* flush-rule-queue
+	  define-slots define-chunk-type
+	  make-chunk ; for untyped chunks
+	  make-chunk* ; for untyped chunks
+	  show-chunks chunk-name explain-activation
 	  retrieve-chunk blend-retrieve-chunk
-	  filter-chunks learn-chunk best-chunk blend reset-mp reset-model
-	  reset-sji-fct add-sji-fct ))
+	  filter-chunks non-nil
+	  learn-chunk best-chunk blend 
+	  reset-mp reset-model
+	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
+
+(defun current-model ()
+  "Evaluates to the currently active ACT-UP model."
+  (or *current-actUP-model*
+      (error "No model active.")))
 
 (defun current-actUP-model ()
   "Evaluates to the currently active ACT-UP model."
   (or *current-actUP-model*
       (error "No model active.")))
 
-(defun set-current-actUP-model (new-model)
+(defun set-current-model (new-model)
   "Switches the currently active ACT-UP model.
 This may set a range of model parameters."
   (setq *current-actUP-model* new-model))
 
-(defun make-actUP-model ()
-  (make-model))
+(defmacro with-current-model (model &body body)
+  "Execute forms in BODY with the ACT-UP model MODEL being current."
+  `(let ((*current-actUP-model* ,model))
+     ,@body))
 
-(defun actUP-time (&optional meta-process)
-  "Returns the current runtime
+;; (defun make-model ()
+;;   "Create an ACT-UP model.
+;; The model object is returned, but not used as current ACT-UP model.
+;; See also `set-current-model'."
+;;   (make-model))
+
+
+(defmacro stop-actup-time (&body body)
+  "Returns execution time of BODY in current ACT-UP model.
+Evaluates BODY.  See also `actup-time'."
+
+  `(let* ((mp *current-actUP-meta-process*)
+	  (actup---actup-time-t0 (meta-process-actUP-time mp)))
+     ,@body
+     (- (meta-process-actUP-time mp) actup---actup-time-t0)))
+
+
+(defun actup-time (&optional meta-process)
+  "Returns the current runtime.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
   (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
 
-(defun actUP-pass-time (seconds &optional meta-process)
+(defun pass-time (seconds &optional meta-process)
   "Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
-  (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
-	(+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds)))
+  (when (> seconds 0.0)
+    (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
+	  (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))
+    (setf (model-time *current-actUP-model*)
+	  (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
+    )
+  ;; (format t "~a: ~a ~a ~%"
+  ;; 	  (meta-process-name *current-actUP-meta-process*) 
+  ;; 	  (model-time *current-actUP-model*) (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
+  )
 
+(defun wait-for-model (&optional model)
+  "Waits until meta-process and MODEL are synchronized.
+When a model is assigned a new meta-process, it can happen that
+the meta-process time is behind the model's time (since the model
+was operated with a different meta-process before).
+This function waits (see `pass-time') until the model is ready, that
+is, it sets the meta process time to the model time if the model time
+is more advanced, plus the current value of `*dat*'.
+MODEL defaults to the current model."
+
+  (let ((diff (- (model-time (or model *current-actUP-model*)) (actup-time))))
+    (when (> diff 0.0)
+      ;; (format t "~a: waiting for model ~a (t=~a): ~A~%" (meta-process-name *current-actUP-meta-process*) 
+      ;; 	      (model-name (or model *current-actUP-model*)) (model-time (or model *current-actUP-model*))
+      ;; 	      diff)
+      (setf (meta-process-actUP-time *current-actUP-meta-process*)
+	    (+ (meta-process-actUP-time *current-actUP-meta-process*) (+ *dat* diff))))))
 
 (defmacro model-chunks (model)
   "Evaluates to the list of chunks in the given model MODEL."
@@ -196,23 +522,35 @@ See the function `filter-chunks' for a description of possible constraints."
 				 (search-for-chunks model constraints)
 				 (declarative-memory-chunks (model-dm model))))))
 
-(defun explain-activation (chunk &optional cues retr-spec)
+(defun explain-activation (chunk-or-name &optional cues retr-spec)
   "Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals."
-  (when chunk
-    (format nil "  ~a  ~a base-level: ~a  (~a pres) pm: ~a ~a"
+  (when chunk-or-name
+    (let ((chunk (get-chunk-object chunk-or-name)))
+    (format-nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a ~a"
 	    (actUP-time)
-	    (chunk-name chunk)
-	    (chunk-get-base-level-activation chunk)
-	    (chunk-total-presentations chunk) ;; (chunk-recent-presentations chunk)
+	    (actup-chunk-name chunk)
+	    (actup-chunk-get-base-level-activation chunk)
+	    (actup-chunk-total-presentations chunk) ;; (actup-chunk-recent-presentations chunk)
 	    (if cues
-		(format nil "  spreading: ~a" (chunk-get-spreading-activation chunk cues))
+		(format-nil "  spreading: ~a~%     ~a" (actup-chunk-get-spreading-activation chunk (get-chunk-objects cues 'noerror))
+			;; explain
+			(when (>= *debug* *all*)
+			  (loop for cue in (get-chunk-objects cues) 
+			     for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
+			     
+			     collect
+			       (format-nil "~a: ~a" (get-chunk-name cue)
+				  (if  (and link (actup-link-sji link))
+				       (format-nil "Sji: ~a " (actup-link-sji link))
+				       (format-nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
 		"")
 	    (if retr-spec 
-		(format nil "partial match: ~a " (chunk-get-partial-match-score chunk retr-spec))
+		(format-nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
 		"-")
-	    )))
+	    (if *ans* (format-nil "tr.noise: ~a " (actup-chunk-last-noise chunk)) "-")
+	    ))))
   
 
 (defmacro normalize-slotname (slot)
@@ -227,25 +565,39 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 
 
 
-(defun retrieve-chunk (spec &optional cues pm-soft-spec)
+(defun retrieve-chunk (spec &optional cues pm-soft-spec timeout)
   "Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
 specification SPEC.
 
 CUES is, if given, a list of chunks that spread activation
-to facilitate the retrieval of a target chunk.
+to facilitate the retrieval of a target chunk.  CUES may contain
+chunk objects or names of chunks.
 
 PM-SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2)."
+value2 ...), or (slot1 value1 slot2 value2).
 
-  (best-chunk (filter-chunks (model-chunks *current-actUP-model*)
-			     spec)
-	      cues (append spec pm-soft-spec)))
+TIMEOUT, if given, specifies the maximum time allowed before
+the retrieval fails."
+  (debug-print *informational* "retrieve-chunk:~%   spec: ~a~%  cues: ~a~%  pmat: ~a~%" spec cues pm-soft-spec)
+
+  (let* ((matching-chunks (let ((*debug* (max *debug* *warning*)))
+			    (filter-chunks (model-chunks *current-actUP-model*)
+					   spec)))
+	 (best-chunk  (let ((*debug* (max *debug* *warning*)))
+			(best-chunk matching-chunks
+				    cues pm-soft-spec timeout))))
+    (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (actup-chunk-name best-chunk) "one") "none") (length matching-chunks))
+    (debug-print *informational* "~a~%" (explain-activation best-chunk cues pm-soft-spec))
+    ;; to do: add if to make fast
+    (loop for c in matching-chunks do 
+	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec pm-soft-spec))))
+    best-chunk))
 
 
 (defun blend-retrieve-chunk (spec &optional cues pm-soft-spec)
@@ -257,7 +609,8 @@ of the retrievable chunks, whereas each chunk is weighted
 according to its activation.
 
 CUES is, if given, a list of chunks that spread activation
-to facilitate the retrieval of target chunks.
+to facilitate the retrieval of target chunks. CUES may contain
+chunk objects or names of chunks.
 
 PM-SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
@@ -271,7 +624,13 @@ value2 ...), or (slot1 value1 slot2 value2)."
 	(blend cs cues nil (append spec pm-soft-spec)))))
     
 
+;; (defmethod slot-missing (class (object objc) slot-name 
+;; 			 (operation (eql 'slot-value)) &optional new-value) 
 
+;;   object slot-name operation new-value;; ignore
+;;   'missing)
+
+;; (normalize-slotname-with-package :name 'act-up)
 (defun filter-chunks (chunk-set args)
   "Filter chunks according to ARGS.
 ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
@@ -280,26 +639,112 @@ CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
 returns a list of chunks in case (1) and a list of conses in case (2)."
 
-  (loop for chunk-or-cons in chunk-set append
-       (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
-	 (if (loop for argval on args by #'cddr finally (return t) do
-		  (let* ((slot (first argval))
-			 (value (second argval))
-			 (slot-value (slot-value c (normalize-slotname slot))))
-		    (unless (or (equal slot-value value)
-				(and (eq value 'non-nil) slot-value))
-		      (return nil))))
-	     (list chunk-or-cons)
-	     nil))))
+  ;(let ((csn nil))
+  (let ((matching-chunks 
+	 (loop for chunk-or-cons in chunk-set append
+	      (let ((c (if (consp chunk-or-cons) (cdr chunk-or-cons) chunk-or-cons)))
+		(handler-case
+		    (if (loop for argval on args by #'cddr finally (return t) do
+			     (let* ((slot ;(setq csn  
+				     (normalize-slotname (first argval))) ;)
+				    (vv (second argval))
+				    (slot-value (slot-value c slot)))
+			       ;; should nt make a difference:
+			       ;; (if (actup-chunk-p vv) (setq vv (actup-chunk-name vv)))
+			       ;; (if (actup-chunk-p slot-value) (setq slot-value (actup-chunk-name slot-value)))
+			       (unless (or (if (and (actup-chunk-p vv) (actup-chunk-p slot-value))
+					       (equal slot-value vv) 
+					       (eq (get-chunk-name vv) (get-chunk-name slot-value)))
+					   (and (eq vv 'non-nil) slot-value))
+				 (return nil))))
+			(list chunk-or-cons)
+			nil)
+		  (error (_v) ;; (progn (debug-print *error* "Invalid slotname ~a in chunk ~a." csn (actup-chunk-name c) nil))
+		    ;;   (print _v)
+		    _v
+		    nil ;; it's not really an error or a special situation
+		    ;;   ;; we're going through all chunks that we have
+		    ))))))
+    (debug-print  *informational* "filtered ~a matching chunks.~%" (length matching-chunks))
+    matching-chunks))
 
 
 
 (defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
   "Internal to ACT-UP.")
 
+(defvar *ol* 3  "Optimized Learning parameter for base-level learning in Declarative Memory.
+OL is always on in ACT-UP.
+See also: ACT-R parameter :ol")
 
-(defun learn-chunk (chunk)
-"Learn chunk CHUNK.
+(defparameter *associative-learning* nil ; would be 1.0 if on
+  "The trigger for associative learning, a in ROM Equation 4.5.
+   Can be any non-negative value.")
+(export '(*ol* *associative-learning*))
+
+
+(defun make-struct-instance (type &rest args)
+  ;; MAKE-INSTANCE is not guaranteed for `defstruct'-defined types
+  ;; (it is meant to CLASS types only)
+  (apply (intern (format-nil "MAKE-~a" type))
+	 args))
+
+;; for each chunk type, we define
+(defun make-match-chunk (type &rest chunk-spec)
+  "Make a chunk of TYPE or return matching chunk from DM.
+If a matching chunk is found in DM, return it.
+Otherwise, call `make-TYPE' constructor with CHUNK-SPEC to make a new chunk.
+This new chunk is not added to DM.
+
+For purposes of matching, the values of each slot are compared with the
+chunk created from TYPE and CHUNK-SPEC; any slots not specified
+in CHUNK-SPEC assume the default value (often nil) for purposes of
+comparison.
+
+CHUNK-SPEC may contain a single element, which must be a chunk.  In that case,
+this chunk is used for the comparison (and returned if no matching chunk is found.)
+
+Note that chunk type (see `define-chunk-type') also has a constructor
+function of name `make-TYPE*', taking just the CHUNK-SPEC argument,
+which calls this function."
+
+  (let ((template (if (actup-chunk-p chunk-spec)
+		      chunk-spec
+		      (apply #'make-struct-instance type chunk-spec)))
+	(filtered-chunks (model-chunks (current-model))))
+    (loop for slot in (cons 'act-up::chunk-type (slot-value template 'act-up::attrs)) ; this should exclude :name
+
+       for value = (slot-value template slot)
+       when (not (eq slot :name))
+       do
+	 (setq filtered-chunks
+	       (loop for chunk in filtered-chunks append
+					; chunk type is filtered first
+		  ;; so we should have a guarantee that all slots are present
+		    (if (equal (slot-value chunk slot) value)
+			(list chunk))
+		    )))
+
+    ;;
+    (if filtered-chunks
+	(progn
+	  (if (> (length filtered-chunks) 1)
+	      (debug-print *warning* "make-match-chunk (make-TYPE*): ~a matching chunks found in DM.  Returning first.~%" (length filtered-chunks))
+	      (debug-print *informational* "make-match-chunk (make-TYPE*): Found matching chunk of name ~a~%" (actup-chunk-name (car filtered-chunks))))
+	  (car filtered-chunks))
+	(progn
+	  ;; check that we don't have a chunk of the same name in DM
+	  (let ((name (actup-chunk-name template)))
+	    (when (get-chunk-by-name name)
+	      (debug-print *informational* "New chunk:~a~%Existing chunk in DM:~a~%" template (get-chunk-by-name name))
+	      (error (format nil "make-match-chunk (make-TYPE*): Novel chunk with name ~a to be created, different chunk of same name already in DM."
+			     name))))
+
+	  (debug-print *informational* "make-match-chunk (make-TYPE*): No such chunk in DM.  Returning new chunk (not in DM) of name ~a~%" (actup-chunk-name template))
+	  template))))
+
+(defun learn-chunk (chunk &optional co-presentations)
+  "Learn chunk CHUNK.
 
 This will note a presentation of an existing chunk in the model's DM, if
 the existing chunk is unifiable with CHUNK.  If no such chunk exists in DM,
@@ -309,37 +754,184 @@ chunks is noted as 'presented'.
 CHUNK may be altered by side-effect.
 
 Returns the added chunk."
-  (let* ((model *current-actUP-model*)
-	 (chunk-descr
-	  (loop for (slot . val) in (structure-alist chunk) append
-	       (unless (member slot *actup--chunk-slots*)
-		 (list slot val))))
 
-	 ;; we're either taking an existing chunk, or we're adding a new one.
-	 (chunk (or (car (search-for-chunks model chunk-descr))
-		    (progn
-		      (setf (chunk-total-presentations chunk) 0)
-		      (setf (chunk-first-presentation chunk) (actUP-time))
-		      (push chunk (model-chunks model))
-		      chunk))))
+  (let* ((model *current-actUP-model*))
 
-    (incf (chunk-total-presentations chunk))
-    (push (actUP-time) (chunk-presentations chunk))
+	 ;; because chunks must have names, we can directly search
+	 ;; by name - we don't need to find a unifiable one.
+	 ;; if a user has a prtial chunk spec, this API
+	 ;; won't support it anyways.  (filter-chunks would have to be used.)
+	 ;; (chunk-descr
+	 ;;  (loop for slot in (cons 'name (slot-value chunk 'act-up::attrs)) append
+	 ;;       (unless (member slot *actup--chunk-slots*)
+	 ;; 	 (list slot (slot-value chunk slot)))))
+
+	 ;; we're either taking the existing chunk, or we're adding a new one.
+
+    ;; we must take care not to create a copy of the chunk object.
+    (if (actup-chunk-p chunk)
+	(if (let ((existing-chunk (get-chunk-by-name (get-chunk-name chunk))))
+	      (or (not existing-chunk) ; not chunk of such name
+		  (not (eq existing-chunk chunk))))
+	    ;;(not (member chunk (model-chunks model))) ;; use object in DM if present
+	    (progn
+	      ;; make sure the chunk isn't assigned to a different model
+	      (if (actup-chunk-model chunk)
+		  (if (not (eq (actup-chunk-model chunk) (model-name model)))
+		      (error (format-nil "learn-chunk: chunk belonging to model ~a being added to model ~a." (model-name (actup-chunk-model chunk)) (model-name model))))
+		  ;; else: not set
+		  (setf (actup-chunk-model chunk) (model-name model)))
+	      ;; make sure we don't have a chunk of the same name already present
+	      (let ((new-name (get-chunk-name chunk))
+		    (existing-chunk))
+		(and new-name
+		     (setq existing-chunk (get-chunk-by-name new-name))
+		     (not (equal existing-chunk chunk))
+		     (progn (debug-print *informational*
+				  "Existing chunk: ~a ~%New chunk: ~a~%"
+				  existing-chunk
+				  chunk)
+			    (error (format-nil "learn-chunk: Another chunk of name ~s is already in DM when trying to learn chunk ~s." new-name chunk))))
+
+	      ;; upon adding, always reset first presentation time
+	      (setf (actup-chunk-first-presentation chunk) (actup-time))
+	      (push chunk (model-chunks model))
+	      ;; this is the only location where we're manipulating model-chunks.
+	      ;; update index:
+
+	      (let ((index (cdr (assoc 'name (declarative-memory-indexes (model-dm (current-model)))))))
+		(push chunk (gethash new-name index))))))
+	     ; else: already a member.
+	; else: get from DM by name
+	; maybe learn implicitly?
+	(setq chunk (get-chunk-by-name chunk)))   ;; retrieve by name
+		      
+    ;; (car (search-for-chunks model chunk-descr)) ;; use unifiable object 
     
-    (push (actUP-time) (chunk-recent-presentations chunk))
-    (if (> (length (chunk-recent-presentations chunk)) 3)
-	(setf (cdr (nthcdr 2 (chunk-recent-presentations chunk))) nil)) ;; only OL 3
-    (actup-pass-time 0.05) ;; 50ms
+    (debug-print *informational* "Presentation of chunk ~a (MP: ~a t=~a.  M: ~a, t=~a.~%"
+		 (actup-chunk-name chunk) 
+		 (meta-process-name *current-actUP-meta-process*)
+		 (actup-time)
+		 (model-name model)
+		 (model-time model))
+
+    (incf (actup-chunk-total-presentations chunk))
+    (push (actUP-time) (actup-chunk-presentations chunk))
+    
+    (when *associative-learning*
+      (loop for c1 in co-presentations
+	 for c = (get-chunk-object-add-to-dm c1) ;; make sure cue is in DM (to prevent user error)
+	 do
+	   (inc-rji-copres-count c chunk)
+	   (inc-rji-copres-count chunk c))
+      (incf (declarative-memory-total-presentations (model-dm model))))
+
+    ;; update occurs-in lists in other (contained) chunks
+    ;; OPTIMIZE: don't do this if chunk is already (unchanged) in DM
+    (loop with name = (actup-chunk-name chunk)
+       for slot in (slot-value chunk 'act-up::attrs)  ;; (structure-alist c) do
+       for val = (slot-value chunk slot)
+	 when val
+       when (symbolp val)
+       do
+	 (let ((ca (get-chunk-object-add-to-dm val)))
+	   (when val
+	     (pushnew name (actup-chunk-occurs-in ca)))))
+
+    (push (actUP-time) (actup-chunk-recent-presentations chunk))
+    (if (> (length (actup-chunk-recent-presentations chunk)) *ol*)
+	(setf (cdr (nthcdr (1- *ol*) (actup-chunk-recent-presentations chunk))) nil)) ;; only OL 3
+
+    ;; copy actup-chunk information
+    ;; (when (actup-chunk-p chunk)
+    ;;   (loop for slot1 in *actup--chunk-slots*
+    ;; 	 for slot = (normalize-slotname-with-package slot1)
+    ;; 	 do
+    ;; 	   (setf (slot-value chunk slot) (slot-value chunk slot))))
+    
+    (pass-time *dat*) ;; 50ms
     chunk))
 
+(defun get-chunk-objects (chunks-or-names &optional noerror)
+  (loop for c in chunks-or-names append
+       (let ((co (get-chunk-object c noerror)))
+	 (if co (list co) nil))))
 
-(defparameter *lf* 1.0)
-(defparameter *le* 1.0)
+(defun get-chunk-object (chunk-or-name &optional noerror)
+  "Returns chunk object for CHUNK-OR-NAME.
+If CHUNK-OR-NAME is a chunk, return is.
+Otherwise, retrieves chunk by name CHUNK-OR-NAME
+from current model DM.
+Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be found."
+  (if (actup-chunk-p chunk-or-name)
+      chunk-or-name
+      (or (get-chunk-by-name chunk-or-name)
+	  (if noerror
+	      nil
+	      (error (format-nil "Chunk of name ~a not found in DM." chunk-or-name))))))
 
-(defun best-chunk (confusion-set cues &optional request-spec &rest options)
+(defun get-chunk-object-add-to-dm (chunk-or-name)
+  "Returns chunk object for CHUNK-OR-NAME.
+Retrieves or creates chunk by name from current model DM
+if CHUNK-OR-NAME is a symbol otherwise
+returns CHUNK-OR-NAME.
+
+If the object is not in the DM, add it."
+  ;; we don't reuse get-chunk-object in order to not search the chunk set twice.
+  (if (actup-chunk-p chunk-or-name)
+      (progn 
+	(if (not (member chunk-or-name (model-chunks (current-model))) )
+	    ;; we must call learn-chunk to initialize its presentations etc.
+	    (learn-chunk chunk-or-name))
+	;;(push chunk-or-name (model-chunks (current-model)))
+	chunk-or-name)
+      (or (get-chunk-by-name chunk-or-name)
+	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
+	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
+	    (learn-chunk chunk)
+	    ;(push chunk (model-chunks (current-model)))
+	    chunk
+	  ))))
+
+(defun get-chunk-name (chunk-or-name)
+  (if (actup-chunk-p chunk-or-name)
+      (actup-chunk-name chunk-or-name)
+      chunk-or-name))
+
+
+;; To Do:  use hash to speed this up 
+(defun get-chunk-by-name (name)
+  "Returns first chunks of name NAME"
+		
+  (let ((index (cdr (assoc 'name (declarative-memory-indexes (model-dm (current-model)))))))
+    (if index
+	(car (gethash name index))  ; there should only be one chunk of any given name, so we do `car'
+	;; no index available, for whatever reason
+	(loop for c in (model-chunks *current-actUP-model*)
+	   do
+	     (if (equal name (actup-chunk-name c))
+		 (return c))))))
+(defun chunk-name-not-unique (name)
+  "Returns non-nil if more than one chunk of name NAME exists.
+Returns nil if name is nil."
+  (unless (null name)
+    (let ((num (loop for c in (model-chunks *current-actUP-model*)
+		  when (equal name (actup-chunk-name c))
+		  sum 1)))
+      (if (> num 1)
+	  num))))
+       
+
+(defparameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
+See ACT-R parameter :lf")
+(defparameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
+See ACT-R parameter :le")
+(export '(*lf* *le*))
+(defun best-chunk (confusion-set cues &optional request-spec timeout &rest options)
 "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
-CUES is a list of cues that spread activation.
+CUES is a list of cues that spread activation.  CUES may contain
+chunk objects or names of chunks.
 OPTIONS: do not use (yet).
 
 Simulates timing behavior.
@@ -349,52 +941,62 @@ See also the higher-level function `retrieve-chunk'."
  ;; retrieve using spreading activation from cues to confusion-set
   (if confusion-set
       (let* ((last-retrieved-activation nil)
-	    (best  (loop for c in confusion-set with bc = nil with bs = nil 
-			when (if (eq options 'inhibit-cues) (not (member c cues)) t)
-			when c ;; allow nil chunks
-		  do
-		    (let ((s (chunk-get-activation c cues request-spec)))
-		     
-		      (if (or (not *rt*) 
-			      (if (consp *rt*)
-				  (> (length (chunk-presentations c)) (cdr *rt*))
-				  (> s *rt*)))
-			  (if (or (not bc) (> s bs)) (setq bc c bs s))
+	     (cues (get-chunk-objects cues))
+	     (below-rt-count 0)
+	     (best  (loop  with bc = nil with bs = nil 
+		       for c in confusion-set
+		       when (if (eq options 'inhibit-cues) (not (member c cues)) t)
+		       when c ;; allow nil chunks
+		       do
+			 (let ((s (actup-chunk-get-activation c cues request-spec)))
+			   (if (or (not *rt*) 
+				   (if (consp *rt*)
+				       (> (length (actup-chunk-presentations c)) (cdr *rt*))
+				       (> s *rt*)))
+			       (when (or (not bc) (> s bs)) (setq bc c bs s))
+			       (progn
+				 (debug-print *informational* "chunk ~a's activation (~a) falls below RT (~a)~%" (get-chunk-name c) s *rt*)
+				 (debug-print *detailed* "chunk ~a: ~a~%" (get-chunk-name c) c)
+				 (incf below-rt-count))
+			       ))
+		       finally
+			 (progn (setq last-retrieved-activation 
+				      bs)
+				(return bc))
+			 )))
+	(let ((duration (* *lf* (exp (- (* *le* (or (if best last-retrieved-activation) *rt*)))))))
+	  (debug-print *informational* "Retrieval duration: ~s~%" duration)
+	  (if (and timeout (> duration timeout))
+	      ;; time's up
+	      (progn 
+		(debug-print *informational* "Retrieval time-out ~a reached." timeout)
+		(pass-time timeout) 
+		nil)
+	      ;; return nil
+	      ;; timeout not given or within timeout
+	      (progn
+		(pass-time duration)
+		best))))))
 
-		;	  (say "chunk ~a falls below RT" (concept-name c))
-			  ))
-		  finally
-			(progn (setq last-retrieved-activation 
-				     bs)
-			       (return bc))
-		    )))
-
-	;; timing
-	(if last-retrieved-activation
-	    (actUP-pass-time (* *lf* (exp (- (* *le* last-retrieved-activation))))))
-	
-	;; (say "found best chunk: ~a " (if best (concept-name best) nil))
-	best)))
-
-(defun best-n-chunks (n confusion-set cues)
+(defun best-n-chunks (n confusion-set &optional cues request-spec)
   "Retrieves the best chunks in confusion set.
 CONFUSION-SET is a list of chunks, out of which the best N chunks will
-be returned. CUES is a list of cues that spread activation.
+be returned. CUES is a list of cues that spread activation.  CUES may
+contain chunk objects or names of chunks.
 
 See also the higher-level functions `retrieve-chunk' and
 `blend-retrieve-chunk'."
 
   ;; retrieve using spreading activation from cues to confusion-set
   (if confusion-set
-      (let ((all  (loop for c in confusion-set 
+      (let* ((cues (get-chunk-objects cues))
+	     (all  (loop for c in confusion-set 
 		  append
-		    (let ((s (+ (chunk-get-base-level-activation c)
-				(if *ans* (act-r-noise *ans*) 0)
-				(chunk-get-spreading-activation c cues))))
+		    (let ((s (actup-chunk-get-activation c cues request-spec)))
 		     
 		      (if (or (not *rt*) 
 			      (if (consp *rt*)
-				  (> (length (chunk-presentations c)) (cdr *rt*))
+				  (> (length (actup-chunk-presentations c)) (cdr *rt*))
 				  (> s *rt*)))
 			  (list (cons s c)))))
 			  ))
@@ -405,25 +1007,27 @@ See also the higher-level functions `retrieve-chunk' and
 
 (defun blend (chunks &optional cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
-Activation is calculated using spreading activation from CUES.
-The returned chunk is of type CHUNK-TYPE; all CHUNKS must be
-of type CHUNK-TYPE or of a supertype thereof.  If CHUNK-TYPE is not
-given, all CHUNKS must be of the same class and the returned type
-will be this class.
-RETRIEVAL-SPEC should contain the retrieval filter used to
-obtain CHUNKS; attribute-value pairs in it will be included in
-the returned chunk as-is and not be blended from the CHUNKS.
+Activation is calculated using spreading activation from CUES.  CUES
+may contain chunk objects or names of chunks.  The returned chunk is
+of type CHUNK-TYPE; all CHUNKS must be of type CHUNK-TYPE or of a
+supertype thereof.  If CHUNK-TYPE is not given, all CHUNKS must be of
+the same class and the returned type will be this class.
+RETRIEVAL-SPEC should contain the retrieval filter used to obtain
+CHUNKS; attribute-value pairs in it will be included in the returned
+chunk as-is and not be blended from the CHUNKS.
 
 See also the higher-level function `blend-retrieve-chunk'."
- 
+  
 
- 
+  
   (if (and chunk-type (symbolp chunk-type))
       (setq chunk-type (find-class chunk-type)))
 
+  (debug-print *informational* "Blending ~a different chunks..." (length chunks))
+
   ;;convert flat list into assoc list
-  (let ((auto-chunk-type nil) 
-	(empty-chunk (make-chunk))
+  (let ((cues (get-chunk-objects cues))
+	(auto-chunk-type nil) 
 	(blend-activation 0)
 	(retrieval-spec-alist
 	 (loop for (a b) on retrieval-spec by #'cddr collect
@@ -443,23 +1047,25 @@ See also the higher-level function `blend-retrieve-chunk'."
 		 (setq auto-chunk-type t
 		       chunk-type (class-of c))))
 
-	 (let ((act (chunk-get-activation c cues retrieval-spec)))
+	 (let ((act (actup-chunk-get-activation c cues retrieval-spec)))
 	   (setq blend-activation (+ blend-activation
 				     (exp act)))
-	   (loop for s in (structure-alist c) do
-		(when (and (not (assoc (car s) retrieval-spec-alist))
+	   (loop for slot in  (slot-value c 'act-up::attrs)  ;; e.g., 'error
+	      do
+		(when (and (not (assoc slot retrieval-spec-alist))
 			   ;; not an internal slot from "chunk"
-			   (not (slot-exists-p empty-chunk (normalize-slotname-with-package (car s))))
+			   ;; don't think we still need this
+			   ;; (not (slot-exists-p empty-chunk (normalize-slotname-with-package slot)))
 			   ;;   (not (member (normalize-slotname-with-package (car s)) chunk-standard-slots))
 			   )
-		  (if (not (assoc (car s) slot-values-by-name))
-		      (push (cons (car s) nil) slot-values-by-name))
+		  (if (not (assoc slot slot-values-by-name))
+		      (push (cons slot nil) slot-values-by-name))
 		  (push
-		   (cons act (cdr s)) ;; value
-		   (cdr (assoc (car s) slot-values-by-name)))))))
+		   (cons act (slot-value c slot)) ;; value
+		   (cdr (assoc slot slot-values-by-name)))))))
     
-    (setq blend-activation (if (> blend-activation 0) (log blend-activation) 0)) 
-   
+    (setq blend-activation (log-safe blend-activation 0))
+    
     ;; let's blend
     ;; currently, only numerical values are supported    
     
@@ -467,50 +1073,306 @@ See also the higher-level function `blend-retrieve-chunk'."
     ;; to do: return real object
     ;; (class-of c) ??
     ;; (make-instance class ...)
+    (debug-print *informational* "blending ~a slots" (length slot-values-by-name))
+    (debug-print *detailed* "~a" slot-values-by-name)
 
-   (if (and (> blend-activation *rt*) (or retrieval-spec slot-values-by-name))
-       ;; (apply #'make-instance    does not work for structures (openmcl)
-       ;; 	      chunk-type 
-       (apply (find-symbol (format nil "MAKE-~a" (class-name chunk-type)))
-	      :last-bl-activation blend-activation
-	      :activation-time (actup-time)
-	      :comment 'blended
-	      (append
-	       retrieval-spec
-	       (loop for sv in slot-values-by-name append
-		  ;; calculate weighted mean
-		  ;; weights are determined by boltzmann activation of each chunk
-		  ;; i.e. retrieval probability
-		  ;; Pi = exp(Ai/t) / sum(j, exp(Aj/t))
-		    
-		    (let* ((boltzmann-total 0)
-			   (sum
-			    (loop for (a . n) in (cdr sv) sum
-				 (if (numberp n)
-				     (let ((boltzmann-act  (exp (/ a *blend-temperature*))))
-				       (setq boltzmann-total (+ boltzmann-total boltzmann-act)) ; denominator in boltzmann eq
-				       (* boltzmann-act n))
-				     (return nil)))))
-		      (when sum
-			(list (car sv) (/ sum boltzmann-total)))))))
-       nil)))
+    (if (> blend-activation *rt*)
+	;; (apply #'make-instance    does not work for structures (openmcl)
+	;; 	      chunk-type 
+	(if (or retrieval-spec slot-values-by-name)
+	    (apply (find-symbol (format-nil "MAKE-~a" (class-name chunk-type)))
+		   :last-bl-activation blend-activation
+		   :activation-time (actup-time)
+		   :comment 'blended
+		   (append
+		    retrieval-spec
+		    (loop for sv in slot-values-by-name append
+		       ;; calculate weighted mean
+		       ;; weights are determined by boltzmann activation of each chunk
+		       ;; i.e. retrieval probability
+		       ;; Pi = exp(Ai/t) / sum(j, exp(Aj/t))
+			 
+			 (let* ((boltzmann-total 0)
+				(sum
+				 (loop for (a . n) in (cdr sv) sum
+				      (if (numberp n)
+					  (let ((boltzmann-act  (exp (/ a *blend-temperature*))))
+					    (setq boltzmann-total (+ boltzmann-total boltzmann-act)) ; denominator in boltzmann eq
+					    (* boltzmann-act n))
+					  (return nil)))))
+			   (when sum
+			     (list (find-symbol (symbol-name (car sv)) "KEYWORD")  ;; 'error-1 --> :error-1
+				   (/ sum boltzmann-total)))))))
+	    (progn
+	      (debug-print *warning* "No retrieval spec given, and no slots found to be blended.  Blending failed.")
+	      nil))
+	(progn
+	  (debug-print *warning* "Resulting blend activation ~a below retrieval threshold (*rt*=~a).  Blending failed." blend-activation *rt*)
+	  nil))))
 
 (defun reset-mp ()
+  "Resets the current Meta process. 
+Resets the time in the meta process."
   (setq *current-actUP-meta-process* (make-meta-process)))
 
 (defun reset-model ()
+  "Resets the current ACT-UP model. 
+All declarative memory and all subsymbolic knowledge is deleted.
+Global parameters (dynamic, global Lisp variables) are retained, as are
+functions and model-independent rules."
   (setq *current-actUP-model* (make-model)))
 
+;; Associative learning
+
+;; Leaving AL on by default would be tricky:
+;; if chunks have no joint presentations or learn-chunk doesn't get the co-present chunks,
+;; then with every single presentation of a chunk, the Rji will decline rapidly
+;; (number f_c is in denominator!)
+;; thus we start out with a nice fan effect (Rji prior), but end up with low Sjis.
+
+;; So that's not ideal.  That's why AL is off by default. 
+
+(defun inc-rji-copres-count (c n)
+  "increase co-presentation count for chunks C,N"
+  (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
+    (if target
+	(incf (actup-link-fcn target)) ;; f(C&N) count
+	(let ((link (make-actup-link :fcn 1)))
+	  ;; add new link:
+	  (setf (actup-chunk-related-chunks c)
+		(cons
+		 (cons (get-chunk-name n) link)
+		 (actup-chunk-related-chunks c)))
+	  ;; same link in the reciprocal references
+	  (setf (actup-chunk-references n)
+		(cons
+		 (cons (get-chunk-name c) link)
+		 (actup-chunk-references n)))))))
+
+(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory
+See also `*associative-learning*', `reset-sji-fct'.
+See also: ACT-R parameter :mas.")
+(define-symbol-macro *mas* *maximum-associative-strength*) ; compatibility macro
+(export '(*maximum-associative-strength* *mas*))
+
+(defmacro count-occ-ji (val chunk)
+  `(count-if (lambda (slot)
+		     (eq ,val (slot-value ,chunk slot))) 
+	     (slot-value ,chunk 'act-up::attrs)))
+
+;; we're counting all mentions of a chunk in order to calculate the fan
+;; perhaps we should just add to a fan count whenever a novel chunk is added to DM
+;; and treat chunk contents as "readonly" once they're in DM (which they should be)
+;; this solution is probably quite slow
+
+(defun count-occurrences (chunk)
+  "Count occurrences of CHUNK as value in all other chunks"
+  (loop with name = (actup-chunk-name chunk)
+     for cn in (actup-chunk-occurs-in chunk) 
+     for c = (get-chunk-object cn)
+     sum
+       (count-occ-ji name c)))
+
+(defun fan-ji (c n)
+  (let ((occ (count-occ-ji (get-chunk-name c) n)))
+    ;; (format-t "fan-ji: c:~s n:~s  occ:~s  occs: ~s~%" c n occ (count-occurrences c))
+    (if (> occ 0)
+	(/ (1+ (count-occurrences c))
+	   (+ occ
+	      (if (eq c n) 1 0)))
+	
+	nil)))
+
+(defun chunk-get-rji-prior (c n) ;; c=j, n=i
+  "Get Rji prior (in linear space)"
+;; m/n
+; The fan is s_ji = S - log(fan_ji)
+; so, it is s_ji = log(e^S/fan_ji)
+
+  (let ((fan (fan-ji c n)))
+    (if fan
+	(/ (if (numberp *maximum-associative-strength*)
+	       (exp *maximum-associative-strength*)  ; MAS is in log space
+	       (length (model-chunks (current-model))))
+	   fan)  ; num refs for context c
+	1)))
+
+(defun chunk-get-rji (c n)
+  "Get Rji (in linear space)"
+  (if *associative-learning*
+      (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
+	(if target
+	    (let ((no (get-chunk-object n)))
+	      (let ((f-nc (or (actup-link-fcn target) 0))
+		    ;; 1+ in order to make it work even without presentations
+		    (f-c (1+ (actup-chunk-total-presentations (get-chunk-object c))))
+		    (f-n (1+ (actup-chunk-total-presentations no)))
+		    (f (/ (- (actup-time) (actup-chunk-first-presentation no)) *dat*)))  ;; this is #cycles in ACT-R 5
+		(if (and (> f-c 0) (> f 0) (> f-n 0))
+		    (let* ((pe-n-c (/ f-nc f-c))
+			   (pe-n (/ f-n f))
+			   (e-ji (/ pe-n-c pe-n)))
+		      ;; Bayesian weighted mean between prior and E
+		      (/ (+ (* *associative-learning* (chunk-get-rji-prior c n))
+			    (* f-c e-ji))
+			 (+ *associative-learning* f-c)))
+		    1)))
+	    ; should this be 0, or the prior??
+	    1))
+      ;; this implies the chunk's fan:
+      (chunk-get-rji-prior c n)))
+    
+
+
+;; ACT-R 6.0 compatibility functions
 (defun reset-sji-fct (chunk)
-  (setf (chunk-related-chunks chunk) nil))
+  "Removes all references to CHUNK from all other chunks in the current model."
+ 
+  ;;; remove chunk from reciprocal references 
+  (loop with chunk-name = (get-chunk-name chunk)
+     for (c . _l) in (actup-chunk-related-chunks chunk) do
+       (progn
+	 _l
+	 (setf (actup-chunk-references c)
+	       (delete-if (lambda (x) (eq (car x) chunk-name)) (actup-chunk-references c)))))
+  (setf (actup-chunk-related-chunks chunk) nil))
+
+
+;; (defun add-sji-fct (list)
+;;   (loop for (c1a c2a s) in list 
+;;      for c1 = (get-chunk-object c1a)
+;;      for c2 = (get-chunk-object c2a)
+;;      do
+;;        (unless (eq c1 c2)
+;; 	 (setf (actup-chunk-related-chunks c1) 
+;; 	       (delete (assoc c2 (actup-chunk-related-chunks c1)) 
+;; 		       (actup-chunk-related-chunks c1)))
+;; 	 (setf (actup-chunk-related-chunks c1)
+;; 	       (insert-by-weight (list c2 s 0 0) (actup-chunk-related-chunks c1) #'second)))
+;;        ))
+
+(defun alist-replace (key value alist)
+  "Replace key-value pair in alist, or add it.
+Alist is changed by side-effect and returned,
+unless alist is NIL, in which case Alist is
+not changed, but the new alist containing the
+key-value pair is returned."
+  (if alist
+      (loop with last = nil
+	 for c on alist 
+	 for x = (car c) do
+	   (when (eq (car x) key)
+	     (setf (cdr x) value)
+	     (return))
+	   (setq last c)
+	 finally 
+	   (setf (cdr last) (cons (cons key value) nil)))
+      (setq alist (cons (cons key value) nil)))
+  alist)
+
+;; s - sji
+;; value
+;; or (Fjoint time)  ; time unused in the ACTR5 style calculation
+
+(defun set-similarities-fct (list)
+  "Set similarities between chunks.
+LIST is a list with elements of form (A B S), where A und B are
+chunks or chunk names, and S is the new similarity of A and B.
+For example:
+
+ (set-similarities-fct '((dave david -0.05) 
+                         (steve hank -0.1)  
+                         (mary john -0.9)))"
+
+  (loop for (c1a c2a s) in list 
+     for c1 = (get-chunk-object-add-to-dm c1a)
+     for c2 = (get-chunk-object-add-to-dm c2a)
+     for c1n = (get-chunk-name c1)
+     for c2n = (get-chunk-name c2)
+     do
+       (unless (eq c1 c2)
+
+	   (setf (actup-chunk-similar-chunks c1)
+		 (alist-replace c2n s (actup-chunk-similar-chunks c1)))
+	   (setf (actup-chunk-similar-chunks c2)
+		 (alist-replace c1n s (actup-chunk-similar-chunks c2)))
+	   )))
 
 (defun add-sji-fct (list)
-  (loop for (c1 c2 s) in list do
+  "Set Sji link weights between chunks.
+LIST is a list with elements of form (CJ NI S), where CJ und NI are
+chunks or chunk names, and S is the new link weight, regulating
+spreading activation when CI is in context as a cue and NI is
+retrieved.  S may also be a list of form (FCN TIME), with FCN
+indicating frequency of C and N occurring together, and TIME
+indicating the point in time of their last joint occurrence (TIME is
+unused currently, but must be given.)"
+  (loop for (c1a c2a s) in list 
+     for c1 = (get-chunk-object-add-to-dm c1a)
+     for c2 = (get-chunk-object-add-to-dm c2a)
+     for c1n = (get-chunk-name c1)
+     for c2n = (get-chunk-name c2)
+     do
        (unless (eq c1 c2)
-	 (setf (chunk-related-chunks c1) (delete (rassoc c2 (chunk-related-chunks c1)) (chunk-related-chunks c1)))
-	 (setf (chunk-related-chunks c1)
-	       (insert-by-weight (list (cons s c2)) (chunk-related-chunks c1))))
-       ))
+	 (let ((link (if (and (listp s) (= (length s) 2))
+			 (make-actup-link :fcn (first s))
+			 (make-actup-link :sji s))))
+	   (setf (actup-chunk-related-chunks c1)
+		 (alist-replace c2n link (actup-chunk-related-chunks c1)))
+	   ;; and the reciprocal references
+	   (setf (actup-chunk-references c2)
+		 (alist-replace c1n link (actup-chunk-references c2)))
+	   ))))
+
+(defun set-dm-total-presentations (npres)
+  "Set the count of total presentations of all chunks in DM.
+This value is relevant for associative learning (Sji/Rji)."
+  (setf (declarative-memory-total-presentations (model-dm (current-model))) npres))
+
+(defun set-base-level-fct (chunk value &optional creation-time)
+  "Set base levels of CHUNK.
+If CREATION-TIME is specified, it contains the time at which the chunk
+was created in declarative memory, and VALUE contains the number of
+presentations (an integer value).  If TIME is not specified, VALUE is
+the chunk's absolute activation value (log space).
+
+For plausibility reasons, models should specify presentations and time
+when possible."
+  
+    (let ((c (get-chunk-object-add-to-dm chunk)))
+      (if creation-time
+	  (let* ((presentations value)
+		 (age (- (actUP-time) creation-time))
+		 (mpres presentations))
+	    ;; mpres = (min presentations *ol*) ;  (ACT-R variant)
+	    ;; the "min" is here for ACT-R 6 compatibility.  It doesn't make sense, really.
+	    (setf (actup-chunk-total-presentations c) presentations)
+	    (setf (actup-chunk-recent-presentations c) 
+		  (loop for i from 1 to *ol* collect
+		       (- (actUP-time) (* i (/ age mpres)))))
+	    (setf (actup-chunk-first-presentation c) creation-time))
+	  ;; old-style form
+	  (setf (actup-chunk-last-bl-activation c) value))))
+
+
+(defun set-base-levels-fct (list)
+  "Set base levels of several chunks.
+ACT-R compatibility function.
+LIST contains elements of form (CHUNK PRES TIME) or (CHUNK ACT),
+whereas CHUNK is a chunk object or the name of a chunk,
+PRES is a number of past presentations (integer),
+and TIME the life time of the chunk,
+and ACT the chunk's absolute activation.
+
+For plausibility reasons, models should not use the ACT form when
+possible."
+ 
+  (loop for el in list do
+       (apply #'set-base-level-fct el)))
+
+(defmacro chunks ()
+  '(model-chunks (current-model)))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -518,55 +1380,40 @@ See also the higher-level function `blend-retrieve-chunk'."
 
 ; private 
 ;; (defun chunk-slot (chunk slot-name)
-;;   (let ((sym (find-symbol (format nil "~A-~A" (type-of chunk) slot-name)
+;;   (let ((sym (find-symbol (format-nil "~A-~A" (type-of chunk) slot-name)
 ;;                              ;; #.(package-name *package*
 ;; 			     )))
 ;;     (if sym
 ;; 	(funcall (symbol-function
 ;; 		  sym)
 ;; 		 chunk)
-;; 	(error (format nil "Slot ~a not found." slot-name)))))
+;; 	(error (format-nil "Slot ~a not found." slot-name)))))
 
 (defun chunk-slot (chunk slot-name)
  (slot-value chunk slot-name))
  
+(defun actup-chunk-get-noise (chunk)
+  (+  (if *ans* 
+	  (or (and (eq (actUP-time) (actup-chunk-last-noise-time chunk))
+		   (actup-chunk-last-noise chunk))
+	      (progn
+		(setf (actup-chunk-last-noise chunk) (actup-noise *ans*)
+		      (actup-chunk-last-noise-time chunk) (actUP-time))
+		(actup-chunk-last-noise chunk)))
+	  0)
+      (if *pas*
+	  (actup-chunk-permanent-noise chunk)
+	  0)))
 
-(defun chunk-get-fan  (j _i chunk-set)
+(defun actup-chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
+  "Calculate current activation of chunk"
 
-  (print "chunk-get-fan: not implemented.")
-
-  ;; how to iterate over all slots?
-
-  (let* ((j-al (structure-alist j))
-	 (j-len (length j-al)))
-    
-    (loop for c in chunk-set sum
-	 (structure-value-count c j (chunk-id j))
-	 ;; to do
-)))
-
-
-(defun chunk-get-noise (chunk)
-  (if *ans* 
-      (or (and (eq (actUP-time) (chunk-last-noise-time chunk))
-	       (chunk-last-noise chunk))
-	  (progn
-	    (setf (chunk-last-noise chunk) (act-r-noise *ans*)
-		  (chunk-last-noise-time chunk) (actUP-time))
-	    (chunk-last-noise chunk)))
-      0))
-
-(defun chunk-get-activation (chunk &optional cue-chunks retrieval-spec)
-  "Calculate current activation of chunk
-Returns nil if chunk is nil."
-
-  (if chunk
-      (let ((base-level (chunk-get-base-level-activation chunk))
-	    (spreading (chunk-get-spreading-activation chunk cue-chunks))
-	    (partial-matching (chunk-get-partial-match-score chunk retrieval-spec))
-	    (noise (chunk-get-noise chunk)))
+  (let ((base-level (actup-chunk-get-base-level-activation chunk))
+	(spreading (actup-chunk-get-spreading-activation chunk cue-chunks))
+	(partial-matching (actup-chunk-get-partial-match-score chunk retrieval-spec))
+	(noise (actup-chunk-get-noise chunk)))
 	
-	(+ base-level spreading partial-matching noise))))
+	(+ base-level spreading partial-matching noise)))
 
 
 ;; export
@@ -584,57 +1431,113 @@ Returns nil if chunk is nil."
    ;; set time
 
 
-;   (setf (declarative-memory-chunks (model-dm (current-actUP-model))) chunks)
+;   (setf (declarative-memory-chunks (model-dm (current-model))) chunks)
 
 
+(defun bll-sim (pres-count lifetime)
+  (+ *blc* (log (/ pres-count (- 1 *bll*))) (- (* *bll* (log lifetime)))))
 
-
-
-
-(defun chunk-get-base-level-activation (chunk)
+(defun actup-chunk-get-base-level-activation (chunk)
 
   ;; we're using the Optimized Learning function
 
-  (let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-actUP-model)))
-    (+
-     ;; standard procedure
-     (loop for pres in (chunk-recent-presentations chunk) sum
-	  (expt (max 1 (- (actUP-time) pres)) (- d)))
-     
-     ;; initial BL activation  (e.g., from blending)
-     (or (chunk-last-bl-activation chunk) 0)
+  ;; This assumes that at least *dat* time has passed since the initial presentation.
+					;(let ((d *bll*)) ;; (model-parameters-bll (model-parms (current-model)))
 
-     ;; optimized learning
-     (let ((k (length (chunk-recent-presentations chunk))))
-       (if (and (> (chunk-total-presentations chunk) k) (chunk-first-presentation chunk))
-	   (let ((last-pres-time (max 1 (- (actUP-time) (or (car (last (chunk-recent-presentations chunk))) 
-							       (chunk-first-presentation chunk))))) ;; 0? ;; tn
-		 (first-pres-time (max 1 (- (actUP-time) (chunk-first-presentation chunk)))))
-	     (if (and first-pres-time
-		      (not (= first-pres-time last-pres-time)))
-		 (progn
-		   (/ (* (- (chunk-total-presentations chunk) k) 
-			 (max 0.1 (- (expt first-pres-time (- 1 d)) (expt last-pres-time (- 1 d)))))
-		      (* (- 1 d) (max 0.1 (- first-pres-time last-pres-time)))))
-		 0))
-	   0))
-     *blc*)))
+  (+
+   ;; initial BL activation  (e.g., from blending, or from base-level constant)
+   (or (actup-chunk-last-bl-activation chunk) *blc*)
 
-(defun chunk-get-spreading-activation (chunk cues)
+   (if *bll*
+       (let ((time (actUP-time))
+	     (1-d (- 1 *bll*)))
+	 (log-safe
+	  (+
+	   ;; standard procedure
+	   (loop for pres in (actup-chunk-recent-presentations chunk) 
+	      sum
+		(let ((decay-time  (- time pres)))
+		  ;; (format-t "~a: adding ~a s, ~a~%" (actup-chunk-name chunk) (- time pres) decay)
+		  (when (< decay-time *dat*)
+		      (debug-print *warning* "~a: Warning: retrieval (or: base-level activation) of chunk ~a measured too shortly (~a-~a<~asec) after its latest presentation (learn-chunk). Model-time: ~a.~%"
+				   (meta-process-name *current-actUP-meta-process*)
+				   (actup-chunk-name chunk)
+				   time pres *dat* (model-time *current-actUP-model*))
+		      ;; (error 'warning)
+		      )	   
+		  (expt (max *dat* decay-time) (- *bll*))))
+	   
+	   (let ((k (length (actup-chunk-recent-presentations chunk))))
+	     (if (and (> (actup-chunk-total-presentations chunk) k) (actup-chunk-first-presentation chunk))
+		 ;; optimized learning
+		 (let ((last-pres-time (max *dat* (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
+							  (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+		       (first-pres-time (max *dat* (- time (actup-chunk-first-presentation chunk)))))
+		   (if (and first-pres-time
+			    (not (= first-pres-time last-pres-time)))
+		       (progn
+			 (/ (* (- (actup-chunk-total-presentations chunk) k) 
+			       (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
+			    (* 1-d (max *dat* (- first-pres-time last-pres-time)))))
+		       0.0))
+		 ;; fall back to default decay
+		 ;; (let ((last-pres-time (max 1 (- time (or (car (last (actup-chunk-recent-presentations chunk))) 
+;; 		 						       (actup-chunk-first-presentation chunk))))) ;; 0? ;; tn
+;; 		 	 (first-pres-time (max 1 (- time (actup-chunk-first-presentation chunk)))))
+;; 		   (if (and first-pres-time
+;; 		 	      (not (= first-pres-time last-pres-time)))
+;; 		 	 (progn
+;; 		 	   (/ (* (- (actup-chunk-total-presentations chunk) k) 
+;; 		 		 (max 0.1 (- (expt first-pres-time 1-d) (expt last-pres-time 1-d))))
+;; 		 	      (* 1-d (max 0.1 (- first-pres-time last-pres-time)))))
+;; 		 	 0)
+		   
+		 0.0))))) ; !!!
+       0.0)
+   ))
+
+(defun actup-chunk-get-spreading-activation (chunk cues)
   (if cues
       (* 1
-      (/ (loop for cue in cues sum
-	      (or (car (rassoc chunk (chunk-related-chunks cue))) 0.0))
-	 (length cues)))
+	 (/ (loop 
+	       for cue in cues
+	       for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
+	       sum
+		 (+ (or 
+		     (if *associative-learning*
+			 (+ (if link (actup-link-sji link) 0) ; add on Sji (is this the right thing to do?)
+			    (let ((rji (chunk-get-rji cue chunk))) (log-safe rji)))
+			 ;; assoc learning is off:
+			 (or
+			  (if link (actup-link-sji link)) ;; Sji
+			  ;; get Rji (prior) for fan effect if Sji isn't set
+			  (let ((rji (chunk-get-rji cue chunk))) 
+			    ;; convert RJI to log space!
+			    (log-safe rji nil))))
+		     ;; this doubles the lookup in related chunks - to revise!:
+		     0))) ;; Rji (actup-link-rji link)
+	    (length cues)))
       0))
 
 
+(defparameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter
+Mismatch (`set-similarities-fct') is linearly scaled using this coefficient.")
 
-(defparameter *pm* 1.0)
-(defun chunk-get-partial-match-score (chunk retrieval-spec)
-  (if *pm*
-      (progn
-	(* *pm*
+(defparameter *ms* 0 "ACT-UP Partial Match Maximum Similarity
+Similarity penalty assigned when chunks are equal.
+Value in activation (log) space.")
+
+(defparameter *md* -1 "ACT-UP Partial Match Maximum Difference
+Similarity penalty assigned when chunks are different
+and no explicit similarity is set.
+Value in activation (log) space.")
+
+(export '(*mp* *ms* *md*))
+(defun actup-chunk-get-partial-match-score (chunk retrieval-spec)
+  (if *mp*
+      (progn ; (print retrieval-spec)
+
+	(* *mp*
 	   (loop for (s v) on retrieval-spec  by #'cddr sum
 		(value-get-similarity (slot-value chunk (normalize-slotname s)) v))
 	   ))
@@ -642,14 +1545,19 @@ Returns nil if chunk is nil."
       ;; else
       0))
 
-(defun value-get-similarity (v1 v2)
-  (if (and (numberp v1) (numberp v2))
-      (if (= v1 v2)
-	  0
-	  (- (abs (- v1 v2))))  ;; could be done better!
-      0 ;; not implemented yet
-    ))
-
+(defun value-get-similarity (v1 v2) 
+  (or 
+   (let ((v1o (get-chunk-object v1 'noerror)))
+     (if v1o
+	 (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks v1o)))))
+   (if (eq (get-chunk-name v1) (get-chunk-name v2)) *ms*)
+      ;; (if (and (numberp v1) (numberp v2))
+      ;; 	  (if (= v1 v2)
+      ;; 	      *ms*
+      ;; 	      (+ *ms* (* (- *md* *ms*) (abs (- v1 v2)))))  ;; could be done better!
+      ;; 	  )
+      ; unrelated chunks
+   *md*))
 
 
 ;; PROCEDURAL
@@ -664,181 +1572,442 @@ Returns nil if chunk is nil."
 ;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG1 ARG2) (RULE1 ARG1 ARG2))))
 ;; (g1 'working 'huh)
 
-(defun set-alist (key val alist-name)
-  (let ((kv (assoc key (eval alist-name))))
+(defun set-alist (key val alist)
+  "Sets value in alist."
+  (let ((kv (assoc key alist)))
     (if kv
-	(progn (setf (cdr kv) val) 
-	       (eval alist-name))
-	(set alist-name (acons key val (eval alist-name))))))
+	(rplacd kv val)
+	(setf (cdr (last alist)) (list (cons key val)))))
+  alist)
 
+
+(defstruct rule
+  name  ; also function name of rule
+  utility
+  firing-time  ; :at parameter in ACT-R
+)
+
+(defstruct (compiled-rule (:include rule))
+  result
+  args
+  original-rule)
 
 (defmacro defrule (name args &rest body)
   "Define an ACT-UP rule.
-The syntax follows the Lisp `defun' macro, except
-that after arguments to the function to be greated, a 
-:group GROUP parameter may follow, defining one or more
-rule groups that the rule will belong to.  All rules
-defined as part of GROUP must have the same argument
-footprint.
+The syntax follows the Lisp `defun' macro, except that 
+some keyword-argument parameters may follow ARGS
+at the beginning of BODY.
 
 This macro will define a Lisp function of name NAME with
-arguments ARGS.
+arguments ARGS.  The Lisp function will execute the Lisp
+forms in BODY and return the value of the last form.
+
+The known parameters are:
+
+ :GROUP the-group
+A :group parameter defines one or or a list of rule
+groups that the rule will belong to.  All rules defined as part of a
+group must have the same argument footprint.
+
 
 If GROUP is given, a function of name GROUP will also be
-defined that invokes one of the rules assigned to GROUP."
+defined that invokes one of the rules assigned to GROUP.
+For example:
+
+ (defrule subtract-digit-by-addition (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via addition.\"
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (if chunk (addition-fact-add2 chunk))))
+ (defrule subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via subtraction knowledge.\"
+   ...)
+
+These rules can be invoked via a function call such as
+
+ (subtract 5 2)
+
+ACT-Up will choose the rule that has the highest utility.  See
+`assign-reward' for manipulation of utilities (reinforcement
+learning), and `*rule-compilation*' for in-theory compilation of
+rules (routinization, internalization).
+
+ :INITIAL-UTILITY u
+
+The :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
+If not given, the initial utility will be the value of `*iu*' at time of first invocation.
+
+Rule utilities, wether initial or acquired through rewards are always specific to the model.
+
+Rules and groupings of rules are not specific to the model."
   ;; remove keyword args from body
-  (let ((groups
-	 (let (keyw group)
-	   (loop while (keywordp (setq keyw (car body))) do
-	     (setq body (cdr body))
-	     (case keyw
-	       (:group (setq group (pop body)))
-	       ;; (t (push keyw extra-keywords) (push (pop body) extra-keywords))
-	       ))
-	   (if (consp group) group (list group)))))
+  (let* (
+	 (args-filtered (loop for a in args 
+			     when (or (consp a)
+				      (and (symbolp a)
+					   (not (eq a '&optional))
+					   (not (eq a '&key))))
+			     collect
+			     (if (consp a)
+				 (car a)
+				 a)))
+	 (doc-string "Invoke ACT-UP rule.")
+	 iu
+	 (groups
+	 (let (group)
+	   (loop for keyw = (car body) do
+		(cond
+		  ((stringp keyw)
+		   (setq doc-string keyw))
+		  ((eq keyw :group)
+		   (pop body)
+		   (if group 
+		       (error 
+			(format-nil "defrule ~s: more than one :GROUP keyword given."
+				name)))
+		   (setq group (car body)))
+		  ((or (eq keyw :initial-utility) (eq keyw :iu))
+		   (pop body)
+		   (if iu 
+		       (error 
+			(format-nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
+				name)))
+		   (setq iu (car body)))
+		  ((keywordp keyw) t)
+		  (t (return nil))
+		  )
+		(pop body)		 
+		) (if (consp group) group (list group)))))
+    (if (member name groups)
+	(error (format-nil "defrule: rule name ~a must not coincide with group name."
+		       name)))
+    (if (eq 'quote (car groups))
+	(setq groups (second groups)))
 
     `(progn
     (defun ,name ,args
-       (actup-rule-start ',name ',args)
+       ,doc-string
 ;; to do: handle signals
-       (let ((actup---rule-result
+       (let (
+	     (actup---rule (actup-rule-start ',name ,(cons 'list args-filtered)))
+	     (actup---rule-result
 	      (progn
 		,@body)))
-	 (actup-rule-end ',name actup---rule-result)
+	 (actup-rule-end actup---rule ',(or groups (list name))
+			 ,(cons 'list args-filtered) actup---rule-result)
 	 actup---rule-result))
+    (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
     (declare-rule ',groups
 		   ',name ',args)
 )))
 
-;; FIXME this needs to go into the current model!!!!
-(defparameter *actup-rule-queue* nil)
 (defun actup-rule-start (name args)
-  ;;(format t "start: ~s ~s" name args)
-  (setq *actup-rule-queue* (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)))
-(defun actup-rule-end (_name _result)
-  ;; (format t "end: ~s ~s" name result)
-  (actUP-pass-time 0.050) ;; to do: randomization (:vpft parameter)
+  (declare (ignore args))
+  ;;(format-t "start: ~s ~s" name args)
+
+  ;; look up rule object
+  (let ((rule (lookup-rule name t)))
+    (when *ul* ; utility learning on
+      ;; add rule to queue
+      (push (cons (actup-time) rule)
+	    (procedural-memory-rule-queue (model-pm (current-model)))))
+    
+    ;; return rule
+    rule))
+
+(defun make-compiled-rule-name (group args result)
+  (intern (format-nil "~a/~a->~a"
+		  group (length args)
+		  (cond ((symbolp result) result)
+			((numberp (format-nil "~2f" result)))
+			((actup-chunk-p result) (get-chunk-name result))
+			(t "*")))))
+
+
+(defparameter *rule-compilation* nil "If non-nil, rule compilation is enabled.
+Rule compilation causes ACT-UP rules defined with `defrule' to be compiled (or: cached).
+After execution of a source rule,  name, execution arguments and the result are stored as
+compiled rule.  The compiled rule is added to each of the source rule's groups.
+
+When the group is executed, compiled rules compete for execution with the other rules in the group.  (The rule with the highest utility is chosen.)
+
+The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular rules.")
+(export '(*rule-compilation*))
+
+(defun actup-rule-end (this-rule groups args result)
+
+  ;; possibly compile this rule
+
+  ;; compile rule
+  (when *rule-compilation*
+    (loop for group in groups 
+       for leaf = (get-tree-leaf-create (procedural-memory-compiled-rules 
+					 (model-pm (current-model)))
+					(cons group args))
+	 do
+	 (or
+	  ;; rule already present in list:
+	  (loop for rule in (cdr leaf) do
+	       
+	       (when (equal result (compiled-rule-result rule))
+		 ;; update utility of this rule
+		 (assign-reward-to-rule (rule-utility this-rule) rule)
+		 (return t)))
+	  (setf (cdr (last leaf))
+		(list 
+		 (make-compiled-rule
+		  :name (make-compiled-rule-name group args result)
+		  :args args
+		  :result result
+		  :utility *nu* ; (rule-utility this-rule)
+		  :original-rule (rule-name this-rule)
+		  :firing-time (rule-firing-time this-rule)))))))
+
+  ;; (format-t "end: ~s ~s" name result)
+  (pass-time (or (rule-firing-time this-rule) *dat*)) ;; to do: randomization (:vpft parameter)
 )
 
 ;; this is, as of now, independent of the model
 (defparameter *actup-rulegroups* nil)
 
-;; this needs to go into the model structure
-(defparameter *actup-rule-utilities* nil)
+(defparameter *au-rpps* nil
+  "Reward proportion per second elapsed.
+e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
+time is in between rules.
+Set to nil (default) to use the ACT-R discounting by time in seconds.
+See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
-(defparameter *egs* nil) ;; transient rule noise
+(defparameter *au-rfr* nil
+  "base reward proportion for each rule
+e.g., the each rule before the reward trigger gets 10% of the reward.
+Set to nil (default) to use the ACT-R discounting by time in seconds.
+See also the parameter `*au-rpps*' and the function `assign-reward'.")
+
+(defparameter *alpha* 0.2  "utility learning rate
+See also the function `assign-reward'.
+See also: ACT-R parameter :alpha")
+
+(defparameter *nu* 0.0 "Utility assigned to compiled rules.
+
+This is the starting utility for a newly learned rule (those created
+by the production compilation mechanism). This is the U(0) value for
+such a rule if utility learning is enabled and the default utility if
+learning is not enabled. The default value is 0.
+
+See also the function `assign-reward' and the variable `*rule-compilation*'.
+See also: ACT-R parameter :nu")
+
+(defparameter *iu* 0.0 "Initial rule utility.
+
+The initial utility value for a user-defined rule (`defrule'). This is
+the U(0) value for a production if utility learning is enabled and the
+default utility if learning (`*ul*') is not enabled. The default value
+is 0.
+
+See also the function `assign-reward'.
+See also: ACT-R parameter :iu")
+
+(defparameter *ul* t "Utility learning flag.
+
+If this is set to t, then the utility learning equation used above
+will be used to learn the utilities as the model runs. If it is set to
+nil then the explicitly set utility values for the rules are
+used (though the noise will still be added if `*egs*' is
+non-zero). The default value is nil.
+
+See also the function `assign-reward'.
+Only if `assign-reward' is called will this parameter have any effect.
+
+See also: ACT-R parameter :ul")
+
+(defparameter *ut* nil "Utility threshold.
+
+This is the utility threshold. If it is set to a number then that is
+the minimum utility value that a rule must have to compete in
+conflict resolution. Rules with a lower utility value than that
+will not be selected. The default value is nil which means that there
+is no threshold value and all rules will be considered.
+
+See also: ACT-R parameter :ut")
+
+(defparameter *egs* nil "Transient noise parameter for ACT-UP rules.
+
+This is the expected gain s parameter. It specifies the s parameter
+for the noise added to the utility values. It defaults to 0 which
+means there is no noise in utilities.
+
+See also: ACT-R parameter :egs")
+
+(export '(*au-rpps* *alpha* *au-rfr* *iu* *nu* *ut* *ul* *egs* assign-reward))
 
 (defun declare-rule (groups name args)
   ;; to do: check number of arguments 
+  ; remove rule from all groups first
+  (loop for grs in *actup-rulegroups* do
+       (setf (cdr grs) (delete name (cdr grs))))
+  (setq *actup-rulegroups* (delete-if (lambda (x) (not (cdr x))) *actup-rulegroups*))
   (when groups
-    (loop for g in groups do
+    (loop for g in groups when g do
 	 ;; (re)define lisp function with group name
 	 (eval `(defun ,g ,args 
-		  ,(format nil "Choose a rule out of group %s" g)
+		  ,(format-nil "Choose a rule out of group %s" g)
 		  (actup-eval-rule ',g ,@args)))
-
+	 
 	 (let ((group-cons (assoc g *actup-rulegroups*)))
 	   (if group-cons
-	       (setf (cdr group-cons)  
-		     (acons name args (cdr group-cons)))
+	       (unless (member name (cdr group-cons))
+		 (setf (cdr group-cons)  
+		       (cons name (cdr group-cons))))
 	       
 	       (setq *actup-rulegroups*
-		     (acons 
-		      g
-		      ( acons name args nil)
+		     (cons 
+		      (list g
+			    name)
 		      *actup-rulegroups*)))))))
 
   
+
+;; we cannot use a normal hash
+;; because sxhash is simply not very good with objects
+;; (only seems to depend on object type)
+;; (defun rule-result-hash (name args)
+
+;;   ;; problem here:
+;;   ;; arguments could be chunks
+;;   ;; which, internally, can be very different
+
+;;   (sxhash (list name args)))
+
 ;; test case:
 ;; (defun rule2 (a1 a2) (print a1))
 ;; (actup-eval-rule 'g2 1 2)
+
+
+    
+
+(defun fire-compiled-rule (rule)
+  (pass-time 0.05)
+  (compiled-rule-result rule))
+
+(defun lookup-rule (name &optional add)
+  "Look up a rule in current model PM from rule name.
+Add a rule object to current model PM if necessary."
+
+  ;; look up rule object
+  (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
+	 (rule (gethash name regular-rules)))
+    (unless rule
+      (setq rule (make-rule :name name :utility (or (get name 'initial-utility) *iu*)))
+      (when add
+	  (setf (gethash name regular-rules) rule)))
+    rule))
+    
 (defun actup-eval-rule (group &rest args)
   "Evaluates an ACT-UP rule from rule group GROUP.
 Passes arguments ARG to the lisp function representing 
 the chose rule."
-
   ;; chose rule with highest utility
-  (let* ((rule-util
-	 (loop for r in (cdr (assoc group *actup-rulegroups*)) 
-	    with utility = 0.0
-	    with rule = nil
-	    for r-utility = (+ (or (cdr (assoc (sxhash r) *actup-rule-utilities*)) *iu*) (if *egs* (act-r-noise *egs*) 0.0))
-	    when (> r-utility utility)
-	    do
-	      (setq utility r-utility
-		    rule r)
-	    finally
-	      (return (cons utility r ))))
-	(rule (second rule-util))
-	;; (util (car rule-util))
-	 )
-    (when rule
-      (apply rule args))))
+  ;; must randomize choice of rule even if *egs* is nil
+  (let ((regular-rules (mapcar #'lookup-rule (cdr (assoc group *actup-rulegroups*))))
+	(compiled-rules 
+	 ;; the leaf value from the tree structure is list of COMPILED-RULE structures
+	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
+			 (cons group args))))
+    (unless regular-rules
+      (error (format-nil "No rules defined for group ~a." regular-rules)))                                                              
+    (let* ((rules)
+	   (rule-util
+	 
+		 (loop with utility = -100000.0
+		    for rule in (append regular-rules compiled-rules)
+		    for r-utility = (+ (or (rule-utility rule) *iu*) 
+				       (if *egs* (act-r-noise *egs*) 0.0))
+		    when (>= r-utility utility)
+		    when (or (not *ut*) (>= r-utility *ut*))
+		    do
+		      (setq rules  (if (> r-utility utility) 
+				       (list rule)   ; better
+				       (cons rule rules)) ; as good as others
+			    utility r-utility)
+		    finally
+		      (return (cons utility (choice rules)))))
+	   (rule (cdr rule-util)))
+      (debug-print *informational* "Group ~a with ~a~a matching rules, choosing rule ~a (Utility ~a) from subset of best ~a~%"
+		   group 
+		   (length regular-rules)
+		   (if *rule-compilation*
+		       (format-nil "+~a" (length compiled-rules))
+		       "")
+		   (rule-name rule) (first rule-util) (length rules))
+      (when rule
+	(if (compiled-rule-p rule) ;; compiled rule?	    
+	    (fire-compiled-rule rule) ;; (car rule) is result
+	    ;; regular rule:
+	    (apply (rule-name rule) args))))))
 
-(export '(*au-rpps* *iu* *alpha* *au-rfr* assign-reward))
-(defparameter *au-rpps* 0.05
-  "Reward proportion per second elapsed.
-e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
-time is in between rules.
-See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
-(defparameter *au-rfr* 0.10
-  "base reward proportion for each rule
-e.g., the each rule before the reward trigger gets 10% of the reward.
-See also the parameter `*au-rpps*' and the function `assign-reward'.")
-
-(defparameter *alpha* 0.2  "utility learning rate
-See also the function `assign-reward'.")
-
-(defparameter *iu* 0.0 "initial utility
-See also the function `assign-reward'.")
-
-;; just a linear backpropagatino over time
+;; just a linear backpropagation over time
 ; quue elements: (time . hash)
-; (cons (cons (actup-time) (sxhash (cons name args))) *actup-rule-queue*)
 (defun assign-reward (reward)
   "Assign reward to recently invoked rules.
 Distributes reward value REWARD across the recently invoked rules.
-See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
-  (let ((time (actup-time))
-	(last-time (actup-time)))
-    (loop for rc in *actup-rule-queue* do
+See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
+See `defrule' for documentation on how to use utility when
+selecting between rules.
 
+Reward must be greater than 0.
+
+The reward is only distributed to rules invoked since the last call to
+`assign-reward' (or `flush-rule-queue', or `reset-model').  See also
+`assign-reward*' for a function that does not reset this set of
+rules."
+
+  (assign-reward* reward)
+  (flush-rule-queue)
+  ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
+  ;; 	  utilities)
+  )
+
+(defun assign-reward* (reward)
+  "Like `assign-reward', but does not flush the rule queue.
+See also `flush-rule-queue'."
+
+  (let ((last-time (actup-time)))
+    (debug-print *informational* "Assigning reward ~a~%" reward)
+    (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
 	 (let* ((r-time (car rc))
-		(r-rule-signature (sxhash (cdr rc)))
-		(reward-portion (* reward
-				   (+ *au-rfr*
-				      (* *au-rpps* (- last-time r-time))))))
-
+		(r-rule (cdr rc))
+		(reward-portion (if (and *au-rfr* *au-rpps*)
+				    (* reward
+				       (+ *au-rfr*
+					  (* *au-rpps* (- last-time r-time))))
+				    (- reward (- (actup-time) r-time)) ; as in ACT-R
+				    )))
+	   (if (< reward-portion 0) (return nil))
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
-	   
-	   ;; assign reward
-	   
-	   (let ((current (or (cdr (assoc r-rule-signature *actup-rule-utilities*)) *iu*)))
-	     (set-alist r-rule-signature (+ current
-		      (* *alpha* (- reward-portion current)))
-			'*actup-rule-utilities*)
-	     )))))
+	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
+	   ))))
 
+(defun flush-rule-queue ()
+  "Empties the queue of rules in the current model.
+This resets the list of rules to which rewards can be distributed (see
+`assign-reward' and `assign-reward*'."
 
-;; test case
+    (setf (procedural-memory-rule-queue (model-pm (current-model))) nil))
 
-(defun test-reward-assignment ()
-  (setq *actup-rulegroups* nil)
-  (defrule rule1 (arg1 _arg2) :group g1 (print arg1))
-  (defrule rule1b (arg1 _arg2) :group (g1 g5) (print arg1))
-  (defrule rule2 (arg2 _arg3) :group (g1 g2) (print arg2))
-  (defrule rule3 (arg3 arg4) :group g2 (print arg3))
-  
-  (rule1 1 2)
-  (rule2 1 2)
-  (assign-reward 10.0)
-
-  (g1 5 6)
-)
-
-
+(defun assign-reward-to-rule (reward-portion rule)
+  "Assign reward to a specific rule."
+  ;; assign reward
+	   (let* ((current (or (rule-utility rule) *iu*))
+		  (scaled (* *alpha* (- reward-portion current))))
+	     (debug-print *informational* "Assigning reward ~a to ~a.~%" scaled (rule-name rule))
+	     (setf (rule-utility rule)
+		   (+ current scaled))
+	     ))
 
 
 
@@ -849,7 +2018,7 @@ See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
 
 ;;   ;; handle dynamic, global variables as model-parameters
 ;;   (loop for p in *actUP-model-parameters* do
-;;        (let ((sym (format nil "*~a*" p)))
+;;        (let ((sym (format-nil "*~a*" p)))
 
 
 ;;        (if (boundp sym) ;; dynamically bound
@@ -872,8 +2041,8 @@ See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'."
     screen-x
   screen-y)
 
-(load (format nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
-(load (format nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
+(load (format-nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
 
 
 

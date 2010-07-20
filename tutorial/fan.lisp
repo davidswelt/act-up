@@ -7,7 +7,7 @@
 (use-package :act-up)
 
 (load "actr-stats")
-		
+
 (setq *ans* nil
       *lf* .63
       *mas* 1.6
@@ -30,7 +30,7 @@
 (define-chunk-type person)
 (define-chunk-type location place)
 
-;;;; Committing chunks to memory
+;;;; committing chunks to memory
 
 (defun init-model ()
   (reset-model)
@@ -61,7 +61,7 @@
 			  (list :arg2 location)))
 		;; cues:
 		(list person location)
-		)))
+	       )))
     (if (not cfd)
 	(print "could not retrieve comprehendfact!"))
     (pass-time *model-time-parameter*)
@@ -72,7 +72,7 @@
 	    (if (equal location (comprehendfact-arg2 cfd)) 
 		(progn  '(K)) 
 	      (progn '(D)))
-	  (progn  '(D))))))
+	    (progn  '(D))))))
 
 (defun run-model (person location target term)
   (init-model)
