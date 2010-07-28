@@ -137,6 +137,7 @@ The log output can be retrieved with `debug-log'."
   "Prints a list of all utilities in the current model."
 
   (let ((rs)
+	(compiled-rules (procedural-memory-compiled-rules (model-pm (current-model))))
 	(regular-rules (procedural-memory-regular-rules (model-pm (current-model)))))
     (loop for g in act-up::*actup-rulegroups* do
 	 (loop for name in (cdr g) do
@@ -150,8 +151,12 @@ The log output can be retrieved with `debug-log'."
 			    (rule-utility (lookup-rule name))
 			    (if (get name 'initial-utility)
 				(list (get name 'initial-utility) 'rule-iu)
-				(list  *iu* '*iu*))))))))
-  (print "Compiled rules not shown.")
+				(list  *iu* '*iu*)))))))
+    (format t "Compiled rules:~%")
+    (maptree (lambda (path v)
+	       (loop for r in v do
+		    (format t "~a --> ~a: ~a~%" path (compiled-rule-result r) (rule-utility r))))
+	     compiled-rules))
   nil)
 
 ;; CHUNKS
@@ -1647,44 +1652,45 @@ Rules and groupings of rules are not specific to the model."
   ;; remove keyword args from body
   (let* (
 	 (args-filtered (loop for a in args 
-			     when (or (consp a)
-				      (and (symbolp a)
-					   (not (eq a '&optional))
-					   (not (eq a '&key))))
-			     collect
+			   when (or (consp a)
+				    (and (symbolp a)
+					 (not (eq a '&optional))
+					 (not (eq a '&key))))
+			   collect
 			     (if (consp a)
 				 (car a)
 				 a)))
 	 (doc-string "Invoke ACT-UP rule.")
 	 iu
 	 (groups
-	 (let (group)
-	   (loop for keyw = (car body) do
-		(cond
-		  ((stringp keyw)
-		   (setq doc-string keyw))
-		  ((eq keyw :group)
-		   (pop body)
-		   (if group 
-		       (error 
-			(format-nil "defrule ~s: more than one :GROUP keyword given."
-				name)))
-		   (setq group (car body)))
-		  ((or (eq keyw :initial-utility) (eq keyw :iu))
-		   (pop body)
-		   (if iu 
-		       (error 
-			(format-nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
-				name)))
-		   (setq iu (car body)))
-		  ((keywordp keyw) t)
-		  (t (return nil))
-		  )
-		(pop body)		 
-		) (if (consp group) group (list group)))))
+	  (let (group)
+	    (loop for keyw = (car body) do
+		 (cond
+		   ((stringp keyw)
+		    (setq doc-string keyw))
+		   ((eq keyw :group)
+		    (pop body)
+		    (if group 
+			(error 
+			 (format-nil "defrule ~s: more than one :GROUP keyword given."
+				     name)))
+		    (setq group (car body)))
+		   ((or (eq keyw :initial-utility) (eq keyw :iu))
+		    (pop body)
+		    (if iu 
+			(error 
+			 (format-nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
+				     name)))
+		    (setq iu (car body)))
+		   ((keywordp keyw) t)
+		   (t (return nil))
+		   )
+		 (pop body)		 
+		 ) 
+	    (if (consp group) group (list group)))))
     (if (member name groups)
 	(error (format-nil "defrule: rule name ~a must not coincide with group name."
-		       name)))
+			   name)))
     (if (eq 'quote (car groups))
 	(setq groups (second groups)))
 
@@ -1697,7 +1703,7 @@ Rules and groupings of rules are not specific to the model."
 	     (actup---rule-result
 	      (progn
 		,@body)))
-	 (actup-rule-end actup---rule ',(or groups (list name))
+	 (actup-rule-end actup---rule ',(or (unless (equal groups '(nil)) groups) (list name))
 			 ,(cons 'list args-filtered) actup---rule-result)
 	 actup---rule-result))
     (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
@@ -1743,7 +1749,6 @@ The initial utility of a compiled rule equals the initial utility of the source 
 (export '(*rule-compilation* *epl*))
 
 (defun actup-rule-end (this-rule groups args result)
-
   ;; possibly compile this rule
 
   ;; compile rule
@@ -1894,6 +1899,10 @@ See also: ACT-R parameter :egs")
     
 
 (defun fire-compiled-rule (rule)
+  (debug-print *informational* "Firing compiled rule: (~a ~{~s ~})->~a"
+	       (compiled-rule-original-rule rule)
+	       (compiled-rule-args rule)
+	       (compiled-rule-result rule))
   (pass-time 0.05)
   (compiled-rule-result rule))
 
