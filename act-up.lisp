@@ -1149,7 +1149,8 @@ functions and model-independent rules."
 		 (cons (get-chunk-name c) link)
 		 (actup-chunk-references n)))))))
 
-(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory
+(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory.
+`*mas*' is defined as alias for `maximum-associative-strength'.
 See also `*associative-learning*', `reset-sji-fct'.
 See also: ACT-R parameter :mas.")
 (define-symbol-macro *mas* *maximum-associative-strength*) ; compatibility macro
@@ -1734,8 +1735,12 @@ compiled rule.  The compiled rule is added to each of the source rule's groups.
 
 When the group is executed, compiled rules compete for execution with the other rules in the group.  (The rule with the highest utility is chosen.)
 
-The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular rules.")
-(export '(*rule-compilation*))
+The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular rules.
+
+`*epl*' is defined as alias for `*rule-compilation*'.")
+
+(define-symbol-macro *epl* *rule-compilation*) ; compatibility macro
+(export '(*rule-compilation* *epl*))
 
 (defun actup-rule-end (this-rule groups args result)
 
