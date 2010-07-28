@@ -23,7 +23,7 @@
       (learn-chunk (make-carryfact 
 		    :total s
 		    :remainder (rem s 10)
-		    :quotient (truncate(/ s 10)))))
+		    :quotient (truncate (/ s 10)))))
 
 ;;;; Defining procedural rule
 
