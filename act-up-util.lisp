@@ -15,7 +15,10 @@
 ;; (setq tree (act-up::make-tree))
 ;; (act-up::add-tree-value tree '(one bad day) 55)
 ;; (act-up::add-tree-value tree '(one bad day in hell) 'ohyeah)
+;; (act-up::add-tree-value tree '(one fine day) 'rare)
+
 ;; (act-up::get-tree-value tree '(one bad day in hell))
+;; (act-up::maptree (lambda (p v) (format t "~a: ~a~%" p v)) tree)
 
 (defun make-tree (&optional value)
   (list (cons :tree-structure value)))
@@ -81,6 +84,21 @@ The tree leaf is a list that can be changed freely (setf (cdr ..) ...)."
        (return (cdar tree))))
 
 
-
+(defun maptree (function tree &optional path)
+  "Call FUNCTION for each leaf in TREE.
+FUNCTION must be a function taking two arguments: the path (a list)
+and the value of the leaf."
+  (unless (and (consp tree)
+	       (consp (car tree))
+	       (eq :tree-structure (car (car tree))))
+    (error "mapte: not a tree."))
+  (if (cdr (car tree))
+      (funcall function path (cdr (car tree))))
+  (loop for (k . v) in (cdr tree) do
+       (let  ((path (append path (list k))))
+	 (maptree function v path))))
 
 ;;;
+
+
+
