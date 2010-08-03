@@ -68,7 +68,7 @@ instance of type `meta-process'.")
 (defvar *detailed* 300 "Constant for `*debug*': Show detailed log output .")
 (defvar *all* 1000 "Constant for `*debug*': Show all messages (maximum detail).")
 (export '(*critical* *warning* *informational* *detailed* *all* *debug*
-	  *debug-to-log* debug-log debug-clear debug-detail debug-detail*))
+	  *debug-to-log* debug-log debug-clear debug-detail debug-detail* debug-grep))
 
 (defparameter *debug* *warning*
   "Level of debug output currently in effect.
@@ -85,6 +85,9 @@ but to a buffer that can be read with `debug-log' and cleared with `debug-clear'
 If a stream, ACT-UP logs to the stream.")
 
 (defvar *debug-stream* nil)
+
+
+(defparameter *debug-grep* nil  "Grep debug output with this keyword.")
 
 (defun debug-log ()
   "Returns logged ACT-R output.
@@ -113,8 +116,15 @@ retrieved using this function."
       (let ((*print-circle* t) (*print-pretty* t)
 	    (*print-pprint-dispatch* *print-pprint-dispatch*))
 	(set-pprint-dispatch 'actup-chunk #'pc)	    
-
-	(apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* (if *debug-to-log* *debug-stream*)) t) format args)
+	(if *debug-grep*
+	    (let ((str (apply #'format nil format args)))
+	      (if (loop for g in *debug-grep* do
+		       (unless (search g str)
+			 (return nil))
+		     finally (return t))		    
+		  (format (or (if (streamp *debug-to-log*) *debug-to-log* (if *debug-to-log* *debug-stream*)) t)
+			  "~a" str)))
+	    (apply #'format (or (if (streamp *debug-to-log*) *debug-to-log* (if *debug-to-log* *debug-stream*)) t) format args))
 	(set-pprint-dispatch 'actup-chunk nil)
 	)))
 
@@ -124,13 +134,18 @@ retrieved using this function."
   `(let  ((*debug* *all*))
     ,@body))
 
-
 (defmacro debug-detail* (&body body)
   "Evaluates BODY while logging ACT-UP debug information.
 The log output can be retrieved with `debug-log'."
   `(let  ((*debug* *all*) (*debug-to-log* t))
      (debug-clear)
     ,@body))
+
+(defmacro debug-grep (keyword &body body)
+  "Evaluates BODY while outputting ACT-UP debug information."
+  `(let  ((*debug* *all*) (*debug-grep* (cons ,keyword *debug-grep*)))
+     ,@body))
+
 
 (export '(show-utilities))
 (defun show-utilities ()
@@ -154,8 +169,13 @@ The log output can be retrieved with `debug-log'."
 				(list  *iu* '*iu*)))))))
     (format t "Compiled rules:~%")
     (maptree (lambda (path v)
-	       (loop for r in v do
-		    (format t "~a --> ~a: ~a~%" path (compiled-rule-result r) (rule-utility r))))
+	       (let ((big-group (cddr (assoc (car path) act-up::*actup-rulegroups*))))  ;; more than one rule in group?
+		 (if (cdr v)
+		     (progn
+		       (format t "~a:~%" path)
+		       (loop for r in (sort v (lambda (a b) (> (rule-utility a) (rule-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
+			    (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-rule-original-rule r)) "") (compiled-rule-result r) (rule-utility r))))
+		     (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-rule-original-rule (car v))) "") (compiled-rule-result (car v)) (rule-utility (car v))))))
 	     compiled-rules))
   nil)
 
@@ -1719,7 +1739,7 @@ Rules and groupings of rules are not specific to the model."
   (let ((rule (lookup-rule name t)))
     (when *ul* ; utility learning on
       ;; add rule to queue
-      (push (cons (actup-time) rule)
+      (push (list (actup-time) rule)
 	    (procedural-memory-rule-queue (model-pm (current-model)))))
     
     ;; return rule
@@ -1796,7 +1816,7 @@ e.g., the each rule before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
 
-(defparameter *alpha* 0.2  "utility learning rate
+(defparameter *alpha* 0.2  "Utility learning rate.
 See also the function `assign-reward'.
 See also: ACT-R parameter :alpha")
 
@@ -1854,29 +1874,33 @@ See also: ACT-R parameter :egs")
 (export '(*au-rpps* *alpha* *au-rfr* *iu* *nu* *ut* *ul* *egs* assign-reward))
 
 (defun declare-rule (groups name args)
+  "Declares ACT-R rule NAME,
+belonging to GROUPS, taking arguments ARGS.
+Returns NAME."
   ;; to do: check number of arguments 
   ; remove rule from all groups first
   (loop for grs in *actup-rulegroups* do
        (setf (cdr grs) (delete name (cdr grs))))
   (setq *actup-rulegroups* (delete-if (lambda (x) (not (cdr x))) *actup-rulegroups*))
-  (when groups
-    (loop for g in groups when g do
-	 ;; (re)define lisp function with group name
-	 (eval `(defun ,g ,args 
-		  ,(format-nil "Choose a rule out of group %s" g)
-		  (actup-eval-rule ',g ,@args)))
-	 
-	 (let ((group-cons (assoc g *actup-rulegroups*)))
-	   (if group-cons
-	       (unless (member name (cdr group-cons))
-		 (setf (cdr group-cons)  
-		       (cons name (cdr group-cons))))
-	       
-	       (setq *actup-rulegroups*
-		     (cons 
-		      (list g
-			    name)
-		      *actup-rulegroups*)))))))
+  (setf (get name 'groups) groups)
+  (loop for g in groups when g do
+		 ;; (re)define lisp function with group name
+		 (eval `(defun ,g ,args 
+			  ,(format-nil "Choose a rule out of group %s" g)
+			  (actup-eval-rule ',g ,@args)))
+		 
+		 (let ((group-cons (assoc g *actup-rulegroups*)))
+		   (if group-cons
+		       (unless (member name (cdr group-cons))
+			 (setf (cdr group-cons)  
+			       (cons name (cdr group-cons))))
+		       
+		       (setq *actup-rulegroups*
+			     (cons 
+			      (list g
+				    name)
+			*actup-rulegroups*)))))
+  name)
 
   
 
@@ -1899,7 +1923,7 @@ See also: ACT-R parameter :egs")
     
 
 (defun fire-compiled-rule (rule)
-  (debug-print *informational* "Firing compiled rule: (~a ~{~s ~})->~a"
+  (debug-print *informational* "Firing compiled rule: (~a ~{~s ~})->~a~%"
 	       (compiled-rule-original-rule rule)
 	       (compiled-rule-args rule)
 	       (compiled-rule-result rule))
@@ -1918,24 +1942,21 @@ Add a rule object to current model PM if necessary."
       (when add
 	  (setf (gethash name regular-rules) rule)))
     rule))
-    
-(defun actup-eval-rule (group &rest args)
-  "Evaluates an ACT-UP rule from rule group GROUP.
-Passes arguments ARG to the lisp function representing 
-the chose rule."
-  ;; chose rule with highest utility
-  ;; must randomize choice of rule even if *egs* is nil
+   
+(defun best-rule-of-group (group args)
+  "Finds the best ACT-UP rule from rule group GROUP.
+Compiled rules are chosen using ARGS as arguments.
+Returns RULE."
   (let ((regular-rules (mapcar #'lookup-rule (cdr (assoc group *actup-rulegroups*))))
 	(compiled-rules 
+	 (unless (eq args 'not-available) 
 	 ;; the leaf value from the tree structure is list of COMPILED-RULE structures
-	 (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
-			 (cons group args))))
+	   (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
+			   (cons group args)))))
     (unless regular-rules
       (error (format-nil "No rules defined for group ~a." regular-rules)))                                                              
     (let* ((rules)
-	   (rule-util
-	 
-		 (loop with utility = -100000.0
+	  (util-rule (loop with utility = -100000.0
 		    for rule in (append regular-rules compiled-rules)
 		    for r-utility = (+ (or (rule-utility rule) *iu*) 
 				       (if *egs* (act-r-noise *egs*) 0.0))
@@ -1948,19 +1969,34 @@ the chose rule."
 			    utility r-utility)
 		    finally
 		      (return (cons utility (choice rules)))))
-	   (rule (cdr rule-util)))
-      (debug-print *informational* "Group ~a with ~a~a matching rules, choosing rule ~a (Utility ~a) from subset of best ~a~%"
-		   group 
+	   (rule (cdr util-rule)))
+      (debug-print *informational* 
+		   "Group ~a with ~a~a matching rules, choosing rule ~a (Utility ~a)~a~%"
+		   group
 		   (length regular-rules)
 		   (if *rule-compilation*
 		       (format-nil "+~a" (length compiled-rules))
 		       "")
-		   (rule-name rule) (first rule-util) (length rules))
+		   (rule-name rule) (car util-rule) 
+		   (if (cdr rules)
+		       (format nil " from subset of best ~a" (length rules))
+		       ""))
+      rule)))
+      
+
+ 
+(defun actup-eval-rule (group &rest args)
+  "Evaluates an ACT-UP rule from rule group GROUP.
+Passes arguments ARG to the lisp function representing 
+the chose rule."
+  ;; chose rule with highest utility
+  ;; must randomize choice of rule even if *egs* is nil
+  (let ((rule (best-rule-of-group group args)))
       (when rule
 	(if (compiled-rule-p rule) ;; compiled rule?	    
 	    (fire-compiled-rule rule) ;; (car rule) is result
 	    ;; regular rule:
-	    (apply (rule-name rule) args))))))
+	    (apply (rule-name rule) args)))))
 
 
 ;; just a linear backpropagation over time
@@ -1979,7 +2015,7 @@ The reward is only distributed to rules invoked since the last call to
 `assign-reward*' for a function that does not reset this set of
 rules."
 
-  (assign-reward* reward)
+  (assign-reward-internal reward nil)
   (flush-rule-queue)
   ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
   ;; 	  utilities)
@@ -1987,22 +2023,31 @@ rules."
 
 (defun assign-reward* (reward)
   "Like `assign-reward', but does not flush the rule queue.
+Only reward portions >0 are assigned to rules, i.e., if
+`*au-rfr*' or `*au-rpps*' are nil (ACT-R 6 reward propagation),
+rewards are only assigned to rules up to `reward' seconds back in time.
+See also `flush-rule-queue'."
+  (assign-reward-internal reward t))
+
+
+(defun assign-reward-internal (reward stop-at-0)
+  "Like `assign-reward', but does not flush the rule queue.
 See also `flush-rule-queue'."
 
   (let ((last-time (actup-time)))
     (debug-print *informational* "Assigning reward ~a~%" reward)
     (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
-	 (let* ((r-time (car rc))
-		(r-rule (cdr rc))
+	 (let* ((r-time (first rc))
+		(r-rule (second rc))
 		(reward-portion (if (and *au-rfr* *au-rpps*)
 				    (* reward
 				       (+ *au-rfr*
 					  (* *au-rpps* (- last-time r-time))))
 				    (- reward (- (actup-time) r-time)) ; as in ACT-R
 				    )))
-	   (if (< reward-portion 0) (return nil))
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
+	   (and stop-at-0 (< reward-portion 0) (return nil))
 	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
 	   ))))
 
@@ -2018,7 +2063,30 @@ This resets the list of rules to which rewards can be distributed (see
   ;; assign reward
 	   (let* ((current (or (rule-utility rule) *iu*))
 		  (scaled (* *alpha* (- reward-portion current))))
-	     (debug-print *informational* "Assigning reward ~a to ~a.~%" scaled (rule-name rule))
+	     (debug-print *informational* "Assigning reward ~a to ~a.~{~a~}~%" reward-portion (rule-name rule)
+			  (loop for g in (get 
+					       (if (compiled-rule-p rule)
+						   (compiled-rule-original-rule rule)
+						   (rule-name rule))
+					       'groups) collect
+			       ;; for all groups that this rule belongs to
+			       (let ((best
+				      (let ((*egs* nil)
+					    (*debug* nil))
+					(best-rule-of-group g (if (compiled-rule-p rule)
+								  (compiled-rule-args rule)
+								  'not-available)))))
+				 (if (eq best rule)
+				     ;; only for compiled rules can we determine
+				     ;; the best rule overall, because only then do we know
+				     ;; what the arguments were!
+				     (format nil " Best~a rule among alternatives in group ~a!"
+					     (if (compiled-rule-p rule) "" " regular")
+					     g)
+				     (format nil " ~a remains best~a rule in group ~a."
+					     (rule-name best)
+					     (if (compiled-rule-p rule) "" " regular")
+					     g)))))
 	     (setf (rule-utility rule)
 		   (+ current scaled))
 	     ))
