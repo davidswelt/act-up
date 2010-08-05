@@ -1,9 +1,13 @@
 ;;; Filename: addition.lisp
 
+;;; to use: (add-digit 1 2 4 1)
+
 ;;; Author: David Reitter/ Jasmeet Ajmani
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
+
+(setq *rt* -5) ; ensure retrieval
 
 ;;;; Defining chunk-types
 
