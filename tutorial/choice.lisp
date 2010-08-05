@@ -1,5 +1,7 @@
 ;;; Filename: choice.lisp
 
+;; To use: (do-trial-model)
+
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
