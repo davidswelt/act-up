@@ -1,14 +1,14 @@
 ;;; Filename: sticks.lisp
 
+;;; To run use command: (collect-data 10000)
+
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
-
-;;; To run use command: collect-data 10000
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
-(load "actr-stats")
+(load "../actr-stats")
 
 (defvar *strategy*)
 (setq *strategy* nil)
@@ -129,6 +129,3 @@
   (cond
    ((= current G) (assign-reward 20))
    ((> current G) (assign-reward 0))))
-
-
-
