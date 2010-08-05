@@ -32,7 +32,9 @@ Each increment is 1 unit."
       (let ((p (retrieve-chunk (list :chunk-type 'count-order 
 				     :first arg1))))
 	(if p
-	    (count-model (count-order-second p) arg2)))))
+	    (count-model (count-order-second p) arg2)))
+      ;; else return end point
+      arg2))
 
 (defrule speak (number)
   "Say number."
