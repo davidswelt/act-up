@@ -1,9 +1,10 @@
 ;;; Filename: paired.lisp
 
+;;; To run use command: (collect-data 100)
+
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-;;; To run use command: collect-data 100
 
 (load "actr-stats")
 
