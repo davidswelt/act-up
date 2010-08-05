@@ -6,7 +6,7 @@
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
-(load "actr-stats")
+(load "../actr-stats.lisp")
 
 (setq *ans* nil
       *lf* .63
