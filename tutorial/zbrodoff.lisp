@@ -1,13 +1,13 @@
 ;;; Filename: zbrodoff.lisp
 
+;;; To run use command: (collect-data 100)
+
 ;;; Author: David Reitter/ Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-;;; To run use command: collect-data 100
-
-(load "actr-stats")
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
+(load "../actr-stats")
 
 (setq *bll* 1000)                  
 (setq *lf* 0.4)   
@@ -140,24 +140,22 @@
 ;;;; committing chunks to memory
 
 (defun init-model ()
-(reset-model)
-(learn-chunk (make-seqfact :identity '0 :next '1))
-(learn-chunk (make-seqfact :identity '1 :next '2))
-(learn-chunk (make-seqfact :identity '2 :next '3))
-(learn-chunk (make-seqfact :identity '3 :next '4))
-(learn-chunk (make-seqfact :identity '4 :next '5))
-
-(learn-chunk (make-seqfact :identity 'a :next 'b))
-(learn-chunk (make-seqfact :identity 'b :next 'c))
-(learn-chunk (make-seqfact :identity 'c :next 'd))
-(learn-chunk (make-seqfact :identity 'd :next 'e))
-(learn-chunk (make-seqfact :identity 'e :next 'f))
-(learn-chunk (make-seqfact :identity 'f :next 'g))
-(learn-chunk (make-seqfact :identity 'g :next 'h))
-(learn-chunk (make-seqfact :identity 'h :next 'i))
-(learn-chunk (make-seqfact :identity 'i :next 'j))
-(learn-chunk (make-seqfact :identity 'j :next 'k))
-)
+  (reset-model)
+  (learn-chunk (make-seqfact :identity '0 :next '1))
+  (learn-chunk (make-seqfact :identity '1 :next '2))
+  (learn-chunk (make-seqfact :identity '2 :next '3))
+  (learn-chunk (make-seqfact :identity '3 :next '4))
+  (learn-chunk (make-seqfact :identity '4 :next '5))
+  (learn-chunk (make-seqfact :identity 'a :next 'b))
+  (learn-chunk (make-seqfact :identity 'b :next 'c))
+  (learn-chunk (make-seqfact :identity 'c :next 'd))
+  (learn-chunk (make-seqfact :identity 'd :next 'e))
+  (learn-chunk (make-seqfact :identity 'e :next 'f))
+  (learn-chunk (make-seqfact :identity 'f :next 'g))
+  (learn-chunk (make-seqfact :identity 'g :next 'h))
+  (learn-chunk (make-seqfact :identity 'h :next 'i))
+  (learn-chunk (make-seqfact :identity 'i :next 'j))
+  (learn-chunk (make-seqfact :identity 'j :next 'k)))
 
 ;;;; Defining Procedural Rule
 
