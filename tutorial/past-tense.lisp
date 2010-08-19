@@ -1,26 +1,35 @@
-(require "act-up" "act-up.lisp")
-(use-package :act-up)
-(load "actr-stats")
+(declaim (optimize (speed 0) (space 0) (debug 03)))
 
+(require "act-up" "../act-up.lisp")
+(use-package :act-up)
+(load "../actr-stats")
+
+;; ACT-R parameters
 (setq *rule-compilation* t)
 (setq *rt* 0.5)
 (setq *bll* 0.5)
 (setq *ans* 0.1)
 (setq *lf* 0.5)
-(setq *blc* 0.5)
+(setq *blc* 0.0)
+(setq *ans* 0.1)
+(setq *egs* 0.2)
+(setq *mas*  3.5)
+(setq *rt* 0.5)
+(setq *alpha* 0.1)
+(setq *iu* 5)
 
 (defvar *report*)
-(defvar *number*)
-(defvar *word*)
 (defvar *repcount*)
 (defvar *trial*)
 
 (defun make-triples (l)
-   (when l
-   (cons (list (first l)(second l)(third l)
-               (fourth l)
-               (if (eq (second l) 'I) 'blank 'ed))
-         (make-triples (nthcdr 4 l)))))
+  (when l
+    (cons (list (first l)
+		(second l)
+		(third l)
+		(fourth l)
+		(if (eq (second l) 'I) 'blank 'ed))
+	  (make-triples (nthcdr 4 l)))))
 
 (defparameter *word-list* 
   (make-triples '(have      I              12458 had
@@ -62,15 +71,11 @@
 ;;; Set the goal to do one past tense
 
 (defun make-one-goal ()
-  (let*
-      ((wordpair (random-word))
-       (word (first wordpair))
-       (word-no (second wordpair))
-       (m nil))
-    (progn
-      (setf *number* word-no *word* word)
-      (setq m (ptmodel word)))
-    m))
+  (let* ((wordpair (random-word))
+	 (word (first wordpair)))
+    (list (past-tense-model word)
+	  word
+	  (second wordpair))))
 
 (defun rep-f-i (l n)
    (if l
@@ -97,14 +102,14 @@
 ;;; The following function reports how often an irregular word gets an irregular 
 ;;; (correct), regular past tense or just the stem as past tense (None).
 
-(defun add-to-report (the-chunk)
-   (let* ((stem (second the-chunk))
-          (word (first the-chunk))
-          (suffix (third the-chunk)))
+(defun add-to-report (word-stem-suffix word number)
+   (let ((word (first word-stem-suffix))
+	 (stem (second word-stem-suffix))
+	 (suffix (third word-stem-suffix)))
      (cond
-      ((eq stem word) (push (list *number* 'reg *word*) *report*))
-      ((eq suffix nil) (push (list *number* 'none *word*) *report*))
-      (t (push (list *number* 'irreg *word*) *report*)))))
+      ((eq stem word) (push (list number 'reg word) *report*))
+      ((eq suffix nil) (push (list number 'none word) *report*))
+      (t (push (list number 'irreg word) *report*)))))
 
 ;;; This function will run the experiment for n trials.
 ;;; The keyword parameters are:
@@ -117,9 +122,10 @@
     (setf *report* nil)
     (setf *trial* 0 *repcount* 0)
     (dotimes (i n)
+      ;; add two random words to memory
       (add-past-tense-to-memory)
       (add-past-tense-to-memory)
-      (add-to-report (make-one-goal))
+      (apply #'add-to-report (make-one-goal))
     (incf *repcount*)
     (when (>= *repcount* repfreq)
       (format t "Trial ~6D : " (1+ *trial*))
@@ -136,67 +142,77 @@
 ;;;; past tense to memory.
 
 (defun init-model ()
-  (reset-model)
-  (add-past-tense-to-memory 'initialize))
+  (reset-model))
 
-(defun add-past-tense-to-memory (&optional init)
+
+(defun add-past-tense-to-memory ()
+   (let*
+     ((wordpair (random-word))
+      (word (first wordpair))
+      (stem (fourth wordpair))
+      (suffix (fifth wordpair)))
+     (learn-chunk (make-pasttense* :name word :verb word :stem stem :suffix suffix)))
+   (pass-time 0.05))
+
+
+;; (defun add-past-tense-to-memory 
   
-  (loop for (verb stem suffix) in
-       '((have had blank)
-	 (do did blank)
-	 (make made blank)
-	 (stand stood blank)
-	 (move move ed)
-	 (need need ed)
-	 (start start ed)
-	 (lose lost blank)
-	 (use use ed))
-       do
-       (if init
-	   (learn-chunk (make-pasttense :name verb :verb verb :stem stem :suffix suffix))
-	   (learn-chunk verb))))
+;;   (loop for (verb stem suffix) in
+;;        '((have had blank)
+;; 	 (do did blank)
+;; 	 (make made blank)
+;; 	 (stand stood blank)
+;; 	 (move move ed)
+;; 	 (need need ed)
+;; 	 (start start ed)
+;; 	 (lose lost blank)
+;; 	 (use use ed))
+;;        do
+;;        (if init
+;; 	   (learn-chunk (make-pasttense :name verb :verb verb :stem stem :suffix suffix))
+;; 	   (learn-chunk verb))
+;;        (pass-time 0.05)))
 
-;;;; Defining productions
+;;;; The model
 
 (defrule ptmodel (word)
-  (let* ((q (choose-strategy word))
-	 (ans (third q)))
-    (progn
-      (if (eq ans nil)
-	  (assign-reward 3.9)
-	(if (eq ans 'blank)
+  "Form past-tense of WORD."
+  :group past-tense-model
+  (let ((q (form-past-tense word)))
+    (if q
+	(if (eq (third q) 'blank)
 	    (assign-reward 5.0)
-	  (assign-reward 4.2))))
+	    (assign-reward 4.2))
+	(assign-reward 3.9))
     q))
 
-;;; make strategies return list verb stem suffix
+;;; Strategies 
+;;; All of them take a word as input and
+;;; return a list with verb, stem, and suffix.
+
+(defrule strategy-by-retrieval (word)
+  "Retrieve memorized past tense form for WORD."
+  :group form-past-tense
+  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word :suffix 'non-nil))))
+    (when dec  ;; retrieved?
+      (learn-chunk dec)
+      (pass-time 0.05)
+      (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
 (defrule strategy-without-analogy (word)
-  :group choose-strategy
-  (let* ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word)))
-	 (verb word)
-	 (stem nil)
-	 (suffix nil))
-    (if (not (eq dec nil))
-      (progn
-	(learn-chunk dec)
-	(setq verb word)
-	(setq stem (pasttense-stem dec))
-	(setq suffix (pasttense-suffix dec))))
-    (list verb stem suffix)))
+  "Retrieve memorized past tense form for WORD."
+  :group form-past-tense
+  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word))))
+    (when dec  ;; retrieved?
+      (learn-chunk dec)
+      (pass-time 0.05)
+      (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
 (defrule strategy-with-analogy (word)
-  :group choose-strategy
-  (let* ((dec (retrieve-chunk (list :chunk-type 'pasttense)))
-	 (verb word)
-	 (stem nil)
-	 (suffix nil))
-    (if (not (eq dec nil))
-      (progn
-	(learn-chunk dec)
-	(setq verb word)
-	(setq stem (pasttense-stem dec))
-	(setq suffix (pasttense-suffix dec))))
-    (list verb stem suffix)))
-
-(reset-model)
+  "Retrieve some past tense form, using analogy."
+  :group form-past-tense
+  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense))))
+    (when dec  ;; retrieved?
+      (learn-chunk dec)
+      (pass-time 0.05)
+      (list word (pasttense-stem dec) (pasttense-suffix dec)))))
