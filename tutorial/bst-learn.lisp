@@ -1,7 +1,7 @@
 ;; ACT-UP Version of the BST LEARN MODEL (sticks model)
 ;; David Reitter 06/2009 reitter@cmu.edu
 
-(require "act-up" "act-up.lisp")
+(require "act-up" "../act-up.lisp")
 
 
 (defrule decide ()

@@ -6,9 +6,9 @@
 
 ;; (load "act-up.lisp")
 
-(require "act-up" "act-up.lisp")
+(require "act-up" "../act-up.lisp")
 (use-package :act-up)
-(load "actr-stats")
+(load "../actr-stats")
 					;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
 
 ;;;;(setf '*bll* 0.0)
