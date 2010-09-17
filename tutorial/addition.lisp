@@ -1,30 +1,50 @@
-; simple addition in ACT-UP
+;;; Filename: addition.lisp
+
+;;; to use: (add-digit 1 2 4 1)
+
+;;; Author: David Reitter/ Jasmeet Ajmani
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
-(define-slots first second arg1 arg2 sum count)
+(setq *rt* -5) ; ensure retrieval
 
-(reset-model)
-(learn-chunk (make-chunk first 0 second 1))
-(learn-chunk (make-chunk first 1 second 2))
-(learn-chunk (make-chunk first 2 second 3))
-(learn-chunk (make-chunk first 3 second 4))
-(learn-chunk (make-chunk first 4 second 5))
-(learn-chunk (make-chunk first 5 second 6))
-(learn-chunk (make-chunk first 6 second 7))
-(learn-chunk (make-chunk first 7 second 8))
-(learn-chunk (make-chunk first 8 second 9))
-(learn-chunk (make-chunk first 9 second 10))
+;;;; Defining chunk-types
 
+(define-chunk-type additionfact addend1 addend2 sum)
+(define-chunk-type carryfact total remainder quotient)
 
-(defun initialize-addition (num1 num2)
+;;;; Defining chunks here and committing chunks to memory
 
-  (add num1 num2 0))
+(loop for a from 0 to 18 do
+      (loop for b from 0 to 9 do
+	    (learn-chunk (make-additionfact
+			  :addend1 a
+			  :addend2 b
+			  :sum (+ a b)))))
 
-(defun add (num1 num2 count)
+(loop for s from 10 to 18 do
+      (learn-chunk (make-carryfact 
+		    :total s
+		    :remainder (rem s 10)
+		    :quotient (truncate (/ s 10)))))
 
-  (unless (= num2 count)
-    (let ((r-chunk (retrieve-chunk `(:first ,num1))))
-    
-      ;; not finishing this for lack of empirical data.
+;;;; Defining procedural rule
+
+(defrule add-digit (ten1 one1 ten2 one2)
+  "Add two digits."
+  (let ((sumones (additionfact-sum (retrieve-chunk (list :chunk-type 'additionfact
+							 :addend1 one1 
+							 :addend2 one2))))
+	(sumtens (additionfact-sum (retrieve-chunk (list :chunk-type 'additionfact
+							 :addend1 ten1 
+							 :addend2 ten2)))))
+    (when (> sumones 9)
+      (let ((cf (retrieve-chunk (list :chunk-type 'carryfact 
+				      :total sumones))))
+	(setq sumones (carryfact-remainder cf))
+	(setq sumtens (additionfact-sum 
+		       (retrieve-chunk (list :chunk-type 'additionfact
+					     :addend1 sumtens
+					     :addend2 (carryfact-quotient cf)))))))
+    (list sumtens sumones)))

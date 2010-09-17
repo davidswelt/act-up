@@ -2,9 +2,6 @@
 ;; paralleling the ACT-R 6 tutorial
 ;; translated to ACT-UP
 
-;; D. Reitter / J. Ajmani
-;; Carnegie Mellon University, 2010
-
 ;; Unlike the model in the tutorial, this model does not describe any
 ;; deterministic goings-on: aural module, encoding, decoding are left
 ;; out, because these steps do not contribute to the variance in the
@@ -18,10 +15,13 @@
 
 ; (fit-parameters)
 
+;; D. Reitter / J. Ajmani
+;; Carnegie Mellon University, 2010
 
-(load "../actr-stats.lisp")
+
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
+(load "../actr-stats.lisp")
 
 (setq *rt* -.45
       *ans* .5 
@@ -44,9 +44,7 @@
   (nth num '(zero one two three four five six seven eight nine ten)))
 (defun name-num (name)
   (position name '(zero one two three four five six seven eight nine ten)))
-;; (defun name-num (name)
-;;   (if name
-;;       (position name '("zero" "one" "two" "three" "four" "five" "six" "seven" "eight" "nine" "ten") :test #'equal)))
+
 
 (defun init-model ()
   (reset-model)

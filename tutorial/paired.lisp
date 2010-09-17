@@ -1,71 +1,98 @@
-;; paired associates model in ACT-UP
-;; to run:  (run-exp)
+;;; Filename: paired.lisp
+
+;;; To run use command: (collect-data 100)
+
+;;; Author: Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
+
+(load "actr-stats")
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
-(require "act-up-experiments" "../act-up-experiments.lisp")
-(use-package :act-up-experiments)
-
+(setf *rt* -2)
+(setf *ans* 0.5)
+(setf *bll* 0.4)
+(setf *lf* 0.3)
 
 (defvar *pairs* '(("bank" "0") ("card" "1") ("dart" "2") ("face" "3") ("game" "4")
                   ("hand" "5") ("jack" "6") ("king" "7") ("lamb" "8") ("mask" "9")
                   ("neck" "0") ("pipe" "1") ("quip" "2") ("rope" "3") ("sock" "4")
                   ("tent" "5") ("vent" "6") ("wall" "7") ("xray" "8") ("zinc" "9")))
 
+(defvar *paired-latencies* '(0.0 2.158 1.967 1.762 1.680 1.552 1.467 1.402))
+(defvar *paired-probability* '(0.000 .526 .667 .798 .887 .924 .958 .954))
  
-(define-slots probe answer)
+;;;; Define chunk type
+(define-chunk-type pair probe answer)
  
-; (macroexpand '(define-slots 'probe 'answer))
+;;;; Test harness for the experiment
 
-; (learn-chunk (make-chunk first 1 second 2))
+(defun do-experiment (size trials)
+    (do-experiment-model size trials))
 
+(defun do-experiment-model (size trials)
+  (let ((result nil))
 
-(setq *rt* -2
-      *lf* 0.4
-      *ans* 0.5
-      *bll* 0.5)
+    (reset-model) 
 
-(defun learn-associate (probe answer trial)
-  ; first, we see the probe only.
-  ; we attempt to retrieve something for the probe.
+    (dotimes (i trials) 
+      (let ((score 0.0)
+            (time 0.0)
+            (start-time))
+         (dolist (x (subseq *pairs* (- 20 size))) 
 
-  ;; probe is shown now
+          (setf *response* nil)                   
+          (setf *response-time* nil)
+          (setf start-time (actup-time))
 
-  (let ((t0 (actup-time))
-	(ch (retrieve-chunk `(:probe ,probe) nil nil 5.0)))
+	  (setf *response* (paired x))
+	  (setf *response-time* (actup-time))
+	  (pass-time 3.5)
 
-    (if ch  ; chunk found
-	(aggregate (list nil (- (actup-time) t0)) (list trial))
-	(progn
-	  ;; we wait until 5 seconds are over
+          (when (equal (second x) *response*)      
+            (incf score 1.0)    
+            (incf time (- *response-time* start-time))))
+	 (pass-time 5)
 	  
-	  (print (- (actup-time) t0))
-	  (pass-time (- 5 (- (actup-time) t0)))))
+        (push (list (/ score size) (and (> score 0) (/ time score ))) result)))
 
+    (reverse result)))
 
-    ;; now, we get to see the digit and we can learn the chunk
+(defun collect-data (n)
+  (do ((count 1 (1+ count))
+       (results (do-experiment 20 8)
+                (mapcar #'(lambda (lis1 lis2)
+                            (list (+ (first lis1) (first lis2))
+                                  (+ (or (second lis1) 0) (or (second lis2) 0))))
+                  results (do-experiment 20 8))))
+      ((equal count n) 
+       (output-data results n))))
 
-    (learn-chunk (make-chunk :probe probe :answer answer))
+(defun output-data (data n)
+   (let ((probability (mapcar #'(lambda (x) (/ (first x) n)) data))
+        (latency (mapcar #'(lambda (x) (/ (or (second x) 0) n)) data)))
+    (print-results latency *paired-latencies* "Latency")
+     (print-results probability *paired-probability* "Accuracy")))
 
-    ;; we see it for 5 seconds
+(defun print-results (predicted data label)
+ (format t "~%~%~A:~%" label)
+  (correlation predicted data)
+  (mean-deviation predicted data)
+  (format t "Trial    1       2       3       4       5       6       7       8~%")
+  (format t "     ~{~8,3f~}~%" predicted))
 
-    (pass-time 5)
+;;;; Defining procedural rule
 
-    ;; if retrieved, we type the probe's number (not modeled)
-    (if ch (chunk-answer ch) nil)))
-
-(defun run-exp ()
-
-  (clear-aggregates '("trial accuracy"))
-
-  (loop for subj from 1 to 20 do
-       (reset-model) ; different subject
-       (loop for trial from 1 to 8 do
-	    (loop for (probe answer) in *pairs* do
-		 (aggregate (list
-			     (if (equal answer (learn-associate probe answer trial))
-				 1 0) nil)
-			    (list trial)))))
-  
-  (print-aggregates))
+(defrule paired (arg)
+  (let ((p (retrieve-chunk (list :chunk-type 'pair 
+				 :probe (first arg)))))
+    (if (not p)
+	(progn
+	  (setq p (make-pair :probe (first arg) 
+			     :answer (second arg)))
+	  (learn-chunk p))
+      (progn
+	(learn-chunk p)
+	(pair-answer p)))))

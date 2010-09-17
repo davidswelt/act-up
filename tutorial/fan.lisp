@@ -1,6 +1,7 @@
-;; fan.lisp
+;;; Filename: fan.lisp
 
-;; FAN EFFECT DEMONSTRATION
+;;; Author: David Reitter
+;;; Acknowledgements: Dan Bothell
 
 ; to run: (average-person-location)
 
@@ -8,12 +9,11 @@
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
-(load "../actr-stats")
-					;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
+(load "../actr-stats.lisp")
 
-;;;;(setf '*bll* 0.0)
-;;;;(setf '*blc* 0.0)
-;;;;(setf '*ans* 0.0)
+
+;;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
+
 (setq *ans* nil
       *lf* .63
       *mas* 1.6
@@ -29,40 +29,17 @@
 (defvar *response*)
 (defvar *response-time* nil)
 
-
-;;; model
-
 (defparameter  *model-time-parameter* 0.34) 
 
-
-;;;; chunk-types
+;;;; Defining chunk types
 (define-chunk-type comprehendfact relation arg1 arg2)
 (define-chunk-type person)
 (define-chunk-type location place)
 
-(defun init-model ()
-  (reset-model)
 ;;;; committing chunks to memory
 
-
-  ;; (learn-chunk (make-person :name 'hippie))
-  ;; (learn-chunk (make-person :name 'captain))
-  ;; (learn-chunk (make-person :name 'debutante))
-  ;; (learn-chunk (make-person :name 'fireman))
-  ;; (learn-chunk (make-person :name 'giant))
-  ;; (learn-chunk (make-person :name 'earl))
-  ;; (learn-chunk (make-person :name 'lawyer))
-
-  ;; (learn-chunk (make-location :name 'park))
-  ;; (learn-chunk (make-location :name 'church))
-  ;; (learn-chunk (make-location :name 'bank))
-  ;; (learn-chunk (make-location :name 'cave))
-  ;; (learn-chunk (make-location :name 'beach))
-  ;; (learn-chunk (make-location :name 'castle))
-  ;; (learn-chunk (make-location :name 'dungeon))
-  ;; (learn-chunk (make-location :name 'forest))
-  ;; (learn-chunk (make-location :name 'store))
-
+(defun init-model ()
+  (reset-model)
   (learn-chunk (make-comprehendfact :name 'hippie-in-park :relation 'in :arg1 'hippie :arg2 'park))
   (learn-chunk (make-comprehendfact :name 'hippie-in-church :relation 'in :arg1 'hippie :arg2 'church))
   (learn-chunk (make-comprehendfact :name 'hippie-in-bank :relation 'in :arg1 'hippie :arg2 'bank))
@@ -76,33 +53,10 @@
   (learn-chunk (make-comprehendfact :name 'earl-in-castle :relation 'in :arg1 'earl :arg2 'castle))
   (learn-chunk (make-comprehendfact :name 'earl-in-forest :relation 'in :arg1 'earl :arg2 'forest))
   (learn-chunk (make-comprehendfact :name 'lawyer-in-store :relation 'in :arg1 'lawyer :arg2 'store))
-
-
-  ;; (set-base-levels-fct '((guard 10) (beach 10) (castle 10) (dungeon 10) (earl 10) 
-  ;; 			 (forest 10) (hippie 10) (park 10) (church 10) (bank 10) 
-  ;; 			 (captain 10) (cave 10) (giant 10) (debutante 10) (fireman 10)
-  ;; 			 (lawyer 10) (store 10) (in 10)))
-
-  ;; We don't define the Sji's explicitly
-  ;; (add-sji-fct 
-  ;;  (list 
-  ;;   (list 'lawyer 'store 0.90685)
-  ;;   (list 'earl 'forest 1.40824)
-  ;;   (list 'earl 'castle 1.00277)
-  ;;   (list 'giant 'dungeon 1.12055)
-  ;;   (list 'giant 'castle 0.71509)
-  ;;   (list 'giant 'beach 1.12055)
-  ;;   (list 'fireman 'park 1.12055)
-  ;;   (list 'debutante 'bank 1.40824)
-  ;;   (list 'captain 'cave 1.40824)
-  ;;   (list 'captain 'park 0.71509)
-  ;;   (list 'hippie 'bank 0.71509)
-  ;;   (list 'hippie 'church 1.12055)
-  ;;   (list 'hippie 'park 0.42741)
-  ;;   ))
   )
 
-;;;; defining productions
+;;;; Defining Procedural Rules
+
 (defrule test-sentence-model (person location target term)
   (let* ((cfd ; (debug-detail
 	       (retrieve-chunk
@@ -121,7 +75,9 @@
     
     (when cfd
 	(if (equal person (comprehendfact-arg1 cfd))
-	    (if (equal location (comprehendfact-arg2 cfd)) (progn  '(K)) (progn '(D)))
+	    (if (equal location (comprehendfact-arg2 cfd)) 
+		(progn  '(K)) 
+	      (progn '(D)))
 	    (progn  '(D))))))
 
 (defun run-model (person location target term)
@@ -187,8 +143,3 @@
 	 (correlation rts *person-location-data*)
 	 (mean-deviation rts *person-location-data*))))
        
-
-
-(defrule test (person location &optional 
-		      target term)
-  nil)

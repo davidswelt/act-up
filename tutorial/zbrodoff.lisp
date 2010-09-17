@@ -1,12 +1,19 @@
-(require "act-up" "act-up.lisp")
+;;; Filename: zbrodoff.lisp
+
+;;; To run use command: (collect-data 100)
+
+;;; Author: David Reitter/ Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
+(require "act-up" "../act-up.lisp")
 (use-package :act-up)
 (load "../actr-stats")
 
-(setq *bll* 0.3)                  
+(setq *bll* 1000)                  
 (setq *lf* 0.4)   
-(setq *ans* 0.3)
-(setq *rt* 0)
-(setq *blc* 2.5)
+(setq *ans* 0.5)
+(setq *rt* -5)
+(setq *blc* 10.0)
 
 (defvar *trials*)
 (defvar *results*)
@@ -17,6 +24,8 @@
 
 (defstruct trial block addend1 addend2 sum answer)
 (defstruct response block addend correct time)
+
+;;;; Test harness for the experiment
 
 (defun collect-responses ()
   (setf *start-time* (actup-time))
@@ -34,7 +43,6 @@
 
 
 (defun do-experiment ()
-  (init-model)
   (setf *trials* nil)
   (dotimes (j 3)
     (setf *block* (+ j 1))
@@ -44,6 +52,7 @@
   (analyze-results))
 
 (defun collect-data (n)
+  (init-model)
   (setf *results* nil)
   (let ((results nil))
     (dotimes (i n)
@@ -123,45 +132,47 @@
               :answer (fourth settings)))
 
 
-;;;; define chunk type
+;;;; Define chunk types
+
 (define-chunk-type problem arg1 arg2 r)
 (define-chunk-type seqfact identity next)
 
 ;;;; committing chunks to memory
 
 (defun init-model ()
-(reset-model)
-(learn-chunk (make-seqfact :identity '0 :next '1))
-(learn-chunk (make-seqfact :identity '1 :next '2))
-(learn-chunk (make-seqfact :identity '2 :next '3))
-(learn-chunk (make-seqfact :identity '3 :next '4))
-(learn-chunk (make-seqfact :identity '4 :next '5))
+  (reset-model)
+  (learn-chunk (make-seqfact :identity '0 :next '1))
+  (learn-chunk (make-seqfact :identity '1 :next '2))
+  (learn-chunk (make-seqfact :identity '2 :next '3))
+  (learn-chunk (make-seqfact :identity '3 :next '4))
+  (learn-chunk (make-seqfact :identity '4 :next '5))
+  (learn-chunk (make-seqfact :identity 'a :next 'b))
+  (learn-chunk (make-seqfact :identity 'b :next 'c))
+  (learn-chunk (make-seqfact :identity 'c :next 'd))
+  (learn-chunk (make-seqfact :identity 'd :next 'e))
+  (learn-chunk (make-seqfact :identity 'e :next 'f))
+  (learn-chunk (make-seqfact :identity 'f :next 'g))
+  (learn-chunk (make-seqfact :identity 'g :next 'h))
+  (learn-chunk (make-seqfact :identity 'h :next 'i))
+  (learn-chunk (make-seqfact :identity 'i :next 'j))
+  (learn-chunk (make-seqfact :identity 'j :next 'k)))
 
-(learn-chunk (make-seqfact :identity 'a :next 'b))
-(learn-chunk (make-seqfact :identity 'b :next 'c))
-(learn-chunk (make-seqfact :identity 'c :next 'd))
-(learn-chunk (make-seqfact :identity 'd :next 'e))
-(learn-chunk (make-seqfact :identity 'e :next 'f))
-(learn-chunk (make-seqfact :identity 'f :next 'g))
-(learn-chunk (make-seqfact :identity 'g :next 'h))
-(learn-chunk (make-seqfact :identity 'h :next 'i))
-(learn-chunk (make-seqfact :identity 'i :next 'j))
-(learn-chunk (make-seqfact :identity 'j :next 'k))
-)
+;;;; Defining Procedural Rule
 
-(defparameter *one-step-duration* 0.250)
 (defrule increase-letter (first-letter target-i &optional (letter first-letter) (i 0))
   (if (= target-i i)
       letter
     (let* ((stored-solution (retrieve-chunk (list :chunk-type 'problem :arg1 first-letter :arg2 target-i))))
       (if stored-solution   ; found
 	  (progn
-	    (pass-time 0.98)
+	    (pass-time 0.96)
+	    ;(pass-time (* 4 *one-step-duration*))
 	    (learn-chunk stored-solution)
 	    (problem-r stored-solution))
 	;; not found:
 	(progn
-	  (pass-time 2.8)
+	  (pass-time 2.2)
+	  ;(pass-time (* 11 *one-step-duration*))
 	(let* ((next-i (seqfact-next (retrieve-chunk (list :chunk-type 'seqfact :identity i)))) 
 	       (next-letter (seqfact-next (retrieve-chunk (list :chunk-type 'seqfact :identity letter)))))
 	  (learn-chunk (make-problem :arg1 first-letter :arg2 next-i :r next-letter))
