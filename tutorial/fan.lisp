@@ -3,10 +3,16 @@
 ;;; Author: David Reitter
 ;;; Acknowledgements: Dan Bothell
 
+; to run: (average-person-location)
+
+;; (load "act-up.lisp")
+
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
-
 (load "../actr-stats.lisp")
+
+
+;;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
 
 (setq *ans* nil
       *lf* .63
