@@ -741,8 +741,8 @@ Note that chunk type (see `define-chunk-type') also has a constructor
 function of name `make-TYPE*', taking just the CHUNK-SPEC argument,
 which calls this function."
 
-  (let ((template (if (actup-chunk-p chunk-spec)
-		      chunk-spec
+  (let ((template (if (and (not (cdr chunk-spec)) (actup-chunk-p (car chunk-spec)))
+		      (car chunk-spec)
 		      (apply #'make-struct-instance type chunk-spec)))
 	(filtered-chunks (model-chunks (current-model))))
     (loop for slot in (cons 'act-up::chunk-type (slot-value template 'act-up::attrs)) ; this should exclude :name
