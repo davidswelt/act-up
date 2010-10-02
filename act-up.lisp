@@ -62,9 +62,6 @@ instance of type `meta-process'.")
 
 ;; Debugging
 
-
-
-
 (defvar *critical* 0 "Constant for `*debug*': Show only critical messages.")
 (defvar *error* 5 "Constant for `*debug*': Show errors and more important messages.")
 (defvar *warning* 10 "Constant for `*debug*': Show warnings and more important messages.")
@@ -185,6 +182,238 @@ The log output can be retrieved with `debug-log'."
 		     (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-rule-original-rule (car v))) "") (compiled-rule-result (car v)) (rule-utility (car v))))))
 	     compiled-rules))
   nil)
+
+
+;;; PARALEL API
+
+;; this is instantiated for each model and each module
+
+(defvar module-name-list nil)  ; define-module fills this, mkae-model reads it.
+
+(defstruct module
+;  (name "mod")
+  (name (gensym "MODULE"))  ;; :read-only t)  can't use read-only - does not work if name is given with constructor (why?)
+  (last-operation-handle nil)
+  (lock nil)
+)
+
+
+(defstruct request-handle 
+  module
+  result
+  busy-until
+)
+
+(defun get-actup-module (symbol)
+  (if (request-handle-p symbol)
+      (setq symbol (request-handle-module symbol)))
+  (let ((module (if (module-p symbol) 
+		    symbol
+		    (cdr (assoc symbol (model-modules (current-model)))))))
+    (unless module
+      (error (format nil "get-actup-module: called with unknown module name ~a." symbol)))
+    module))
+
+
+(defmacro with-module-lock (module-name &body body)
+  "Execute BODY while locking module"
+  ;; (mp:process-wait (format nil "Waiting for ~a module" module-name)
+  ;; 		   (lambda ()
+  ;; 		     (not (module-lock module))))
+  `(let ((module (get-actup-module ,module-name)))
+     (setf (module-lock module) 'locked)
+     (unwind-protect
+	  (progn ,@body)
+       (setf (module-lock module) nil))))
+
+(defun wait-for-response (handle &optional timeout)
+    (if (and handle (request-handle-busy-until handle))
+	(let ((remaining (- (request-handle-busy-until handle) (actup-time))))
+	  (when (> remaining 0)
+	    (if (and timeout (< timeout remaining))
+		(pass-time timeout)
+		(pass-time remaining))))))
+
+(defun wait-for-module (module-name &optional timeout)
+  "Waits until module associated with MODULE-SYM has finished its current operation.
+MODUL-SYM may be the name of an ACT-UP module, 
+it may be an ACT-UP function belonging to a module,
+or it may be a result variable assigned with `request-bind'.
+
+If TIMEOUT is given, never waits longer than that."
+
+  (let* ((module (get-actup-module module-name))
+	 (handle (module-last-operation-handle module)))
+    (if handle
+	(wait-for-response handle timeout))))
+
+(defun response-available-p (handle)
+  "Returns non-nil if the request associated with HANDLE has terminated.
+See `request' functions."
+  (if (and handle (request-handle-busy-until handle))
+      (>= (actup-time) (request-handle-busy-until handle) )))
+
+(defun module-busy-p (symbol)
+  "Determine whether module belonging to object SYMBOL is busy.
+SYMBOL may be the name of an ACT-UP module, 
+it may be an ACT-UP function belonging to a module,
+or it may be a result variable assigned with `request-bind'."
+  (let* ((module  (get-actup-module symbol))
+	 (handle (module-last-operation-handle module)))
+    (not (response-available-p handle))))
+
+(defun reset-module (module-name)
+  "Reset module MODULE-NAME.
+MODULE-NAME is typically one of `procedural', `declarative'.
+Ongoing operations are terminated; their results will 
+not become available to the requesters."
+  (let ((module (get-actup-module module-name)))
+    (let ((handle (module-last-operation-handle module)))
+      (when handle
+	(setf (request-handle-result handle) nil)
+	(setf (request-handle-busy-until handle) 0))
+      (setf (module-last-operation-handle module) nil))))
+
+(defun terminate-request (handle)
+  (when handle
+    (setf (request-handle-result handle) nil)
+    (setf (request-handle-busy-until handle) 0)))
+;; however, wouldn't this have already done some "damage"?
+;; can we unwind?
+
+
+(defun define-module (name)
+  (push name module-name-list)) ; register
+
+
+(define-module 'declarative)
+(define-module 'procedural)
+
+(defun request (module-name command args)
+  "Runs ACT-UP expression (COMMAND . ARGS) asynchronuously."
+  (let ((module (get-actup-module module-name)))
+    (wait-for-module module)
+    ;; eval expression, retain result
+    ;; note time, reset time
+    (let ((handle (make-request-handle :module module))
+	  (time (actup-time)))
+      (setf (request-handle-result handle)
+	    (apply command args))
+      (setf (request-handle-busy-until handle)
+	    (setf (request-handle-busy-until handle) (actup-time)))
+      (if (and (= time (actup-time)) 
+	       ;; some op's take no time when they fail
+	       (request-handle-result handle))
+	  (debug-print *warning* "~a request intiated (~s), but operation did not take any time."
+		       command module-name))
+      ;; reset time
+      (setf (meta-process-actUP-time *current-actUP-meta-process*)
+	    time)
+      ;; return handle:
+      handle)))
+
+(defun receive (handle)
+  "Receive result from request HANDLE.
+Waits until the result is available.
+HANDLE is the handle obtained when the
+request was sent via a function such as
+`request-retrieve-chunk'."
+  (wait-for-response handle)
+  (request-handle-result handle))
+
+
+(defmacro defun-module (module fun-name arglist &body body)
+  "Define module function.
+MODULE must be a defined ACT-UP module.
+FUN-NAME names the function.
+ARGLIST contains argument list.  &optional arguments are supported,
+but &rest and &body are not."
+  (let ((req-name (intern (format nil "REQUEST-~a" fun-name)))
+	(docstring (if (stringp (car body)) (prog1 (car body) (setq body (cdr body)))))
+	(rest-variable-name nil)
+	(arglist2 (remove-if (lambda (x) (member x '(&optional))) arglist)))
+    (when (and (cdr arglist2) (eq '&rest (elt arglist2 (- (length arglist2) 2))))
+      (setq rest-variable-name (car (last arglist2)))
+      (if (> (length arglist2) 2)
+	  (setf (cdr (nthcdr (- (length arglist2) 3) arglist2)) nil)
+	  (setq arglist2 nil)))
+
+    `(progn
+       (defun ,fun-name ,arglist  
+	 ;; we need to wait until this request has been completed:
+	 ,docstring
+	 (wait-for-module ',module)
+	 (with-module-lock ',module
+	   ,@body))
+       (defun ,req-name
+	   ,arglist
+	 ,(format nil "Call `~A' asynchronuously.
+Initiates execution of the ~A function.
+
+If the ~a module is busy at the current time,
+wait until module is free.  The module will be busy and unavailable
+for other processing until the current operation has finished.
+
+See also `receive'." fun-name fun-name module)
+	 (request ',module ',fun-name  ,(cons 'list (append arglist2 (if rest-variable-name (list rest-variable-name))))))
+       (export ',(list fun-name req-name)))))
+
+
+;; To do:
+;; what happens when expression is more complex, such as
+;; (best-chunk (filter-chunks ...)) ?
+
+;; Handling this - when expression may refer to a range of modules -
+;; requires multi-threading, since other user threads might 
+;; call the different modules at different times and intefere with
+;; the results.  Emulating this here would unlikely yield the
+;; correct behavior.
+
+;; won't work unless we register the handle with the meta process
+;; this much complexity is probably not worth it.
+;; (defmacro stuff-received (result-var handle)
+;;   (unless (request-handle-p handle)
+;;     (signal "stuff-received Hndle must be a request handle from a `request-...' function."))
+;;   `(progn
+;;      (setf (request-handle-result-closure handle)
+;; 	   ;; we use a lexical closure so
+;; 	   ;; that result-var is used in the current
+;; 	   ;; lexical context.
+;; 	   (lambda (value)
+;; 	     (setf ,result-var value)))))
+
+;; the following wouldn't work perfectly,
+;; because we'd have to do this for all modules in all
+;; models that belong to the same meta process (called from pass-time)
+;; and we don't know which models these are
+;; we also don't have a list of all handles that depend on the
+;; the respective timer
+;; (defun modules-assign-results ()
+;;   (loop for (name . m) in (model-modules (current-model)) 
+;;      when (not (module-busy-p m))
+;;      when (module-result-closure m) 
+;;      do
+;;      ;; the closure sets the user-space variable
+;;        (funcall (module-result-closure m) (module-result m))
+;;        (setf (module-result-closure m) nil)))
+
+
+(export '(request 
+	  receive terminate-request response-available-p wait-for-response 
+	  module-busy-p wait-for-module reset-module))
+
+
+;; (print (actup-time))
+;; (let ((retrieval-process (request-retrieve-chunk '(:chunk-type person))))
+;;   (print (actup-time)) ;; no time has elapsed
+;;   (print (response-available-p retrieval-process))  ;; module is busy
+;;   (pass-time 0.05) ;; let's spend some time
+;;   (print (response-available-p retrieval-process)) ;; module is still busy
+;;   ;; (wait-for-response retrieval-process)   ;; wait for result - not needed
+;;   ;; (print (response-available-p retrieval-process))
+;;   (print (actup-time)) ;; this takes some time!
+;;   (print (receive retrieval-process))) ;; waits and receives
+
 
 ;; CHUNKS
 
@@ -386,9 +615,6 @@ Overrides any slot set defined earlier."
   `(define-chunk-type chunk ,@slot-names))
 
 
-;; (macroexpand '(define-chunk-type test one two))
-
-
 ;; parameters
 
 (defparameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
@@ -439,9 +665,13 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   ;; NOT IMPLEMENTED YET.
   (pm (make-procedural-memory) :type procedural-memory)
   (dm (make-declarative-memory) :type declarative-memory)
+  (modules (mapcar (lambda (name) (cons name (make-module :name name)))
+		   module-name-list)
+	   :type list)  ; alist of module objects
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
   (time 0))
 
+    
 
 
 (defparameter *current-actUP-model* (make-model))
@@ -596,9 +826,9 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
   (filter-chunks (model-chunks model) args))
 
 
+; (macroexpand '(defun-module declarative retrieve-chunk (spec &optional cues pm-soft-spec timeout)))
 
-
-(defun retrieve-chunk (spec &optional cues pm-soft-spec timeout)
+(defun-module declarative retrieve-chunk (spec &optional cues pm-soft-spec timeout)
   "Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -618,7 +848,6 @@ value2 ...), or (slot1 value1 slot2 value2).
 TIMEOUT, if given, specifies the maximum time allowed before
 the retrieval fails."
   (debug-print *informational* "retrieve-chunk:~%   spec: ~a~%  cues: ~a~%  pmat: ~a~%" spec cues pm-soft-spec)
-
   (let* ((matching-chunks (let ((*debug* (max *debug* *warning*)))
 			    (filter-chunks (model-chunks *current-actUP-model*)
 					   spec)))
@@ -664,7 +893,7 @@ value2 ...), or (slot1 value1 slot2 value2)."
 ;;   'missing)
 
 ;; (normalize-slotname-with-package :name 'act-up)
-(defun filter-chunks (chunk-set args)
+(defun-module declarative filter-chunks (chunk-set args)
   "Filter chunks according to ARGS.
 ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
@@ -960,7 +1189,7 @@ See ACT-R parameter :lf")
 (defparameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
 See ACT-R parameter :le")
 (export '(*lf* *le*))
-(defun best-chunk (confusion-set cues &optional request-spec timeout &rest options)
+(defun-module declarative best-chunk (confusion-set cues &optional request-spec timeout &rest options)
 "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.  CUES may contain
@@ -1723,7 +1952,7 @@ Rules and groupings of rules are not specific to the model."
 	(setq groups (second groups)))
 
     `(progn
-    (defun ,name ,args
+    (defun-module procedural ,name ,args
        ,doc-string
 ;; to do: handle signals
        (let (
@@ -1891,23 +2120,22 @@ Returns NAME."
        (setf (cdr grs) (delete name (cdr grs))))
   (setq *actup-rulegroups* (delete-if (lambda (x) (not (cdr x))) *actup-rulegroups*))
   (setf (get name 'groups) groups)
+
   (loop for g in groups when g do
-		 ;; (re)define lisp function with group name
-		 (eval `(defun ,g ,args 
-			  ,(format-nil "Choose a rule out of group %s" g)
-			  (actup-eval-rule ',g ,@args)))
-		 
-		 (let ((group-cons (assoc g *actup-rulegroups*)))
-		   (if group-cons
-		       (unless (member name (cdr group-cons))
-			 (setf (cdr group-cons)  
-			       (cons name (cdr group-cons))))
-		       
-		       (setq *actup-rulegroups*
-			     (cons 
-			      (list g
-				    name)
-			*actup-rulegroups*)))))
+     ;; (re)define lisp function with group name
+       (eval `(defun-module procedural ,g ,args 
+		,(format-nil "Choose a rule out of group %s" g)
+		(actup-eval-rule ',g ,@args)))
+       (let ((group-cons (assoc g *actup-rulegroups*)))
+	 (if group-cons
+	     (unless (member name (cdr group-cons))
+	       (setf (cdr group-cons)  
+		     (cons name (cdr group-cons))))
+	     (setq *actup-rulegroups*
+		   (cons 
+		    (list g
+			  name)
+		    *actup-rulegroups*)))))
   name)
 
   
@@ -2121,7 +2349,6 @@ This resets the list of rules to which rewards can be distributed (see
 	 
 ;;        (setf sym (slot-value (model-parameters model) p))))
 ;;   (setq *current-actUP-model* model))
-
 
 
 ;; MODULES

@@ -6,6 +6,51 @@
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
 
+
+    <style type="text/css">
+    <!--
+     .code,pre {
+        font-family: Monaco, sans-serif;
+        font-size: 10pt;
+        color: #000000;
+        color: #000000;
+        background-color: #ffffff;
+      }
+      .slime-repl-input {
+        /* slime-repl-input-face */
+        font-weight: bold;
+      }
+      .slime-repl-inputed-output {
+        /* slime-repl-inputed-output-face */
+        color: #ff0000;
+        color: #ff0000;
+      }
+      .slime-repl-prompt {
+        /* slime-repl-prompt-face */
+        color: #7f007f;
+        color: #7f007f;
+      }
+      .slime-repl-result {
+      }
+
+      .comment {
+        /* font-lock-comment-face */
+        color: #9e0c00;
+        color: #9e0c00;
+      }
+      .comment-delimiter {
+        /* font-lock-comment-delimiter-face */
+        color: #9e0c00;
+        color: #9e0c00;
+      }
+
+      .keyword {
+        /* font-lock-keyword-face */
+        color: #7f007f;
+        color: #7f007f;
+      }    -->
+    </style>
+
 </HEAD>
 
 <BODY >
@@ -431,6 +476,83 @@ result.  No side-effects are observed.  For instance, the
 `subtract-digit-by-subtraction' rule will print the debug message
 "Addition by subtraction!" every time it is run - as long as it isn't
 compiled.  Once compiled, it will always just return the result. 
+
+
+
+<H4><A NAME="SECTION00020090">
+... run model code in parallel?</A>
+</H4>
+<P>
+ACT-UP is designed assuming that most modeled processes can be
+formulated as a sequence of cognitive actions.  However, in some
+situations, parallelism may be necessary.
+<p>
+To asynchronously request the execution of some code (that is, without
+waiting for the results), use the `request-' syntax, e.g., <em>request-retrieve-chunk</em>.
+The <em>request-</em> functions are defined for each module-specific
+ACT-UP function that can take some time, e.g., <em>best-chunk</em>,
+<em>filter-chunks</em>, <em>retrieve-chunk</em> (for the declarative
+memory module), and all functions defined with `defrule' (for the
+procedural module).  The functions all return an execution handle.
+<p>
+This function kicks off task execution in
+parallel; it returns without delay (in ACT-UP time).  Once the result
+of the operation is needed, it may be retrieved using the
+`receive' function and the previously obtained <em>handle</em>.
+<P>
+
+<br>
+(let ((handle (request-retrieve-chunk '(:chunk-type ...))))
+  ;; do something else
+  ...
+  (receive handle))
+<br>
+
+Different threads of execution may share resources.  We follow
+Anderson et al. (2004) in that each module can only handle one request
+at a time.  We follow some of Salvucci&Taatgen's (2008) <em>threaded
+cognition</em> approach: threads acquire resources in a "greedy" and
+"polite" manner.  When a `request-' function is called, it will wait
+until the module is available, but then reserve the module regardless
+of other goals that may exist.  The module functions (such as
+`retrieve-chunk') will also wait for the module to be free.
+Similarly, `receive' will wait.  To check if the result is available,
+use the `response-available-p' function.
+<p>
+<h5>Example</h5>
+The following example shows how a retrieval request is initiated and
+finished.  Upon initiating the request, ACT-UP does not "wait" for the
+retrieval to finish.
+<p>
+<div class="code">
+(<span class="keyword">print</span> (actup-time))<br>
+(<span class="keyword">let</span> ((retrieval-process (request-retrieve-chunk '(<span class="builtin">:chunk-type</span> person))))<br>
+&nbsp;&nbsp;(<span class="keyword">print</span> (actup-time)) <span class="comment-delimiter">;; </span><span class="comment">no time has elapsed<br>
+</span>&nbsp;&nbsp;(<span class="keyword">print</span> (response-available-p retrieval-process))&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">module is busy<br>
+</span>&nbsp;&nbsp;(pass-time 0.05) <span class="comment-delimiter">;; </span><span class="comment">let's spend some time<br>
+</span>&nbsp;&nbsp;(<span class="keyword">print</span> (response-available-p retrieval-process)) <span class="comment-delimiter">;; </span><span class="comment">module is still busy<br>
+</span>&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">(wait-for-response retrieval-process)&nbsp;&nbsp; ;; wait for result - not needed<br>
+</span>&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">(<span class="keyword">print</span> (response-available-p retrieval-process))<br>
+</span>&nbsp;&nbsp;(<span class="keyword">print</span> (actup-time)) <span class="comment-delimiter">;; </span><span class="comment">this takes some time!<br>
+</span>&nbsp;&nbsp;(<span class="keyword">print</span> (receive retrieval-process))) <span class="comment-delimiter">;; </span><span class="comment">waits and receives<br>
+</span></p>
+</div>
+
+<h5>More related functions</h5>
+<P>
+ACT-UP provides a `reset-module' function to explicitly cancel a
+module's operation. To wait for a module to finish processing when the
+handle is not known, use `wait-for-module'.
+
+
+<h5>Threads</h5>
+
+ACT-UP's does not provide an API to `threads' as in <em>threaded cognition</em>.  However, <a
+href="http://c2.com/cgi/wiki?CommonLispThreads">Lisp Threads</a> might
+be useful.  Appropriate interference will be the result.
+<P>
+<em>Note that parallelism has seen limited testing in ACT-UP so far.
+Your feedback is appreciated!</em>
 
 </BODY>
 </HTML>
