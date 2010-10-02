@@ -1,5 +1,5 @@
 ;; ACT-UP
-;; (C) Carnegie Mellon University,
+;; (C) Carnegie Mellon University
 ;; (C) David Reitter, 2010
 
 ;; reitter@cmu.edu
@@ -15,20 +15,24 @@
 
 
 
-(declaim (optimize (speed 3) (space 0) (debug 0)))
- 
-(defpackage :act-up
-  (:documentation "The ACT-UP library.  Defines a number of functions
-and macros implementing the ACT-R theory (Anderson&Lebiere 1998,
+(declaim (optimize (speed 0) (space 0) (debug 03)))
+
+;; avoid some error messages 
+(let ((*error-output* (MAKE-STRING-OUTPUT-STREAM)))
+
+  (defpackage :act-up
+    (:documentation "The ACT-UP library.  Defines a number of functions
+and macros implementing the ACT-R theory (Anderson 1993, Anderson et al. 1998,
 Anderson 2007, etc.).
  (C) 2010, David Reitter, Carnegie Mellon University.")
-  (:use :common-lisp))
+    (:use :common-lisp)))
+
 
 (in-package :act-up)
 
 
 ;; prevent some issues
-(setq *print-level* 4)
+(setq *print-level* 6)
 
 
 ;; Emacs Lisp compatibility
@@ -148,6 +152,9 @@ The log output can be retrieved with `debug-log'."
 
 
 (export '(show-utilities))
+(defvar *actup-rulegroups* nil) ;; forward declaration
+(defvar *iu* 0.0) ;; forward declaration
+
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
 
@@ -195,6 +202,7 @@ The log output can be retrieved with `debug-log'."
 	  ;;name 
 	  chunk-type))
 
+(defvar *pas* nil) ;; forward declaration
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
@@ -452,11 +460,12 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  make-chunk ; for untyped chunks
 	  make-chunk* ; for untyped chunks
 	  show-chunks chunk-name explain-activation
-	  retrieve-chunk blend-retrieve-chunk
-	  filter-chunks non-nil
-	  learn-chunk best-chunk blend 
+	  non-nil
 	  reset-mp reset-model
 	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
+
+(export '(retrieve-chunk blend-retrieve-chunk
+	  filter-chunks learn-chunk best-chunk blend))
 
 
 (defun current-model ()
@@ -510,8 +519,7 @@ It defaults to the current meta-process."
     (setf (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))
 	  (+ (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)) seconds))
     (setf (model-time *current-actUP-model*)
-	  (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
-    )
+	  (meta-process-actUP-time (or meta-process *current-actUP-meta-process*))))
   ;; (format t "~a: ~a ~a ~%"
   ;; 	  (meta-process-name *current-actUP-meta-process*) 
   ;; 	  (model-time *current-actUP-model*) (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
@@ -1063,12 +1071,13 @@ See also the higher-level function `blend-retrieve-chunk'."
 
 	 (if auto-chunk-type
 	     (unless (eq chunk-type (class-of c))
-	       (error (format "blend: Found chunk of different types ~a and ~a, and no CHUNK-TYPE given."
-			      nil (class-name (class-of c)) (class-name chunk-type))))
+	       (error (format nil
+			      "blend: Found chunk of different types ~a and ~a, and no CHUNK-TYPE given."
+			      (class-name (class-of c)) (class-name chunk-type))))
 	     (if chunk-type 
 		 (unless (subtypep chunk-type (class-of c))
-		   (error (format "blend: Chunk of type ~a is not supertype of given type ~a."
-				  nil (class-name (class-of c)) (class-name chunk-type))))
+		   (error (format nil "blend: Chunk of type ~a is not supertype of given type ~a."
+				  (class-name (class-of c)) (class-name chunk-type))))
 		 (setq auto-chunk-type t
 		       chunk-type (class-of c))))
 
@@ -1703,10 +1712,8 @@ Rules and groupings of rules are not specific to the model."
 				     name)))
 		    (setq iu (car body)))
 		   ((keywordp keyw) t)
-		   (t (return nil))
-		   )
-		 (pop body)		 
-		 ) 
+		   (t (return nil)))
+		 (pop body))
 	    (if (consp group) group (list group)))))
     (if (member name groups)
 	(error (format-nil "defrule: rule name ~a must not coincide with group name."
