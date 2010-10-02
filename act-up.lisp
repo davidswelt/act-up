@@ -317,7 +317,7 @@ will always create new chunk and add it to declarative memory.
 If chunk types are defined with `define-chunk-type', then use the
 `make-TYPE*' syntax instead."
 
-  (apply #'make-actup-chunk* args))
+ (apply #'make-match-chunk 'actup-chunk args))
 
 
 (defun defstruct-attr-list (members)
