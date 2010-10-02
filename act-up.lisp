@@ -972,7 +972,8 @@ Simulates timing behavior.
 See also the higher-level function `retrieve-chunk'."
 
  ;; retrieve using spreading activation from cues to confusion-set
-  (if confusion-set
+;; must go through this even for empty confusion set
+;; because we need to pass-time in this case
       (let* ((last-retrieved-activation nil)
 	     (cues (get-chunk-objects cues))
 	     (below-rt-count 0)
@@ -1009,7 +1010,7 @@ See also the higher-level function `retrieve-chunk'."
 	      ;; timeout not given or within timeout
 	      (progn
 		(pass-time duration)
-		best))))))
+		best)))))
 
 (defun best-n-chunks (n confusion-set &optional cues request-spec)
   "Retrieves the best chunks in confusion set.
