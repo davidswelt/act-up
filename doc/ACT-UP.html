@@ -21,15 +21,15 @@ See also: ACT-R parameter :ans</blockquote>
    Can be any non-negative value.</pre></blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*au-rfr*" /><p><b>*au-rfr*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>base reward proportion for each rule
-e.g., the each rule before the reward trigger gets 10% of the reward.
+<blockquote>base reward proportion for each procedure
+e.g., the each procedure before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter <a href="#*au-rpps*">*au-rpps*</a> and the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*au-rpps*" /><p><b>*au-rpps*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Reward proportion per second elapsed.
 e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
-time is in between rules.
+time is in between procedures.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter <a href="#*au-rfr*">*au-rfr*</a> and the function <a href="#assign-reward">assign-reward</a>.</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
@@ -51,7 +51,7 @@ May be read and manipulated by setting it to a different
 instance of type <a href="#meta-process">meta-process</a>.</blockquote>
 <blockquote>Initial value: <tt>#S(ACT-UP:META-PROCESS :ACTUP-TIME 0.0 :NAME NIL)</tt></blockquote>
 <a name="*dat*" /><p><b>*dat*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Default time that it takes to execut an ACT-UP rule in seconds.
+<blockquote>Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]</blockquote>
 <blockquote>Initial value: <tt>0.05</tt></blockquote>
 <a name="*debug*" /><p><b>*debug*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
@@ -72,7 +72,7 @@ If a stream, ACT-UP logs to the stream.</blockquote>
 <blockquote>Constant for <a href="#*debug*">*debug*</a>: Show detailed log output .</blockquote>
 <blockquote>Initial value: <tt>300</tt></blockquote>
 <a name="*egs*" /><p><b>*egs*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Transient noise parameter for ACT-UP rules.
+<blockquote>Transient noise parameter for ACT-UP procedures.
 
 This is the expected gain s parameter. It specifies the s parameter
 for the noise added to the utility values. It defaults to 0 which
@@ -84,9 +84,9 @@ See also: ACT-R parameter :egs</blockquote>
 <blockquote>Constant for <a href="#*debug*">*debug*</a>: Show informational and more important messages.</blockquote>
 <blockquote>Initial value: <tt>100</tt></blockquote>
 <a name="*iu*" /><p><b>*iu*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Initial rule utility.
+<blockquote>Initial procedure utility.
 
-The initial utility value for a user-defined rule (<a href="#defrule">defrule</a>). This is
+The initial utility value for a user-defined procedure (<a href="#defproc">defproc</a>). This is
 the U(0) value for a production if utility learning is enabled and the
 default utility if learning (<a href="#*ul*">*ul*</a>) is not enabled. The default value
 is 0.
@@ -124,14 +124,14 @@ Similarity penalty assigned when chunks are equal.
 Value in activation (log) space.</blockquote>
 <blockquote>Initial value: <tt>0</tt></blockquote>
 <a name="*nu*" /><p><b>*nu*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>Utility assigned to compiled rules.
+<blockquote>Utility assigned to compiled procedures.
 
-This is the starting utility for a newly learned rule (those created
+This is the starting utility for a newly learned procedure (those created
 by the production compilation mechanism). This is the U(0) value for
-such a rule if utility learning is enabled and the default utility if
+such a procedure if utility learning is enabled and the default utility if
 learning is not enabled. The default value is 0.
 
-See also the function <a href="#assign-reward">assign-reward</a> and the variable <a href="#*rule-compilation*">*rule-compilation*</a>.
+See also the function <a href="#assign-reward">assign-reward</a> and the variable <a href="#*procedure-compilation*">*procedure-compilation*</a>.
 See also: ACT-R parameter :nu</blockquote>
 <blockquote>Initial value: <tt>0.0</tt></blockquote>
 <a name="*ol*" /><p><b>*ol*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
@@ -143,29 +143,29 @@ See also: ACT-R parameter :ol</blockquote>
 <blockquote>Permanent noise parameter for declarative memory.
 See also: ACT-R parameter :pas</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
+<a name="*procedure-compilation*" /><p><b>*procedure-compilation*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>If non-nil, procedure compilation is enabled.
+Procedure compilation causes ACT-UP procedures defined with <a href="#defproc">defproc</a> to be compiled (or: cached).
+After execution of a source procedure,  name, execution arguments and the result are stored as
+compiled procedure.  The compiled procedure is added to each of the source procedure's groups.
+
+When the group is executed, compiled procedures compete for execution with the other procedures in the group.  (The procedure with the highest utility is chosen.)
+
+The initial utility of a compiled procedure equals the initial utility of the source procedure.  When a source procedure is compiled multiple times, the utility of the compiled procedure is updated by assigning the source procedure utility as reward to the compiled procedure (according to the ACT-R difference learning equation).  See also <a href="#assign-reward">assign-reward</a> for reward assignment to regular procedures.
+
+<a href="#*epl*">*epl*</a> is defined as alias for <a href="#*procedure-compilation*">*procedure-compilation*</a>.</blockquote>
+<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*rt*" /><p><b>*rt*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Retrieval Threshold parameter for declarative memory.
 Chunks with activation lower than <a href="#*rt*">*rt*</a> are not retrieved.
 See also: ACT-R parameter :rt</blockquote>
 <blockquote>Initial value: <tt>0.0</tt></blockquote>
-<a name="*rule-compilation*" /><p><b>*rule-compilation*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
-<blockquote>If non-nil, rule compilation is enabled.
-Rule compilation causes ACT-UP rules defined with <a href="#defrule">defrule</a> to be compiled (or: cached).
-After execution of a source rule,  name, execution arguments and the result are stored as
-compiled rule.  The compiled rule is added to each of the source rule's groups.
-
-When the group is executed, compiled rules compete for execution with the other rules in the group.  (The rule with the highest utility is chosen.)
-
-The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also <a href="#assign-reward">assign-reward</a> for reward assignment to regular rules.
-
-<a href="#*epl*">*epl*</a> is defined as alias for <a href="#*rule-compilation*">*rule-compilation*</a>.</blockquote>
-<blockquote>Initial value: <tt>NIL</tt></blockquote>
 <a name="*ul*" /><p><b>*ul*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Utility learning flag.
 
 If this is set to t, then the utility learning equation used above
 will be used to learn the utilities as the model runs. If it is set to
-nil then the explicitly set utility values for the rules are
+nil then the explicitly set utility values for the procedures are
 used (though the noise will still be added if <a href="#*egs*">*egs*</a> is
 non-zero). The default value is nil.
 
@@ -178,10 +178,10 @@ See also: ACT-R parameter :ul</blockquote>
 <blockquote>Utility threshold.
 
 This is the utility threshold. If it is set to a number then that is
-the minimum utility value that a rule must have to compete in
-conflict resolution. Rules with a lower utility value than that
+the minimum utility value that a procedure must have to compete in
+conflict resolution. Procedures with a lower utility value than that
 will not be selected. The default value is nil which means that there
-is no threshold value and all rules will be considered.
+is no threshold value and all procedures will be considered.
 
 See also: ACT-R parameter :ut</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
@@ -203,23 +203,23 @@ retrieved.  S may also be a list of form (FCN TIME), with FCN
 indicating frequency of C and N occurring together, and TIME
 indicating the point in time of their last joint occurrence (TIME is
 unused currently, but must be given.)</blockquote><a name="assign-reward" /><p>(<b>assign-reward</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Assign reward to recently invoked rules.
-Distributes reward value REWARD across the recently invoked rules.
+<blockquote>Assign reward to recently invoked procedures.
+Distributes reward value REWARD across the recently invoked procedures.
 See parameters <a href="#*au-rpps*">*au-rpps*</a>, <a href="#*au-rfr*">*au-rfr*</a>, <a href="#*alpha*">*alpha*</a>, and <a href="#*iu*">*iu*</a>.
-See <a href="#defrule">defrule</a> for documentation on how to use utility when
-selecting between rules.
+See <a href="#defproc">defproc</a> for documentation on how to use utility when
+selecting between procedures.
 
 Reward must be greater than 0.
 
-The reward is only distributed to rules invoked since the last call to
-<a href="#assign-reward">assign-reward</a> (or <a href="#flush-rule-queue">flush-rule-queue</a>, or <a href="#reset-model">reset-model</a>).  See also
+The reward is only distributed to procedures invoked since the last call to
+<a href="#assign-reward">assign-reward</a> (or <a href="#flush-procedure-queue">flush-procedure-queue</a>, or <a href="#reset-model">reset-model</a>).  See also
 <a href="#assign-reward*">assign-reward*</a> for a function that does not reset this set of
-rules.</blockquote><a name="assign-reward*" /><p>(<b>assign-reward*</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Like <a href="#assign-reward">assign-reward</a>, but does not flush the rule queue.
-Only reward portions >0 are assigned to rules, i.e., if
+procedures.</blockquote><a name="assign-reward*" /><p>(<b>assign-reward*</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Like <a href="#assign-reward">assign-reward</a>, but does not flush the procedure queue.
+Only reward portions >0 are assigned to procedures, i.e., if
 <a href="#*au-rfr*">*au-rfr*</a> or <a href="#*au-rpps*">*au-rpps*</a> are nil (ACT-R 6 reward propagation),
-rewards are only assigned to rules up to <a href="#reward">reward</a> seconds back in time.
-See also <a href="#flush-rule-queue">flush-rule-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+rewards are only assigned to procedures up to <a href="#reward">reward</a> seconds back in time.
+See also <a href="#flush-procedure-queue">flush-procedure-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.  CUES may contain
@@ -291,8 +291,8 @@ at their default values), except the :name attribute.  If a matching
 chunk is found in DM, it is returned.</blockquote><a name="define-slots" /><p>(<b>define-slots</b> &rest slot-names)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Define slots to be used in chunks of this process.
 Only slot names defined using this macro may be used in chunks.
-Overrides any slot set defined earlier.</blockquote><a name="defrule" /><p>(<b>defrule</b> name args &rest body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Define an ACT-UP rule.
+Overrides any slot set defined earlier.</blockquote><a name="defproc" /><p>(<b>defproc</b> name args &rest body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Define an ACT-UP procedure.
 The syntax follows the Lisp <a href="#defun">defun</a> macro, except that 
 some keyword-argument parameters may follow ARGS
 at the beginning of BODY.
@@ -305,47 +305,47 @@ The known parameters are:
 
 <pre>
  :GROUP the-group</pre>
-A :group parameter defines one or or a list of rule
-groups that the rule will belong to.  All rules defined as part of a
+A :group parameter defines one or or a list of procedure
+groups that the procedure will belong to.  All procedures defined as part of a
 group must have the same argument footprint.
 
 
 If GROUP is given, a function of name GROUP will also be
-defined that invokes one of the rules assigned to GROUP.
+defined that invokes one of the procedures assigned to GROUP.
 For example:
 
 <pre>
- (defrule subtract-digit-by-addition (minuend subtrahend)
+ (defproc subtract-digit-by-addition (minuend subtrahend)
    :group subtract
    "Perform subtraction of a single digit via addition."
    (let ((chunk (retrieve-chunk #96;(:chunk-type addition-fact
                                   :result ,minuend
                                   :add1 ,subtrahend))))
        (if chunk (addition-fact-add2 chunk))))
- (defrule subtract-digit-by-decrement (minuend subtrahend)
+ (defproc subtract-digit-by-decrement (minuend subtrahend)
    :group subtract
    "Perform subtraction of a single digit via subtraction knowledge."
    ...)</pre>
 
-These rules can be invoked via a function call such as
+These procedures can be invoked via a function call such as
 
 <pre>
  (subtract 5 2)</pre>
 
-ACT-Up will choose the rule that has the highest utility.  See
+ACT-Up will choose the procedure that has the highest utility.  See
 <a href="#assign-reward">assign-reward</a> for manipulation of utilities (reinforcement
-learning), and <a href="#*rule-compilation*">*rule-compilation*</a> for in-theory compilation of
-rules (routinization, internalization).
+learning), and <a href="#*procedure-compilation*">*procedure-compilation*</a> for in-theory compilation of
+procedures (routinization, internalization).
 
 <pre>
  :INITIAL-UTILITY u</pre>
 
-The :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
+The :initial-utility parameter sets the utility that this procedure receives when it is created or the model is reset.
 If not given, the initial utility will be the value of <a href="#*iu*">*iu*</a> at time of first invocation.
 
-Rule utilities, wether initial or acquired through rewards are always specific to the model.
+Procedure utilities, wether initial or acquired through rewards are always specific to the model.
 
-Rules and groupings of rules are not specific to the model.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Procedures and groupings of procedures are not specific to the model.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -354,9 +354,9 @@ ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
-returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><a name="flush-rule-queue" /><p>(<b>flush-rule-queue</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Empties the queue of rules in the current model.
-This resets the list of rules to which rewards can be distributed (see
+returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><a name="flush-procedure-queue" /><p>(<b>flush-procedure-queue</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Empties the queue of procedures in the current model.
+This resets the list of procedures to which rewards can be distributed (see
 <a href="#assign-reward">assign-reward</a> and <a href="#assign-reward*">assign-reward*</a>.</blockquote><a name="learn-chunk" /><p>(<b>learn-chunk</b> chunk &optional co-presentations)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Learn chunk CHUNK.
 
@@ -454,7 +454,7 @@ See also <a href="#receive">receive</a>.</blockquote><a name="reset-model" /><p>
 <blockquote>Resets the current ACT-UP model. 
 All declarative memory and all subsymbolic knowledge is deleted.
 Global parameters (dynamic, global Lisp variables) are retained, as are
-functions and model-independent rules.</blockquote><a name="reset-module" /><p>(<b>reset-module</b> module-name)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+functions and model-independent procedures.</blockquote><a name="reset-module" /><p>(<b>reset-module</b> module-name)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Reset module MODULE-NAME.
 MODULE-NAME is typically one of <a href="#procedural">procedural</a>, <a href="#declarative">declarative</a>.
 Ongoing operations are terminated; their results will 
