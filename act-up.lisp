@@ -152,38 +152,38 @@ The log output can be retrieved with `debug-log'."
 
 
 (export '(show-utilities))
-(defvar *actup-rulegroups* nil) ;; forward declaration
+(defvar *actup-procgroups* nil) ;; forward declaration
 (defvar *iu* 0.0) ;; forward declaration
 
 (defun show-utilities ()
   "Prints a list of all utilities in the current model."
 
   (let ((rs)
-	(compiled-rules (procedural-memory-compiled-rules (model-pm (current-model))))
-	(regular-rules (procedural-memory-regular-rules (model-pm (current-model)))))
-    (loop for g in act-up::*actup-rulegroups* do
+	(compiled-procs (procedural-memory-compiled-procs (model-pm (current-model))))
+	(regular-procs (procedural-memory-regular-procs (model-pm (current-model)))))
+    (loop for g in act-up::*actup-procgroups* do
 	 (loop for name in (cdr g) do
 	      (pushnew name rs)))
 
     (loop for name in (sort rs (lambda (a b) (string-lessp (symbol-name a) (symbol-name b)))) do
-       ;; look up rule object
-	 (let ((rule (gethash name regular-rules)))
+       ;; look up proc object
+	 (let ((proc (gethash name regular-procs)))
 	   (print (cons name
-			(if rule
-			    (rule-utility (lookup-rule name))
+			(if proc
+			    (proc-utility (lookup-proc name))
 			    (if (get name 'initial-utility)
-				(list (get name 'initial-utility) 'rule-iu)
+				(list (get name 'initial-utility) 'proc-iu)
 				(list  *iu* '*iu*)))))))
-    (format t "Compiled rules:~%")
+    (format t "Compiled procs:~%")
     (maptree (lambda (path v)
-	       (let ((big-group (cddr (assoc (car path) act-up::*actup-rulegroups*))))  ;; more than one rule in group?
+	       (let ((big-group (cddr (assoc (car path) act-up::*actup-procgroups*))))  ;; more than one proc in group?
 		 (if (cdr v)
 		     (progn
 		       (format t "~a:~%" path)
-		       (loop for r in (sort v (lambda (a b) (> (rule-utility a) (rule-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
-			    (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-rule-original-rule r)) "") (compiled-rule-result r) (rule-utility r))))
-		     (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-rule-original-rule (car v))) "") (compiled-rule-result (car v)) (rule-utility (car v))))))
-	     compiled-rules))
+		       (loop for r in (sort v (lambda (a b) (> (proc-utility a) (proc-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
+			    (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-proc-original-proc r)) "") (compiled-proc-result r) (proc-utility r))))
+		     (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-proc-original-proc (car v))) "") (compiled-proc-result (car v)) (proc-utility (car v))))))
+	     compiled-procs))
   nil)
 
 ;; CHUNKS
@@ -320,10 +320,6 @@ If chunk types are defined with `define-chunk-type', then use the
  (apply #'make-match-chunk 'actup-chunk args))
 
 
-(defun defstruct-attr-list (members)
-  (loop for m in members collect
-       (if (consp m)
-	   (car m) m)))
 
 (defmacro define-chunk-type (type &rest members)
   "Define a chunk type of name TYPE.
@@ -351,6 +347,9 @@ chunk is found in DM, it is returned."
   
   (let* ((name-and-options type)
 	 (type (if (consp type) (car type) type))
+	 (attr-list (loop for m in members collect
+			 (if (consp m)
+			     (car m) m)))
 	 (incl
 	  (if (consp name-and-options)
 	      (list (car name-and-options)
@@ -359,7 +358,7 @@ chunk is found in DM, it is returned."
 			(error "define-chunk-type: faulty options in NAME.")))
 	      (list name-and-options `(:include actup-chunk
 				       (chunk-type ',type)
-				       (attrs ',(defstruct-attr-list members)))))))
+				       (attrs ',attr-list))))))
     ;; mark each member as read-only
     (setq members 
 	  (loop for m in members collect
@@ -371,8 +370,8 @@ chunk is found in DM, it is returned."
        (defstruct ,incl
 	 ,@members)
        ;; define special constructor
-       (defun ,(intern (format-nil "MAKE-~a*" type)) (&rest args)
-	 ,(format-nil 
+       (defun ,(intern (format nil "MAKE-~a*" type)) (&rest args)
+	 ,(format nil 
  "Like make-~a, but returns matching chunk from declarative memory if one exists."
 		  type)
 	 (apply #'act-up::make-match-chunk ',type args))
@@ -405,7 +404,7 @@ See also: ACT-R parameter :ans") ;; transient noise
 (defparameter *pas* nil "Permanent noise parameter for declarative memory.
 See also: ACT-R parameter :pas") ;; permanent noise  
 
-(defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP rule in seconds.
+(defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 (export '(*bll* *blc* *rt* *ans* *pas* *dat*))
 
@@ -425,9 +424,9 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   (total-presentations 0 :type integer))
 
 (defstruct procedural-memory
-  (regular-rules (make-hash-table))
-  (compiled-rules (make-tree))
-  (rule-queue nil :type list))
+  (regular-procs (make-hash-table))
+  (compiled-procs (make-tree))
+  (proc-queue nil :type list))
 
 (defstruct model
   (name (gensym "MODEL")) ;; may be used for debugging purposes
@@ -442,7 +441,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
   (time 0))
 
-
+    
 
 (defparameter *current-actUP-model* (make-model))
 (defparameter *actUP-time* nil)
@@ -455,7 +454,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  actUP-time stop-actup-time
 	  pass-time wait-for-model
 	  model-chunks 
-	  defrule assign-reward assign-reward* flush-rule-queue
+	  defproc assign-reward assign-reward* flush-procedure-queue
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
 	  make-chunk* ; for untyped chunks
@@ -1154,7 +1153,7 @@ Resets the time in the meta process."
   "Resets the current ACT-UP model. 
 All declarative memory and all subsymbolic knowledge is deleted.
 Global parameters (dynamic, global Lisp variables) are retained, as are
-functions and model-independent rules."
+functions and model-independent procedures."
   (setq *current-actUP-model* (make-model)))
 
 ;; Associative learning
@@ -1598,229 +1597,20 @@ Value in activation (log) space.")
 
 ;; PROCEDURAL
 
-;; tests
-
-;; (setq *actup-rulegroups* nil)
-;; (defrule rule1 (arg1 arg2) :group g1 (print arg1))
-;; (defrule rule1b (arg1 arg2) :group (g1 g5) (print arg1))
-;; (defrule rule2 (arg2 arg3) :group (g1 g2) (print arg1))
-;; (defrule rule3 (arg3 arg4) :group g2 (print arg1))
-;; (equal *actup-rulegroups* '((G2 (RULE3 ARG3 ARG4) (RULE2 ARG2 ARG3)) (G5 (RULE1B ARG1 ARG2)) (G1 (RULE2 ARG2 ARG3) (RULE1B ARG1 ARG2) (RULE1 ARG1 ARG2))))
-;; (g1 'working 'huh)
-
-(defun set-alist (key val alist)
-  "Sets value in alist."
-  (let ((kv (assoc key alist)))
-    (if kv
-	(rplacd kv val)
-	(setf (cdr (last alist)) (list (cons key val)))))
-  alist)
-
-
-(defstruct rule
-  name  ; also function name of rule
-  utility
-  firing-time  ; :at parameter in ACT-R
-)
-
-(defstruct (compiled-rule (:include rule))
-  result
-  args
-  original-rule)
-
-(defmacro defrule (name args &rest body)
-  "Define an ACT-UP rule.
-The syntax follows the Lisp `defun' macro, except that 
-some keyword-argument parameters may follow ARGS
-at the beginning of BODY.
-
-This macro will define a Lisp function of name NAME with
-arguments ARGS.  The Lisp function will execute the Lisp
-forms in BODY and return the value of the last form.
-
-The known parameters are:
-
- :GROUP the-group
-A :group parameter defines one or or a list of rule
-groups that the rule will belong to.  All rules defined as part of a
-group must have the same argument footprint.
-
-
-If GROUP is given, a function of name GROUP will also be
-defined that invokes one of the rules assigned to GROUP.
-For example:
-
- (defrule subtract-digit-by-addition (minuend subtrahend)
-   :group subtract
-   \"Perform subtraction of a single digit via addition.\"
-   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
-                                  :result ,minuend
-                                  :add1 ,subtrahend))))
-       (if chunk (addition-fact-add2 chunk))))
- (defrule subtract-digit-by-decrement (minuend subtrahend)
-   :group subtract
-   \"Perform subtraction of a single digit via subtraction knowledge.\"
-   ...)
-
-These rules can be invoked via a function call such as
-
- (subtract 5 2)
-
-ACT-Up will choose the rule that has the highest utility.  See
-`assign-reward' for manipulation of utilities (reinforcement
-learning), and `*rule-compilation*' for in-theory compilation of
-rules (routinization, internalization).
-
- :INITIAL-UTILITY u
-
-The :initial-utility parameter sets the utility that this rule receives when it is created or the model is reset.
-If not given, the initial utility will be the value of `*iu*' at time of first invocation.
-
-Rule utilities, wether initial or acquired through rewards are always specific to the model.
-
-Rules and groupings of rules are not specific to the model."
-  ;; remove keyword args from body
-  (let* (
-	 (args-filtered (loop for a in args 
-			   when (or (consp a)
-				    (and (symbolp a)
-					 (not (eq a '&optional))
-					 (not (eq a '&key))))
-			   collect
-			     (if (consp a)
-				 (car a)
-				 a)))
-	 (doc-string "Invoke ACT-UP rule.")
-	 iu
-	 (groups
-	  (let (group)
-	    (loop for keyw = (car body) do
-		 (cond
-		   ((stringp keyw)
-		    (setq doc-string keyw))
-		   ((eq keyw :group)
-		    (pop body)
-		    (if group 
-			(error 
-			 (format-nil "defrule ~s: more than one :GROUP keyword given."
-				     name)))
-		    (setq group (car body)))
-		   ((or (eq keyw :initial-utility) (eq keyw :iu))
-		    (pop body)
-		    (if iu 
-			(error 
-			 (format-nil "defrule ~s: more than one :INITIAL-UTILITY keyword given."
-				     name)))
-		    (setq iu (car body)))
-		   ((keywordp keyw) t)
-		   (t (return nil)))
-		 (pop body))
-	    (if (consp group) group (list group)))))
-    (if (member name groups)
-	(error (format-nil "defrule: rule name ~a must not coincide with group name."
-			   name)))
-    (if (eq 'quote (car groups))
-	(setq groups (second groups)))
-
-    `(progn
-    (defun ,name ,args
-       ,doc-string
-;; to do: handle signals
-       (let (
-	     (actup---rule (actup-rule-start ',name ,(cons 'list args-filtered)))
-	     (actup---rule-result
-	      (progn
-		,@body)))
-	 (actup-rule-end actup---rule ',(or (unless (equal groups '(nil)) groups) (list name))
-			 ,(cons 'list args-filtered) actup---rule-result)
-	 actup---rule-result))
-    (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
-    (declare-rule ',groups
-		   ',name ',args)
-)))
-
-(defun actup-rule-start (name args)
-  (declare (ignore args))
-  ;;(format-t "start: ~s ~s" name args)
-
-  ;; look up rule object
-  (let ((rule (lookup-rule name t)))
-    (when *ul* ; utility learning on
-      ;; add rule to queue
-      (push (list (actup-time) rule)
-	    (procedural-memory-rule-queue (model-pm (current-model)))))
-    
-    ;; return rule
-    rule))
-
-(defun make-compiled-rule-name (group args result)
-  (intern (format-nil "~a/~a->~a"
-		  group (length args)
-		  (cond ((symbolp result) result)
-			((numberp (format-nil "~2f" result)))
-			((actup-chunk-p result) (get-chunk-name result))
-			(t "*")))))
-
-
-(defparameter *rule-compilation* nil "If non-nil, rule compilation is enabled.
-Rule compilation causes ACT-UP rules defined with `defrule' to be compiled (or: cached).
-After execution of a source rule,  name, execution arguments and the result are stored as
-compiled rule.  The compiled rule is added to each of the source rule's groups.
-
-When the group is executed, compiled rules compete for execution with the other rules in the group.  (The rule with the highest utility is chosen.)
-
-The initial utility of a compiled rule equals the initial utility of the source rule.  When a source rule is compiled multiple times, the utility of the compiled rule is updated by assigning the source rule utility as reward to the compiled rule (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular rules.
-
-`*epl*' is defined as alias for `*rule-compilation*'.")
-
-(define-symbol-macro *epl* *rule-compilation*) ; compatibility macro
-(export '(*rule-compilation* *epl*))
-
-(defun actup-rule-end (this-rule groups args result)
-  ;; possibly compile this rule
-
-  ;; compile rule
-  (when *rule-compilation*
-    (loop for group in groups 
-       for leaf = (get-tree-leaf-create (procedural-memory-compiled-rules 
-					 (model-pm (current-model)))
-					(cons group args))
-	 do
-	 (or
-	  ;; rule already present in list:
-	  (loop for rule in (cdr leaf) do
-	       
-	       (when (equal result (compiled-rule-result rule))
-		 ;; update utility of this rule
-		 (assign-reward-to-rule (rule-utility this-rule) rule)
-		 (return t)))
-	  (setf (cdr (last leaf))
-		(list 
-		 (make-compiled-rule
-		  :name (make-compiled-rule-name group args result)
-		  :args args
-		  :result result
-		  :utility *nu* ; (rule-utility this-rule)
-		  :original-rule (rule-name this-rule)
-		  :firing-time (rule-firing-time this-rule)))))))
-
-  ;; (format-t "end: ~s ~s" name result)
-  (pass-time (or (rule-firing-time this-rule) *dat*)) ;; to do: randomization (:vpft parameter)
-)
 
 ;; this is, as of now, independent of the model
-(defparameter *actup-rulegroups* nil)
+(defparameter *actup-procgroups* nil)
 
 (defparameter *au-rpps* nil
   "Reward proportion per second elapsed.
 e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
-time is in between rules.
+time is in between procedures.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
 (defparameter *au-rfr* nil
-  "base reward proportion for each rule
-e.g., the each rule before the reward trigger gets 10% of the reward.
+  "base reward proportion for each procedure
+e.g., the each procedure before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
 
@@ -1828,19 +1618,19 @@ See also the parameter `*au-rpps*' and the function `assign-reward'.")
 See also the function `assign-reward'.
 See also: ACT-R parameter :alpha")
 
-(defparameter *nu* 0.0 "Utility assigned to compiled rules.
+(defparameter *nu* 0.0 "Utility assigned to compiled procedures.
 
-This is the starting utility for a newly learned rule (those created
+This is the starting utility for a newly learned procedure (those created
 by the production compilation mechanism). This is the U(0) value for
-such a rule if utility learning is enabled and the default utility if
+such a procedure if utility learning is enabled and the default utility if
 learning is not enabled. The default value is 0.
 
-See also the function `assign-reward' and the variable `*rule-compilation*'.
+See also the function `assign-reward' and the variable `*procedure-compilation*'.
 See also: ACT-R parameter :nu")
 
-(defparameter *iu* 0.0 "Initial rule utility.
+(defparameter *iu* 0.0 "Initial procedure utility.
 
-The initial utility value for a user-defined rule (`defrule'). This is
+The initial utility value for a user-defined procedure (`defproc'). This is
 the U(0) value for a production if utility learning is enabled and the
 default utility if learning (`*ul*') is not enabled. The default value
 is 0.
@@ -1852,7 +1642,7 @@ See also: ACT-R parameter :iu")
 
 If this is set to t, then the utility learning equation used above
 will be used to learn the utilities as the model runs. If it is set to
-nil then the explicitly set utility values for the rules are
+nil then the explicitly set utility values for the procedures are
 used (though the noise will still be added if `*egs*' is
 non-zero). The default value is nil.
 
@@ -1864,14 +1654,14 @@ See also: ACT-R parameter :ul")
 (defparameter *ut* nil "Utility threshold.
 
 This is the utility threshold. If it is set to a number then that is
-the minimum utility value that a rule must have to compete in
-conflict resolution. Rules with a lower utility value than that
+the minimum utility value that a procedure must have to compete in
+conflict resolution. Procedures with a lower utility value than that
 will not be selected. The default value is nil which means that there
-is no threshold value and all rules will be considered.
+is no threshold value and all procedures will be considered.
 
 See also: ACT-R parameter :ut")
 
-(defparameter *egs* nil "Transient noise parameter for ACT-UP rules.
+(defparameter *egs* nil "Transient noise parameter for ACT-UP procedures.
 
 This is the expected gain s parameter. It specifies the s parameter
 for the noise added to the utility values. It defaults to 0 which
@@ -1881,33 +1671,243 @@ See also: ACT-R parameter :egs")
 
 (export '(*au-rpps* *alpha* *au-rfr* *iu* *nu* *ut* *ul* *egs* assign-reward))
 
-(defun declare-rule (groups name args)
-  "Declares ACT-R rule NAME,
+
+;; tests
+
+;; (setq *actup-procgroups* nil)
+;; (defproc procedure1 (arg1 arg2) :group g1 (print arg1))
+;; (defproc procedure1b (arg1 arg2) :group (g1 g5) (print arg1))
+;; (defproc procedure2 (arg2 arg3) :group (g1 g2) (print arg1))
+;; (defproc procedure3 (arg3 arg4) :group g2 (print arg1))
+;; (equal *actup-procgroups* '((G2 (PROCEDURE3 ARG3 ARG4) (PROCEDURE2 ARG2 ARG3)) (G5 (PROCEDURE1B ARG1 ARG2)) (G1 (PROCEDURE2 ARG2 ARG3) (PROCEDURE1B ARG1 ARG2) (PROCEDURE1 ARG1 ARG2))))
+;; (g1 'working 'huh)
+
+(defun set-alist (key val alist)
+  "Sets value in alist."
+  (let ((kv (assoc key alist)))
+    (if kv
+	(rplacd kv val)
+	(setf (cdr (last alist)) (list (cons key val)))))
+  alist)
+
+
+(defstruct proc
+  name  ; also function name of procedure
+  utility
+  firing-time  ; :at parameter in ACT-R
+)
+
+(defstruct (compiled-proc (:include proc))
+  result
+  args
+  original-proc)
+
+(defmacro defproc (name args &rest body)
+  "Define an ACT-UP procedure.
+The syntax follows the Lisp `defun' macro, except that 
+some keyword-argument parameters may follow ARGS
+at the beginning of BODY.
+
+This macro will define a Lisp function of name NAME with
+arguments ARGS.  The Lisp function will execute the Lisp
+forms in BODY and return the value of the last form.
+
+The known parameters are:
+
+ :GROUP the-group
+A :group parameter defines one or or a list of procedure
+groups that the procedure will belong to.  All procedures defined as part of a
+group must have the same argument footprint.
+
+
+If GROUP is given, a function of name GROUP will also be
+defined that invokes one of the procedures assigned to GROUP.
+For example:
+
+ (defproc subtract-digit-by-addition (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via addition.\"
+   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
+                                  :result ,minuend
+                                  :add1 ,subtrahend))))
+       (if chunk (addition-fact-add2 chunk))))
+ (defproc subtract-digit-by-decrement (minuend subtrahend)
+   :group subtract
+   \"Perform subtraction of a single digit via subtraction knowledge.\"
+   ...)
+
+These procedures can be invoked via a function call such as
+
+ (subtract 5 2)
+
+ACT-Up will choose the procedure that has the highest utility.  See
+`assign-reward' for manipulation of utilities (reinforcement
+learning), and `*procedure-compilation*' for in-theory compilation of
+procedures (routinization, internalization).
+
+ :INITIAL-UTILITY u
+
+The :initial-utility parameter sets the utility that this procedure receives when it is created or the model is reset.
+If not given, the initial utility will be the value of `*iu*' at time of first invocation.
+
+Procedure utilities, wether initial or acquired through rewards are always specific to the model.
+
+Procedures and groupings of procedures are not specific to the model."
+  ;; remove keyword args from body
+  (let* (
+	 (args-filtered (loop for a in args 
+			   when (or (consp a)
+				    (and (symbolp a)
+					 (not (eq a '&optional))
+					 (not (eq a '&key))))
+			   collect
+			     (if (consp a)
+				 (car a)
+				 a)))
+	 (doc-string "Invoke ACT-UP procedure.")
+	 iu
+	 (groups
+	  (let (group)
+	    (loop for keyw = (car body) do
+		 (cond
+		   ((stringp keyw)
+		    (setq doc-string keyw))
+		   ((eq keyw :group)
+		    (pop body)
+		    (if group 
+			(error 
+			 (format-nil "defproc ~s: more than one :GROUP keyword given."
+				     name)))
+		    (setq group (car body)))
+		   ((or (eq keyw :initial-utility) (eq keyw :iu))
+		    (pop body)
+		    (if iu 
+			(error 
+			 (format-nil "defproc ~s: more than one :INITIAL-UTILITY keyword given."
+				     name)))
+		    (setq iu (car body)))
+		   ((keywordp keyw) t)
+		   (t (return nil)))
+		 (pop body))
+	    (if (consp group) group (list group)))))
+    (if (member name groups)
+	(error (format-nil "defproc: procedure name ~a must not coincide with group name."
+			   name)))
+    (if (eq 'quote (car groups))
+	(setq groups (second groups)))
+
+    `(progn
+    (defun ,name ,args
+       ,doc-string
+;; to do: handle signals
+       (let (
+	     (actup---proc (actup-proc-start ',name ,(cons 'list args-filtered)))
+	     (actup---proc-result
+	      (progn
+		,@body)))
+	 (actup-proc-end actup---proc ',(or (unless (equal groups '(nil)) groups) (list name))
+			 ,(cons 'list args-filtered) actup---proc-result)
+	 actup---proc-result))
+    (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
+    (declare-proc ',groups
+		   ',name ',args)
+)))
+
+(defun actup-proc-start (name args)
+  (declare (ignore args))
+  ;;(format-t "start: ~s ~s" name args)
+
+  ;; look up proc object
+  (let ((proc (lookup-proc name t)))
+    (when *ul* ; utility learning on
+      ;; add proc to queue
+      (push (list (actup-time) proc)
+	    (procedural-memory-proc-queue (model-pm (current-model)))))
+    
+    ;; return proc
+    proc))
+
+(defun make-compiled-proc-name (group args result)
+  (intern (format-nil "~a/~a->~a"
+		  group (length args)
+		  (cond ((symbolp result) result)
+			((numberp (format-nil "~2f" result)))
+			((actup-chunk-p result) (get-chunk-name result))
+			(t "*")))))
+
+
+(defparameter *procedure-compilation* nil "If non-nil, procedure compilation is enabled.
+Procedure compilation causes ACT-UP procedures defined with `defproc' to be compiled (or: cached).
+After execution of a source procedure,  name, execution arguments and the result are stored as
+compiled procedure.  The compiled procedure is added to each of the source procedure's groups.
+
+When the group is executed, compiled procedures compete for execution with the other procedures in the group.  (The procedure with the highest utility is chosen.)
+
+The initial utility of a compiled procedure equals the initial utility of the source procedure.  When a source procedure is compiled multiple times, the utility of the compiled procedure is updated by assigning the source procedure utility as reward to the compiled procedure (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular procedures.
+
+`*epl*' is defined as alias for `*procedure-compilation*'.")
+
+(define-symbol-macro *epl* *procedure-compilation*) ; compatibility macro
+(export '(*procedure-compilation* *epl*))
+
+(defun actup-proc-end (this-proc groups args result)
+  ;; possibly compile this proc
+
+  ;; compile proc
+  (when *procedure-compilation*
+    (loop for group in groups 
+       for leaf = (get-tree-leaf-create (procedural-memory-compiled-procs 
+					 (model-pm (current-model)))
+					(cons group args))
+	 do
+	 (or
+	  ;; procedure already present in list:
+	  (loop for proc in (cdr leaf) do
+	       
+	       (when (equal result (compiled-proc-result proc))
+		 ;; update utility of this proc
+		 (assign-reward-to-proc (proc-utility this-proc) proc)
+		 (return t)))
+	  (setf (cdr (last leaf))
+		(list 
+		 (make-compiled-proc
+		  :name (make-compiled-proc-name group args result)
+		  :args args
+		  :result result
+		  :utility *nu* ; (proc-utility this-proc)
+		  :original-proc (proc-name this-proc)
+		  :firing-time (proc-firing-time this-proc)))))))
+
+  ;; (format-t "end: ~s ~s" name result)
+  (pass-time (or (proc-firing-time this-proc) *dat*)) ;; to do: randomization (:vpft parameter)
+)
+
+(defun declare-proc (groups name args)
+  "Declares ACT-R procedure NAME,
 belonging to GROUPS, taking arguments ARGS.
 Returns NAME."
   ;; to do: check number of arguments 
-  ; remove rule from all groups first
-  (loop for grs in *actup-rulegroups* do
+  ; remove procedure from all groups first
+  (loop for grs in *actup-procgroups* do
        (setf (cdr grs) (delete name (cdr grs))))
-  (setq *actup-rulegroups* (delete-if (lambda (x) (not (cdr x))) *actup-rulegroups*))
+  (setq *actup-procgroups* (delete-if (lambda (x) (not (cdr x))) *actup-procgroups*))
   (setf (get name 'groups) groups)
   (loop for g in groups when g do
-		 ;; (re)define lisp function with group name
+     ;; (re)define lisp function with group name
 		 (eval `(defun ,g ,args 
-			  ,(format-nil "Choose a rule out of group %s" g)
-			  (actup-eval-rule ',g ,@args)))
+			  ,(format-nil "Choose a procedure out of group %s" g)
+			  (actup-eval-proc ',g ,@args)))
 		 
-		 (let ((group-cons (assoc g *actup-rulegroups*)))
-		   (if group-cons
-		       (unless (member name (cdr group-cons))
-			 (setf (cdr group-cons)  
-			       (cons name (cdr group-cons))))
-		       
-		       (setq *actup-rulegroups*
-			     (cons 
-			      (list g
-				    name)
-			*actup-rulegroups*)))))
+		 (let ((group-cons (assoc g *actup-procgroups*)))
+	 (if group-cons
+	     (unless (member name (cdr group-cons))
+	       (setf (cdr group-cons)  
+		     (cons name (cdr group-cons))))
+	     (setq *actup-procgroups*
+		   (cons 
+		    (list g
+			  name)
+		    *actup-procgroups*)))))
   name)
 
   
@@ -1915,7 +1915,7 @@ Returns NAME."
 ;; we cannot use a normal hash
 ;; because sxhash is simply not very good with objects
 ;; (only seems to depend on object type)
-;; (defun rule-result-hash (name args)
+;; (defun proc-result-hash (name args)
 
 ;;   ;; problem here:
 ;;   ;; arguments could be chunks
@@ -1924,129 +1924,129 @@ Returns NAME."
 ;;   (sxhash (list name args)))
 
 ;; test case:
-;; (defun rule2 (a1 a2) (print a1))
-;; (actup-eval-rule 'g2 1 2)
+;; (defun procedure2 (a1 a2) (print a1))
+;; (actup-eval-procedure 'g2 1 2)
 
 
     
 
-(defun fire-compiled-rule (rule)
-  (debug-print *informational* "Firing compiled rule: (~a ~{~s ~})->~a~%"
-	       (compiled-rule-original-rule rule)
-	       (compiled-rule-args rule)
-	       (compiled-rule-result rule))
+(defun fire-compiled-proc (proc)
+  (debug-print *informational* "Firing compiled procedure: (~a ~{~s ~})->~a~%"
+	       (compiled-proc-original-proc proc)
+	       (compiled-proc-args proc)
+	       (compiled-proc-result proc))
   (pass-time 0.05)
-  (compiled-rule-result rule))
+  (compiled-proc-result proc))
 
-(defun lookup-rule (name &optional add)
-  "Look up a rule in current model PM from rule name.
-Add a rule object to current model PM if necessary."
+(defun lookup-proc (name &optional add)
+  "Look up a procedure in current model PM from procedure name.
+Add a procedure object to current model PM if necessary."
 
-  ;; look up rule object
-  (let* ((regular-rules (procedural-memory-regular-rules (model-pm (current-model))))
-	 (rule (gethash name regular-rules)))
-    (unless rule
-      (setq rule (make-rule :name name :utility (or (get name 'initial-utility) *iu*)))
+  ;; look up procedure object
+  (let* ((regular-procs (procedural-memory-regular-procs (model-pm (current-model))))
+	 (proc (gethash name regular-procs)))
+    (unless proc
+      (setq proc (make-proc :name name :utility (or (get name 'initial-utility) *iu*)))
       (when add
-	  (setf (gethash name regular-rules) rule)))
-    rule))
+	  (setf (gethash name regular-procs) proc)))
+    proc))
    
-(defun best-rule-of-group (group args)
-  "Finds the best ACT-UP rule from rule group GROUP.
-Compiled rules are chosen using ARGS as arguments.
-Returns RULE."
-  (let ((regular-rules (mapcar #'lookup-rule (cdr (assoc group *actup-rulegroups*))))
-	(compiled-rules 
+(defun best-proc-of-group (group args)
+  "Finds the best ACT-UP procedure from procedure group GROUP.
+Compiled procedures are chosen using ARGS as arguments.
+Returns PROCEDURE."
+  (let ((regular-procs (mapcar #'lookup-proc (cdr (assoc group *actup-procgroups*))))
+	(compiled-procs 
 	 (unless (eq args 'not-available) 
-	 ;; the leaf value from the tree structure is list of COMPILED-RULE structures
-	   (get-tree-value (procedural-memory-compiled-rules (model-pm (current-model)))
+	 ;; the leaf value from the tree structure is list of COMPILED-PROC structures
+	   (get-tree-value (procedural-memory-compiled-procs (model-pm (current-model)))
 			   (cons group args)))))
-    (unless regular-rules
-      (error (format-nil "No rules defined for group ~a." regular-rules)))                                                              
-    (let* ((rules)
-	  (util-rule (loop with utility = -100000.0
-		    for rule in (append regular-rules compiled-rules)
-		    for r-utility = (+ (or (rule-utility rule) *iu*) 
+    (unless regular-procs
+      (error (format-nil "No procedures defined for group ~a." regular-procs)))                                                              
+    (let* ((procs)
+	  (util-proc (loop with utility = -100000.0
+		    for proc in (append regular-procs compiled-procs)
+		    for r-utility = (+ (or (proc-utility proc) *iu*) 
 				       (if *egs* (act-r-noise *egs*) 0.0))
 		    when (>= r-utility utility)
 		    when (or (not *ut*) (>= r-utility *ut*))
 		    do
-		      (setq rules  (if (> r-utility utility) 
-				       (list rule)   ; better
-				       (cons rule rules)) ; as good as others
+		      (setq procs  (if (> r-utility utility) 
+				       (list proc)   ; better
+				       (cons proc procs)) ; as good as others
 			    utility r-utility)
 		    finally
-		      (return (cons utility (choice rules)))))
-	   (rule (cdr util-rule)))
+		      (return (cons utility (choice procs)))))
+	   (proc (cdr util-proc)))
       (debug-print *informational* 
-		   "Group ~a with ~a~a matching rules, choosing rule ~a (Utility ~a)~a~%"
+		   "Group ~a with ~a~a matching procedures, choosing procedure ~a (Utility ~a)~a~%"
 		   group
-		   (length regular-rules)
-		   (if *rule-compilation*
-		       (format-nil "+~a" (length compiled-rules))
+		   (length regular-procs)
+		   (if *procedure-compilation*
+		       (format-nil "+~a" (length compiled-procs))
 		       "")
-		   (rule-name rule) (car util-rule) 
-		   (if (cdr rules)
-		       (format nil " from subset of best ~a" (length rules))
+		   (proc-name proc) (car util-proc) 
+		   (if (cdr procs)
+		       (format nil " from subset of best ~a" (length procs))
 		       ""))
-      rule)))
+      proc)))
       
 
  
-(defun actup-eval-rule (group &rest args)
-  "Evaluates an ACT-UP rule from rule group GROUP.
+(defun actup-eval-proc (group &rest args)
+  "Evaluates an ACT-UP procedure from procedure group GROUP.
 Passes arguments ARG to the lisp function representing 
-the chose rule."
-  ;; chose rule with highest utility
-  ;; must randomize choice of rule even if *egs* is nil
-  (let ((rule (best-rule-of-group group args)))
-      (when rule
-	(if (compiled-rule-p rule) ;; compiled rule?	    
-	    (fire-compiled-rule rule) ;; (car rule) is result
-	    ;; regular rule:
-	    (apply (rule-name rule) args)))))
+the chose procedure."
+  ;; chose procedure with highest utility
+  ;; must randomize choice of procedure even if *egs* is nil
+  (let ((proc (best-proc-of-group group args)))
+      (when proc
+	(if (compiled-proc-p proc) ;; compiled proc?	    
+	    (fire-compiled-proc proc) ;; (car proc) is result
+	    ;; regular proc:
+	    (apply (proc-name proc) args)))))
 
 
 ;; just a linear backpropagation over time
 ; quue elements: (time . hash)
 (defun assign-reward (reward)
-  "Assign reward to recently invoked rules.
-Distributes reward value REWARD across the recently invoked rules.
+  "Assign reward to recently invoked procedures.
+Distributes reward value REWARD across the recently invoked procedures.
 See parameters `*au-rpps*', `*au-rfr*', `*alpha*', and `*iu*'.
-See `defrule' for documentation on how to use utility when
-selecting between rules.
+See `defproc' for documentation on how to use utility when
+selecting between procedures.
 
 Reward must be greater than 0.
 
-The reward is only distributed to rules invoked since the last call to
-`assign-reward' (or `flush-rule-queue', or `reset-model').  See also
+The reward is only distributed to procedures invoked since the last call to
+`assign-reward' (or `flush-procedure-queue', or `reset-model').  See also
 `assign-reward*' for a function that does not reset this set of
-rules."
+procedures."
 
   (assign-reward-internal reward nil)
-  (flush-rule-queue)
-  ;; (setf (procedural-memory-rule-utilities (model-pm (current-model)))
+  (flush-procedure-queue)
+  ;; (setf (procedural-memory-proc-utilities (model-pm (current-model)))
   ;; 	  utilities)
   )
 
 (defun assign-reward* (reward)
-  "Like `assign-reward', but does not flush the rule queue.
-Only reward portions >0 are assigned to rules, i.e., if
+  "Like `assign-reward', but does not flush the procedure queue.
+Only reward portions >0 are assigned to procedures, i.e., if
 `*au-rfr*' or `*au-rpps*' are nil (ACT-R 6 reward propagation),
-rewards are only assigned to rules up to `reward' seconds back in time.
-See also `flush-rule-queue'."
+rewards are only assigned to procedures up to `reward' seconds back in time.
+See also `flush-procedure-queue'."
   (assign-reward-internal reward t))
 
 
 (defun assign-reward-internal (reward stop-at-0)
-  "Like `assign-reward', but does not flush the rule queue.
-See also `flush-rule-queue'."
+  "Like `assign-reward', but does not flush the procedure queue.
+See also `flush-procedure-queue'."
 
   (let ((last-time (actup-time)))
     (debug-print *informational* "Assigning reward ~a~%" reward)
-    (loop for rc in (procedural-memory-rule-queue (model-pm (current-model))) do
+    (loop for rc in (procedural-memory-proc-queue (model-pm (current-model))) do
 	 (let* ((r-time (first rc))
-		(r-rule (second rc))
+		(r-proc (second rc))
 		(reward-portion (if (and *au-rfr* *au-rpps*)
 				    (* reward
 				       (+ *au-rfr*
@@ -2056,46 +2056,46 @@ See also `flush-rule-queue'."
 	   (setq reward (- reward reward-portion)
 		 last-time r-time)
 	   (and stop-at-0 (< reward-portion 0) (return nil))
-	   (assign-reward-to-rule reward-portion r-rule)  ;; assign reward
+	   (assign-reward-to-proc reward-portion r-proc)  ;; assign reward
 	   ))))
 
-(defun flush-rule-queue ()
-  "Empties the queue of rules in the current model.
-This resets the list of rules to which rewards can be distributed (see
+(defun flush-procedure-queue ()
+  "Empties the queue of procedures in the current model.
+This resets the list of procedures to which rewards can be distributed (see
 `assign-reward' and `assign-reward*'."
 
-    (setf (procedural-memory-rule-queue (model-pm (current-model))) nil))
+    (setf (procedural-memory-proc-queue (model-pm (current-model))) nil))
 
-(defun assign-reward-to-rule (reward-portion rule)
-  "Assign reward to a specific rule."
+(defun assign-reward-to-proc (reward-portion proc)
+  "Assign reward to a specific procedure."
   ;; assign reward
-	   (let* ((current (or (rule-utility rule) *iu*))
+	   (let* ((current (or (proc-utility proc) *iu*))
 		  (scaled (* *alpha* (- reward-portion current))))
-	     (debug-print *informational* "Assigning reward ~a to ~a.~{~a~}~%" reward-portion (rule-name rule)
+	     (debug-print *informational* "Assigning reward ~a to ~a.~{~a~}~%" reward-portion (proc-name proc)
 			  (loop for g in (get 
-					       (if (compiled-rule-p rule)
-						   (compiled-rule-original-rule rule)
-						   (rule-name rule))
+					       (if (compiled-proc-p proc)
+						   (compiled-proc-original-proc proc)
+						   (proc-name proc))
 					       'groups) collect
-			       ;; for all groups that this rule belongs to
+			       ;; for all groups that this proc belongs to
 			       (let ((best
 				      (let ((*egs* nil)
 					    (*debug* nil))
-					(best-rule-of-group g (if (compiled-rule-p rule)
-								  (compiled-rule-args rule)
+					(best-proc-of-group g (if (compiled-proc-p proc)
+								  (compiled-proc-args proc)
 								  'not-available)))))
-				 (if (eq best rule)
-				     ;; only for compiled rules can we determine
-				     ;; the best rule overall, because only then do we know
+				 (if (eq best proc)
+				     ;; only for compiled procedures can we determine
+				     ;; the best procedure overall, because only then do we know
 				     ;; what the arguments were!
-				     (format nil " Best~a rule among alternatives in group ~a!"
-					     (if (compiled-rule-p rule) "" " regular")
+				     (format nil " Best~a procedure among alternatives in group ~a!"
+					     (if (compiled-proc-p proc) "" " regular")
 					     g)
-				     (format nil " ~a remains best~a rule in group ~a."
-					     (rule-name best)
-					     (if (compiled-rule-p rule) "" " regular")
+				     (format nil " ~a remains best~a procedure in group ~a."
+					     (proc-name best)
+					     (if (compiled-proc-p proc) "" " regular")
 					     g)))))
-	     (setf (rule-utility rule)
+	     (setf (proc-utility proc)
 		   (+ current scaled))
 	     ))
 
