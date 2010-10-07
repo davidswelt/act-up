@@ -93,8 +93,7 @@
       (format output "~&MEAN DEVIATION: ~6,3F~%" result)
       (when opened (close output))
       
-      result))
-  result)
+      result)))
 
 (defun correlation (results data &key (output t))
   (let* ((results-list (numbers-list results))
@@ -124,8 +123,7 @@
       (format output "~&CORRELATION: ~6,3F~%"
             result)
     (when opened (close output))
-      result))
-  result)
+      result)))
 
 
 #|
