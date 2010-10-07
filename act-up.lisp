@@ -573,7 +573,7 @@ Includes Sji/Rji weights and cooccurrence data."
   (handler-case
       (slot-value obj slot)
     (error (_v) _v nil)))
-
+	 
 
 (defmacro normalize-slotname (slot)
   `(intern (string-upcase (symbol-name ,slot))))
@@ -594,10 +594,10 @@ Includes Sji/Rji weights and cooccurrence data."
 	(car (gethash name index))  ; there should only be one chunk of any given name, so we do `car'
 	;; no index available, for whatever reason
 	(loop for c in (model-chunks *current-actUP-model*)
-	   do
+	  do
 	     (if (equal name (actup-chunk-name c))
 		 (return c))))))
-
+       
 (defun get-chunk-object (chunk-or-name &optional noerror)
   "Returns chunk object for CHUNK-OR-NAME.
 If CHUNK-OR-NAME is a chunk, return is.
@@ -1032,11 +1032,11 @@ Set stream to t to output to standard output."
        (format stream "~a~%" (actup-chunk-name obj))
        (loop for slot in (actup-chunk-attrs obj)
 	  for val = (safe-slot-value obj slot)
-	 
+
 	  do
 	    (format stream "~a: ~a~%"  slot (get-chunk-name val)))
        (format stream "~%")
-       
+
        ;; (if (actup-chunk-related-chunks obj)
        ;; 	   (format stream "related chunks: ~a~%" (mapcar (lambda (x) (if (actup-chunk-p x) (actup-chunk-name x) x)) (actup-chunk-related-chunks obj))))
        (format stream "~%"))
@@ -1470,7 +1470,7 @@ See also the higher-level functions `retrieve-chunk' and
 			  ))
 	(mapcar 'cdr (subseq (stable-sort all #'> :key #'car) 0 (min n (length all) ))))))
 
-
+ 
 (defun-module declarative retrieve-chunk (spec &optional cues pm-soft-spec timeout)
   "Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
@@ -1636,7 +1636,7 @@ value2 ...), or (slot1 value1 slot2 value2)."
 			     spec)))
     (if cs
 	(blend cs cues nil (append spec pm-soft-spec)))))
-    
+
 
 ;; ACT-R 6.0 compatibility functions
 (defun reset-sji-fct (chunk)
@@ -1797,8 +1797,8 @@ See the function `filter-chunks' for a description of possible constraints."
 				 (declarative-memory-chunks (model-dm model))))))
 
 
-  
 
+ 
 
 ;; export
 
@@ -1839,11 +1839,11 @@ See also the parameter `*au-rfr*' and the function `assign-reward'.")
 e.g., the each procedure before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
-
+	   
 (defparameter *alpha* 0.2  "Utility learning rate.
 See also the function `assign-reward'.
 See also: ACT-R parameter :alpha")
-
+		   
 (defparameter *nu* 0.0 "Utility assigned to compiled procedures.
 
 This is the starting utility for a newly learned procedure (those created
