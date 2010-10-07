@@ -65,7 +65,7 @@
   
 
 ;;;; defining productions
-(defrule test-fact (arg1 arg2)
+(defproc test-fact (arg1 arg2)
   ;; encoding /aural is deterministic in ACT-R
   (pass-time 1.0)
   (let ((cfd  (retrieve-chunk (list :chunk-type 'plus-fact)

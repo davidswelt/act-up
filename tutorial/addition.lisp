@@ -31,7 +31,7 @@
 
 ;;;; Defining procedural rule
 
-(defrule add-digit (ten1 one1 ten2 one2)
+(defproc add-digit (ten1 one1 ten2 one2)
   "Add two digits."
   (let ((sumones (additionfact-sum (retrieve-chunk (list :chunk-type 'additionfact
 							 :addend1 one1 

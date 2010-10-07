@@ -38,7 +38,7 @@
 
 ;;;; Defining procedural rules
 
-(defrule semantic (arg1 arg2)
+(defproc semantic (arg1 arg2)
   (let ((p (retrieve-chunk (list :chunk-type 'property 
 				 :object arg1 
 				 :attribute 'category))))

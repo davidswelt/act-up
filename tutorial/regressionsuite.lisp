@@ -43,7 +43,7 @@
 (aplocation)
 
 (load "paired.lisp")
-
+   
 (defun cdatapaired (n)
   (do ((count 1 (1+ count))
        (results (do-experiment 20 8)
@@ -99,7 +99,7 @@
 
 (rsubjects 1000)
 
-(load "tuto5_pm.lisp")
+(load "tuto5pm.lisp")
 
 (defun apl ()
   (opl 
