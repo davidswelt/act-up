@@ -6,7 +6,7 @@
 ;;; Acknowledgements: Dan Bothell
 
 
-(load "actr-stats")
+(load "../actr-stats")
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
@@ -85,7 +85,7 @@
 
 ;;;; Defining procedural rule
 
-(defrule paired (arg)
+(defproc paired (arg)
   (let ((p (retrieve-chunk (list :chunk-type 'pair 
 				 :probe (first arg)))))
     (if (not p)

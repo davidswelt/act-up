@@ -56,16 +56,16 @@
 ;; The Model
 ;;;; Rules that return the choice as symbol heads or tails
 
-(defrule decide-tails ()
+(defproc decide-tails ()
   :group choose-coin
   'tails)
 
-(defrule decide-heads ()
+(defproc decide-heads ()
   :group choose-coin
   'heads)
 
 ;;;; Executing choice functions and assigning rewards
-(defrule do-trial-model ()
+(defproc do-trial-model ()
   "Choose heads or tails and learn from it."
   (let ((response (choose-coin)))
     (if (eq (toss-coin) response)
