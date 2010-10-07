@@ -96,9 +96,9 @@
 ;;; The code
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; #+:packaged-actr (in-package :act-r)
-;; #+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
-;; #-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
+#+:packaged-actr (in-package :act-r)
+#+(and :clean-actr (not :packaged-actr) :ALLEGRO-IDE) (in-package :cg-user)
+#-(or (not :clean-actr) :packaged-actr :ALLEGRO-IDE) (in-package :cl-user)
 
 ;(eval-when (:compile-toplevel :Load-toplevel :execute)
 ;  (proclaim '(optimize (speed 3) (space 0) (saftey 0))))
@@ -107,25 +107,26 @@
 
 (defvar *random-module-counter* -1)
 
+;; Truncating numbers down to 32 bits with ldb so make this a constant
+(defvar *byte-32-0* (byte 32 0))
+;(defconstant *b1* (byte 1 31))
+
 (defstruct (mersenne-twister (:conc-name mt-))
   (n 624 :type fixnum)
   (m 397 :type fixnum)
   (mti 625 :type fixnum)
-  (mt (make-array 624 :element-type 'bignum) :type vector)
+  ;; not sure if this is right now (avoids warnings though)
+  (mt (make-array 624) :type vector)  ;; array elements were of type bignum  
   (count 0 :type integer)
   (start (incf *random-module-counter*) :type integer)
   (initial-seed 5489 :type integer))
 
 ;; Some constants from the algorithm
 
-(defconstant *matrix_a* #x9908b0df)
-(defconstant *upper_mask* #x80000000)
-(defconstant *lower_mask* #x7fffffff)
+(defconstant +matrix_a+ #x9908b0df)
+(defconstant +upper_mask+ #x80000000)
+(defconstant +lower_mask+ #x7fffffff)
 
-
-;; Truncating numbers down to 32 bits with ldb so make this a constant
-(defvar *byte-32-0* (byte 32 0))
-;(defconstant *b1* (byte 1 31))
 
 (defvar *default-random-module* (make-mersenne-twister))
 
@@ -206,15 +207,15 @@
         (do ()
             ((>= kk (- (mt-n state) (mt-m state))))
           (setf y 
-            ;(logior (logand (svref mt kk) *upper_mask*)
+            ;(logior (logand (svref mt kk) +upper_mask+)
             ;        (ldb (byte 31 0) (svref mt (1+ kk)))) 
             
             ;(dpb (ldb *b1* (svref mt kk))
             ;     *b1* 
             ;     (ldb (byte 31 0) (svref mt (1+ kk))))
             
-            (logior (logand (svref (mt-mt state) kk) *upper_mask*)
-                    (logand (svref (mt-mt state) (1+ kk)) *lower_mask*))
+            (logior (logand (svref (mt-mt state) kk) +upper_mask+)
+                    (logand (svref (mt-mt state) (1+ kk)) +lower_mask+))
             
             )
           (setf (svref (mt-mt state) kk)
@@ -222,47 +223,47 @@
                     (ash y -1)
                     (if (zerop (logand y 1))
                         0
-                      *matrix_a*)))
+                      +matrix_a+)))
           (incf kk))
         
         (do ()
             ((>= kk (1- (mt-n state))))
           (setf y 
-            ;(logior (logand (svref mt kk) *upper_mask*)
+            ;(logior (logand (svref mt kk) +upper_mask+)
             ;        (ldb (byte 31 0) (svref mt (1+ kk))))
             
             ;(dpb (ldb *b1* (svref mt kk))
             ;     *b1* 
             ;     (ldb (byte 31 0) (svref mt (1+ kk))))
             
-            (logior (logand (svref (mt-mt state) kk) *upper_mask*)
-                    (logand (svref (mt-mt state) (1+ kk)) *lower_mask*))
+            (logior (logand (svref (mt-mt state) kk) +upper_mask+)
+                    (logand (svref (mt-mt state) (1+ kk)) +lower_mask+))
             )
           (setf (svref (mt-mt state) kk)
             (logxor (svref (mt-mt state) (+ kk (- (mt-m state) (mt-n state))))
                     (ash y -1)
                     (if (zerop (logand y 1))
                         0
-                      *matrix_a*)))
+                      +matrix_a+)))
           (incf kk))
         
         (setf y 
-          ;(logior (logand (svref mt (1- *n*)) *upper_mask*)
+          ;(logior (logand (svref mt (1- *n*)) +upper_mask+)
           ;          (ldb (byte 31 0) (svref mt 0)))
           
           ;(dpb (ldb *b1* (svref mt (1- *n*)))
           ;       *b1* 
           ;     (ldb (byte 31 0) (svref mt 0)))
           
-          (logior (logand (svref (mt-mt state) (1- (mt-n state))) *upper_mask*)
-                    (logand (svref (mt-mt state) 0) *lower_mask*))          
+          (logior (logand (svref (mt-mt state) (1- (mt-n state))) +upper_mask+)
+                    (logand (svref (mt-mt state) 0) +lower_mask+))          
           )
         (setf (svref (mt-mt state) (1- (mt-n state)))
           (logxor (svref (mt-mt state) (1- (mt-m state)))
                   (ash y -1)
                   (if (zerop (logand y 1))
                       0
-                    *matrix_a*)))
+                    +matrix_a+)))
         
         (setf (mt-mti state) 0)))
     
@@ -282,27 +283,37 @@
 (defun genrand_real2(&optional (state *default-random-module*))
     (/  (genrand_int32 state) 4294967296.0))
 
+#|
+This function should produce the same numbers as the 2000 
+in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
 
-;; This function should produce the same numbers as the 2000 
-;; in the test output file provided with mt19937ar.c -> mt19937ar.out.txt 
-
-;; (defun test-mt-generator ()
-;;   (let ((res1 nil)
-;;         (res2 nil)
-;;         (init (make-array 4 :initial-contents 
-;;                           '(#x123 #x234 #x345 #x456))))
-;;     (init_by_array init)
-;;     (dotimes (i 1000)
-;;       (push (genrand_int32) res1))
-;;     (dotimes (i 1000)
-;;       (push (genrand_real2) res2))
-;;     (list (reverse res1) (reverse res2))))
+(defun test-mt-generator ()
+  (let ((res1 nil)
+        (res2 nil)
+        (init (make-array 4 :initial-contents 
+                          '(#x123 #x234 #x345 #x456))))
+    (init_by_array init)
+    (dotimes (i 1000)
+      (push (genrand_int32) res1))
+    (dotimes (i 1000)
+      (push (genrand_real2) res2))
+    (list (reverse res1) (reverse res2))))
+|#
 
 ;; Here's the actual module definition code
 
 (defstruct act-r-random-module 
   state randomize-time)
 
+(defun init-random-state-from-seed (state seed)
+  
+  (if (<= (ceiling (log seed 2)) 32)
+      (init_genrand seed state)
+    (init_by_array (make-array 
+                    2 :initial-contents 
+                    (list (ldb (byte 32 0) seed)
+                          (ldb (byte 32 32) seed)))
+                   state)))
 
 (defun create-random-module (ignore)
   (declare (ignore ignore))
@@ -326,15 +337,7 @@
     
     (make-act-r-random-module :state state)))
 
-(defun init-random-state-from-seed (state seed)
-  
-  (if (<= (ceiling (log seed 2)) 32)
-      (init_genrand seed state)
-    (init_by_array (make-array 
-                    2 :initial-contents 
-                    (list (ldb (byte 32 0) seed)
-                          (ldb (byte 32 32) seed)))
-                   state)))
+
 
 (defun random-module-params (module param)
  
@@ -480,18 +483,18 @@
            ((null temp) result))
     nil))
     
+#|
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
 
-;; This library is free software; you can redistribute it and/or
-;; modify it under the terms of the GNU Lesser General Public
-;; License as published by the Free Software Foundation; either
-;; version 2.1 of the License, or (at your option) any later version.
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
 
-;; This library is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-;; Lesser General Public License for more details.
-
-;; You should have received a copy of the GNU Lesser General Public
-;; License along with this library; if not, write to the Free Software
-;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+|#
