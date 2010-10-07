@@ -23,7 +23,7 @@
 
 ;;;; Defining procedural rule
 
-(defrule count-model (arg1 arg2) 
+(defproc count-model (arg1 arg2) 
   "Count from ARG1 to ARG1.
 ARG1 is the starting point and ARG2 is the ending point.
 Each increment is 1 unit."
@@ -36,7 +36,7 @@ Each increment is 1 unit."
       ;; else return end point
       arg2))
 
-(defrule speak (number)
+(defproc speak (number)
   "Say number."
   (print number)
   (pass-time 0.3))

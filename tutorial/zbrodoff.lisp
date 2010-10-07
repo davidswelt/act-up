@@ -159,7 +159,7 @@
 
 ;;;; Defining Procedural Rule
 
-(defrule increase-letter (first-letter target-i &optional (letter first-letter) (i 0))
+(defproc increase-letter (first-letter target-i &optional (letter first-letter) (i 0))
   (if (= target-i i)
       letter
     (let* ((stored-solution (retrieve-chunk (list :chunk-type 'problem :arg1 first-letter :arg2 target-i))))

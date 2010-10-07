@@ -4,7 +4,7 @@
 (require "act-up" "../act-up.lisp")
 
 
-(defrule decide ()
+(defproc decide ()
   (cond 
     ((> (- under over) 25)  ;;  same as (< over (- under 25))
      (decide-over))
@@ -14,19 +14,19 @@
      (choose-strategy))))
 
 
-(defrule  decide-over ()
+(defproc  decide-over ()
   :group choose-strategy
   (visual-move-attention :kind oval :screen-y 60)
   (move-mouse (make-location 60 0))
 )
-(defrule decide-under ()
+(defproc decide-under ()
   :group choose-strategy
   (visual-move-attention :kind oval :screen-y 85)
   (move-mouse (make-location 85 0))
 )
 
 
-(defrule move-mouse (location)
+(defproc move-mouse (location)
   (manual-move-cursor :loc location)
   (manual-click-mouse))
 

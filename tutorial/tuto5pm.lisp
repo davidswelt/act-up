@@ -81,7 +81,7 @@
   )
 
 ;;;; defining productions
-(defrule test-sentence-model (person location target term)
+(defproc test-sentence-model (person location target term)
   (let* (;(*debug* *all*)
 	 (cfd (debug-detail
 	       (retrieve-chunk

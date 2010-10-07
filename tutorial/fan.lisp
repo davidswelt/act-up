@@ -57,7 +57,7 @@
 
 ;;;; Defining Procedural Rules
 
-(defrule test-sentence-model (person location target term)
+(defproc test-sentence-model (person location target term)
   (let* ((cfd ; (debug-detail
 	       (retrieve-chunk
 		;; hard constraints:

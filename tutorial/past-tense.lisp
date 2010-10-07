@@ -175,7 +175,7 @@
 
 ;;;; The model
 
-(defrule ptmodel (word)
+(defproc ptmodel (word)
   "Form past-tense of WORD."
   :group past-tense-model
   (let ((q (form-past-tense word)))
@@ -190,7 +190,7 @@
 ;;; All of them take a word as input and
 ;;; return a list with verb, stem, and suffix.
 
-(defrule strategy-by-retrieval (word)
+(defproc strategy-by-retrieval (word)
   "Retrieve memorized past tense form for WORD."
   :group form-past-tense
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word :suffix 'non-nil))))
@@ -199,7 +199,7 @@
       (pass-time 0.05)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
-(defrule strategy-without-analogy (word)
+(defproc strategy-without-analogy (word)
   "Retrieve memorized past tense form for WORD."
   :group form-past-tense
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word))))
@@ -208,7 +208,7 @@
       (pass-time 0.05)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
-(defrule strategy-with-analogy (word)
+(defproc strategy-with-analogy (word)
   "Retrieve some past tense form, using analogy."
   :group form-past-tense
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense))))
