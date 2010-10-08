@@ -1,13 +1,12 @@
 ;;; Filename: paired.lisp
 
-;;; To run use command: (collect-data 100)
+;;; To run use command: (unit-test)
 
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
 
 (load "../actr-stats")
-
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
@@ -23,11 +22,18 @@
 
 (defvar *paired-latencies* '(0.0 2.158 1.967 1.762 1.680 1.552 1.467 1.402))
 (defvar *paired-probability* '(0.000 .526 .667 .798 .887 .924 .958 .954))
+(defparameter *correlation-paired* nil)
+(defparameter *meandev-paired* nil)
+(defparameter *response* nil)
+(defparameter *response-time* nil)
  
 ;;;; Define chunk type
 (define-chunk-type pair probe answer)
  
 ;;;; Test harness for the experiment
+
+(defun unit-test ()
+  (collect-data-paired 100))
 
 (defun do-experiment (size trials)
     (do-experiment-model size trials))
@@ -60,7 +66,7 @@
 
     (reverse result)))
 
-(defun collect-data (n)
+(defun collect-data-paired (n)
   (do ((count 1 (1+ count))
        (results (do-experiment 20 8)
                 (mapcar #'(lambda (lis1 lis2)
@@ -68,18 +74,19 @@
                                   (+ (or (second lis1) 0) (or (second lis2) 0))))
                   results (do-experiment 20 8))))
       ((equal count n) 
-       (output-data results n))))
+       (output-data-paired results n)))
+  (list *correlation-paired* *meandev-paired*))
 
-(defun output-data (data n)
+(defun output-data-paired (data n)
    (let ((probability (mapcar #'(lambda (x) (/ (first x) n)) data))
         (latency (mapcar #'(lambda (x) (/ (or (second x) 0) n)) data)))
-    (print-results latency *paired-latencies* "Latency")
-     (print-results probability *paired-probability* "Accuracy")))
+    (print-results-paired latency *paired-latencies* "Latency")
+     (print-results-paired probability *paired-probability* "Accuracy")))
 
-(defun print-results (predicted data label)
+(defun print-results-paired (predicted data label)
  (format t "~%~%~A:~%" label)
-  (correlation predicted data)
-  (mean-deviation predicted data)
+  (setq *correlation-paired* (correlation predicted data))
+  (setq *meandev-paired* (mean-deviation predicted data))
   (format t "Trial    1       2       3       4       5       6       7       8~%")
   (format t "     ~{~8,3f~}~%" predicted))
 

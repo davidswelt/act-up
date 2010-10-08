@@ -1,12 +1,16 @@
+;;; Filename: tuto5pm.lisp
+
+;; To use: (unit-test)
+
+;;; Author: Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
+
 (load "../actr-stats")
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
 
-					;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
 
-;;;;(setf '*bll* 0.0)
-;;;;(setf '*blc* 0.0)
-;;;;(setf '*ans* 0.0)
 (setq *ans* nil
       *lf* .63
       *mas* 1.6
@@ -21,6 +25,8 @@
 
 (defvar *response*)
 (defvar *response-time* nil)
+(defparameter *correlation-pm* nil)
+(defparamater *meandev-pm* nil)
 
 ;;;; chunk-types
 (define-chunk-type comprehendfact relation arg1 arg2)
@@ -80,8 +86,68 @@
     ))
   )
 
+
+(list (test-sentence-model 'earl 'castle t 'person)
+      (test-sentence-model 'earl 'castle t 'location)
+      (test-sentence-model 'captain 'bank nil 'person)
+      (test-sentence-model 'captain 'bank nil 'person))
+
+(defun unit-test()
+  (average-person-location-pm))
+
+
+(defun run-model (person location target term)
+  (init-model)
+  (let ((start-time (actup-time)))
+    (reverse (list (test-sentence-model-pm person location target term)
+		   (- (actup-time) start-time)))))
+
+
+(defun do-person-location-pm (term) 
+  (let ((test-set '(('lawyer 'store t)('captain 'cave t)('hippie 'church t)
+                      ('debutante 'bank t)('earl 'castle t)('hippie 'bank t)
+                      ('fireman 'park t)('captain 'park t)('hippie 'park t)
+                      ('fireman 'store nil)('captain 'store nil)('giant 'store nil)
+                      ('fireman 'bank nil)('captain 'bank nil)('giant 'bank nil)
+                      ('lawyer 'park nil)('earl 'park nil)('giant 'park nil)))
+        (results nil))
+
+    (dolist (sentence test-set)
+      (push (list sentence 
+			(apply #'run-model (append sentence (list term))))
+            results))
+    (mapcar #'second (sort results #'< :key #'(lambda (x) (position (car x) test-set))))))
+
+(defun average-person-location-pm ()
+  (output-person-location-pm 
+   (mapcar #'(lambda (x y) 
+	       (list (/ (+ (car x) (car y)) 2.0)  ; first element of list: time
+		     (and (cadr x) (cadr y))))  ; second element: answer
+	   (do-person-location-pm 'person) 
+	   (do-person-location-pm 'location)))
+  (list *correlation-pm* *meandev-pm*))
+
+(defun output-person-location-pm (data)
+  (let ((rts (mapcar 'first data)))
+    (setq *correlation-pm* (correlation rts *person-location-data*))
+    (setq *meandev-pm* (mean-deviation rts *person-location-data*))
+    (format t "~%TARGETS:~%                         Person fan~%")
+    (format t  "  Location      1             2             3~%")
+    (format t "    fan")
+    
+    (dotimes (i 3)
+      (format t "~%     ~d    " (1+ i))
+      (dotimes (j 3)
+        (format t "~{~8,3F (~3s)~}" (nth (+ j (* i 3)) data))))
+    
+    (format t "~%~%FOILS:")
+    (dotimes (i 3)
+      (format t "~%     ~d    " (1+ i))
+      (dotimes (j 3)
+        (format t "~{~8,3F (~3s)~}" (nth (+ j (* (+ i 3) 3)) data))))))
+
 ;;;; defining productions
-(defproc test-sentence-model (person location target term)
+(defproc test-sentence-model-pm (person location target term)
   (let* (;(*debug* *all*)
 	 (cfd (debug-detail
 	       (retrieve-chunk
@@ -101,58 +167,3 @@
 	(if target t nil) ; YES
 	;; answer "d" (no)
 	(if target nil t))))
-
-(list (test-sentence-model 'earl 'castle t 'person)
-      (test-sentence-model 'earl 'castle t 'location)
-      (test-sentence-model 'captain 'bank nil 'person)
-      (test-sentence-model 'captain 'bank nil 'person))
-
-
-(defun run-model (person location target term)
-  (init-model)
-  (let ((start-time (actup-time)))
-    (reverse (list (test-sentence-model person location target term)
-		   (- (actup-time) start-time)))))
-
-
-(defun do-person-location (term) 
-  (let ((test-set '(('lawyer 'store t)('captain 'cave t)('hippie 'church t)
-                      ('debutante 'bank t)('earl 'castle t)('hippie 'bank t)
-                      ('fireman 'park t)('captain 'park t)('hippie 'park t)
-                      ('fireman 'store nil)('captain 'store nil)('giant 'store nil)
-                      ('fireman 'bank nil)('captain 'bank nil)('giant 'bank nil)
-                      ('lawyer 'park nil)('earl 'park nil)('giant 'park nil)))
-        (results nil))
-
-    (dolist (sentence test-set)
-      (push (list sentence 
-			(apply #'run-model (append sentence (list term))))
-            results))
-    (mapcar #'second (sort results #'< :key #'(lambda (x) (position (car x) test-set))))))
-
-(defun average-person-location ()
-  (output-person-location 
-   (mapcar #'(lambda (x y) 
-	       (list (/ (+ (car x) (car y)) 2.0)  ; first element of list: time
-		     (and (cadr x) (cadr y))))  ; second element: answer
-	   (do-person-location 'person) 
-	   (do-person-location 'location))))
-
-(defun output-person-location (data)
-  (let ((rts (mapcar 'first data)))
-    (correlation rts *person-location-data*)
-    (mean-deviation rts *person-location-data*)
-    (format t "~%TARGETS:~%                         Person fan~%")
-    (format t  "  Location      1             2             3~%")
-    (format t "    fan")
-    
-    (dotimes (i 3)
-      (format t "~%     ~d    " (1+ i))
-      (dotimes (j 3)
-        (format t "~{~8,3F (~3s)~}" (nth (+ j (* i 3)) data))))
-    
-    (format t "~%~%FOILS:")
-    (dotimes (i 3)
-      (format t "~%     ~d    " (1+ i))
-      (dotimes (j 3)
-        (format t "~{~8,3F (~3s)~}" (nth (+ j (* (+ i 3) 3)) data))))))

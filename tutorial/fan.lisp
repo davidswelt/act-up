@@ -3,16 +3,12 @@
 ;;; Author: David Reitter
 ;;; Acknowledgements: Dan Bothell
 
-; to run: (average-person-location)
+;;; To run: (unit-test)
 
-;; (load "act-up.lisp")
 
 (require "act-up" "../act-up.lisp")
 (use-package :act-up)
-(load "../actr-stats.lisp")
-
-
-;;(sgp :v t :act nil :esc t :lf .63 :mas 1.6 :ga 1.0 :imaginal-activation 1.0) 
+(load "../actr-stats.lisp") 
 
 (setq *ans* nil
       *lf* .63
@@ -29,7 +25,9 @@
 (defvar *response*)
 (defvar *response-time* nil)
 
-(defparameter  *model-time-parameter* 0.34) 
+(defparameter *model-time-parameter* 0.34) 
+(defparameter *correlation-fan* nil)
+(defparameter *meandev-fan* nil)
 
 ;;;; Defining chunk types
 (define-chunk-type comprehendfact relation arg1 arg2)
@@ -57,28 +55,8 @@
 
 ;;;; Defining Procedural Rules
 
-(defproc test-sentence-model (person location target term)
-  (let* ((cfd ; (debug-detail
-	       (retrieve-chunk
-		;; hard constraints:
-		(append (list :chunk-type 'comprehendfact)
-			(if (eq term 'person)
-			    (list :arg1 person)
-			  (list :arg2 location)))
-		;; cues:
-		(list person location)
-	       )))
-    (if (not cfd)
-	(print "could not retrieve comprehendfact!"))
-    (pass-time *model-time-parameter*)
-    ;(format t "~s ~s ~s ~s ~%" person location target term)
-    
-    (when cfd
-	(if (equal person (comprehendfact-arg1 cfd))
-	    (if (equal location (comprehendfact-arg2 cfd)) 
-		(progn  '(K)) 
-	      (progn '(D)))
-	    (progn  '(D))))))
+(defun unit-test()
+  (average-person-location))
 
 (defun run-model (person location target term)
   (init-model)
@@ -108,12 +86,13 @@
 	       (list (/ (+ (car x) (car y)) 2.0) 
 		     (and (cadr x) (cadr y))))
 	   (do-person-location 'person) 
-	   (do-person-location 'location))))
+	   (do-person-location 'location)))
+  (list *correlation-fan* *meandev-fan*))
 
 (defun output-person-location (data)
   (let ((rts (mapcar 'first data)))
-    (correlation rts *person-location-data*)
-    (mean-deviation rts *person-location-data*)
+    (setq *correlation-fan* (correlation rts *person-location-data*))
+    (setq *meandev-fan* (mean-deviation rts *person-location-data*))
     (format t "~%TARGETS:~%                         Person fan~%")
     (format t  "  Location      1             2             3~%")
     (format t "    fan")
@@ -143,3 +122,25 @@
 	 (correlation rts *person-location-data*)
 	 (mean-deviation rts *person-location-data*))))
        
+(defproc test-sentence-model (person location target term)
+  (let* ((cfd ; (debug-detail
+	       (retrieve-chunk
+		;; hard constraints:
+		(append (list :chunk-type 'comprehendfact)
+			(if (eq term 'person)
+			    (list :arg1 person)
+			  (list :arg2 location)))
+		;; cues:
+		(list person location)
+	       )))
+    (if (not cfd)
+	(print "could not retrieve comprehendfact!"))
+    (pass-time *model-time-parameter*)
+    ;(format t "~s ~s ~s ~s ~%" person location target term)
+    
+    (when cfd
+	(if (equal person (comprehendfact-arg1 cfd))
+	    (if (equal location (comprehendfact-arg2 cfd)) 
+		(progn  '(K)) 
+	      (progn '(D)))
+	    (progn  '(D))))))
