@@ -9,7 +9,7 @@
 
 ;; run like this:
 
-; (run-subjects 1000)
+; (unit-test)
 
 ;; parameter fitting (demo)
 
@@ -36,7 +36,9 @@
                          (0    0  .07 .09 .25 .45 .08 .01 .01 .06)
                          (.04  0   0  .05 .21 .09 .48  0  .02 .11))
  "The experimental data to be fit")
-
+(defparameter *correlation-siegler* nil)
+(defparameter *meandev-siegler* nil)
+(defvar *responses* nil)
 
 ;;;; chunk-types
 (define-chunk-type plus-fact addend1 addend2 sum)
@@ -65,16 +67,10 @@
   
 
 ;;;; defining productions
-(defproc test-fact (arg1 arg2)
-  ;; encoding /aural is deterministic in ACT-R
-  (pass-time 1.0)
-  (let ((cfd  (retrieve-chunk (list :chunk-type 'plus-fact)
-			      nil
-			      (list
-			       :addend1 arg1 :addend2 arg2))))
-    (pass-time 0.4)
-    (if cfd (plus-fact-sum cfd))))
-  
+
+(defun unit-test()
+  (run-subjects 1000))
+
 (defun test-one-fact (arg1 arg2)
   "Run the model once."
   (init-model)
@@ -90,13 +86,14 @@
         (test-one-fact 'two 'three)
         (test-one-fact 'three 'three)))
 
-(defvar *responses* nil)
+
 (defun run-subjects (n)
   (let ((responses nil))
     (dotimes (i n)
       (push (do-one-set) responses))
     (setq *responses* responses)
-    (analyze responses)))
+    (analyze responses))
+  (list *correlation-paired* *meandev-paired*))
 
 (defun aggregate-responses (responses)
   (mapcar (lambda (x) 
@@ -111,14 +108,15 @@
                 (push (length z) res)
                 (reverse res)))
             responses)))
+
 (defun analyze (responses)
   (display-results 
    (aggregate-responses responses)))
 
 (defun display-results (results)
   (let ((questions '("1+1" "1+2" "1+3" "2+2" "2+3" "3+3")))
-    (correlation results *siegler-data*)
-    (mean-deviation results *siegler-data*)
+    (setq *correlation-siegler* (correlation results *siegler-data*))
+    (setq *meandev-siegler* (mean-deviation results *siegler-data*))
     (format t "       0     1     2     3     4     5     6     7     8   Other~%")
     (dotimes (i 6)
       (format t "~a~{~6,2f~}~%" (nth i questions) (nth i results)))))
@@ -145,3 +143,14 @@
  ;; d = read.table("/Users/dr/ACT-UP/siegler-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
 ;; ds = read.table("/Users/dr/ACT-UP/siegler-actr-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
 ;;  plot(density(d$c12,na.rm=T,n=18,from=0, to=8, kernel="g",adjust=10))
+
+(defproc test-fact (arg1 arg2)
+  ;; encoding /aural is deterministic in ACT-R
+  (pass-time 1.0)
+  (let ((cfd  (retrieve-chunk (list :chunk-type 'plus-fact)
+			      nil
+			      (list
+			       :addend1 arg1 :addend2 arg2))))
+    (pass-time 0.4)
+    (if cfd (plus-fact-sum cfd))))
+  
