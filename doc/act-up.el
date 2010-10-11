@@ -8,12 +8,14 @@
 
 ;; To install, put it where Emacs can find it.
 ;; Typical install locations include ~/Library/Preferences/Aquamacs Emacs/
-;; and  /usr/local/share/emacs/site-lisp
+;; and /usr/local/share/emacs/site-lisp
 
 ;; Then, add this to your .emacs (or Preferences.el in Aquamacs):
 ;; (require 'act-up)
 
-
+;; You can also directly specify a path to this file, e.g.:
+;; (require 'act-up "/Users/dr/modeling/ACT-UP/doc/act-up.el")
+ 
 
 ;; CODE
 

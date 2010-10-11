@@ -14,10 +14,18 @@
 
 (defpackage :lispdoc
   (:use :common-lisp)
-  (:export #:lispdoc #:render-html #:lispdoc-html)
+  (:export #:lispdoc #:render-html #:lispdoc-html #:print-syms)
   (:documentation "Automatically generate documentation for properly documented symbols exported from packages"))
 
 (in-package :lispdoc)
+
+
+;; needed for "make symbols"
+(defun print-syms ()
+  (in-package :act-up)
+  (let ((lst))
+    (do-external-symbols (x :act-up) (push x lst))
+    (print `(defvar actup-syms ',lst))))
 
 (defun lispdoc (&rest packages)
   "Generate a lispdoc sexp documenting the exported symbols of each package"
