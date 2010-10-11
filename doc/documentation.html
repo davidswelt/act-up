@@ -13,8 +13,9 @@
         font-family: Monaco, sans-serif;
         font-size: 10pt;
         color: #000000;
-        color: #000000;
-        background-color: #ffffff;
+        background-color: #eeeeee;
+        padding: 5px;
+        padding-left: 20px;
       }
       .slime-repl-input {
         /* slime-repl-input-face */
@@ -97,12 +98,9 @@ How do I...</A>
 <H4><A NAME="SECTION00020010">
 ... load the library?</A>
 </H4>
-
-<P>
-<PRE>
-(require "act-up" "act-up.lisp")
-(use-package :act-up)
-</PRE>
+<P class="code"> 
+(<span class="keyword">require</span> <span class="string">"act-up"</span> <span class="string">"act-up.lisp"</span>)<br>
+(use-package <span class="builtin">:act-up</span>)</P>
 
 <P>
 
@@ -116,24 +114,19 @@ Unlike ACT-R, ACT-UP is not normally strongly typed.
 All slot names are declared initially, but ACT-UP does not distinguish chunk types within a type hierarchy.
 Chunk types are lisp structure types that inherit from the type <a href="ACT-UP.html#actup-chunk">actup-chunk</a>.  This type exists once the `define-slots' macro is called:
 
-<PRE>
-(define-slots name dampen success)
-</PRE>
+<P class="code"> (<span class="keyword">define-slots</span> name dampen success)<br></p>
 
-<small>
+
 If you do want to define a type hierarchy, ACT-UP provides the necessary macros.
 For example, the following structure defines a chunk type of name <a href="ACT-UP.html#strategy">strategy</a> with four slots.
 One of these slots is assigned a default value (<a href="ACT-UP.html#strategy">strategy</a>).
 
-<P>
-<PRE>
-(define-chunk-type strategy
-  (type 'a-strategy)
-  name
-  dampen
-  success
-)
-</PRE>
+<P class="code">
+(<span class="keyword">define-chunk-type</span> strategy<br>
+&nbsp;&nbsp;(type 'a-strategy)<br>
+&nbsp;&nbsp;name<br>
+&nbsp;&nbsp;dampen<br>
+&nbsp;&nbsp;success)</p>
 
 <P>
 Note that the <a href="ACT-UP.html#type">type</a> member is not required by ACT-UP.
@@ -141,13 +134,8 @@ Note that the <a href="ACT-UP.html#type">type</a> member is not required by ACT-
 <P>
 To define an inherited type, use this construction:
 
-<P>
-<PRE>
-(define-chunk-type (lazy-strategy :include strategy)
-...
-</PRE>
+<P class="code"> (<span class="keyword">define-chunk-type</span> (lazy-strategy <span class="builtin">:include</span> strategy)<br></p>
 
-</small>
 <P>
 
 <H4><A NAME="SECTION00020030">
@@ -175,12 +163,9 @@ control is achieved through standard Lisp programming.
 
 Define procedures using <a href="ACT-UP.html#defproc">defproc</a>, similar to the way you would define a Lisp function with the `defun' macro:
 
-<P>
-<PRE>
-(defproc subtract-digit (minuend subtrahend)
-   "Perform subtraction of a single digit"
-   (- minuend subtrahend))
-</PRE>
+<P class="code"> (<span class="keyword">defproc</span> subtract-digit (minuend subtrahend)<br>
+&nbsp;&nbsp; <span class="string">"Perform subtraction of a single digit"</span><br>
+&nbsp;&nbsp; (- minuend subtrahend))</p>
 
 <H4><A NAME="SECTION00020030">
 ...define a chunk?</A>
@@ -196,10 +181,10 @@ specific type.
 When a chunk is created, a unique name should be assigned.  Otherwise,
 this name is assigned automatically when the chunk is added to the DM.
 
-<P><PRE>
-(make-chunk :name 'andrew :age 42 :spouse 'louise)
-(make-chunk :name 'louise :age 35 :spouse 'andrew)
-</PRE>
+<P class="code"> (<span class="keyword">make-chunk</span> <span class="builtin">:name</span> 'andrew <span class="builtin">:age</span> 42 <span class="builtin">:spouse</span> 'louise)<br>
+(<span class="keyword">make-chunk</span> <span class="builtin">:name</span> 'louise <span class="builtin">:age</span> 35 <span class="builtin">:spouse</span> 'andrew)<br></p>
+<br>
+
 <P>
 When assigning values to the attributes defining a chunk, symbols are
 interpreted as names of other chunks in DM.  This is often more
@@ -223,18 +208,14 @@ To specify the "presentation" of a specific chunk, use the function <a href="ACT
 The chunk reference may be supplied in a normal variable (equivalent to ACT-R's buffer),
 or the chunk may be produced right there and then using the <a href="ACT-UP.html#make-type">make-chunk</a> function, as in the following example:
 
-<P>
-<PRE>
-(learn-chunk  (make-chunk :name 'guess :success 0.2))
-</PRE>
+<P class="code"> (<span class="keyword">learn-chunk</span>&nbsp;&nbsp;(<span class="keyword">make-chunk</span> <span class="builtin">:name</span> 'guess <span class="builtin">:success</span> 0.2))<br></p>
+
 This will create a new strategy chunk, setting two of its parameters,
 and commit it to memory.
 
 To reinforce the existing chunk, use the chunk's name:
 
-<PRE>
-(learn-chunk 'guess)
-</PRE>
+<P class="code">(<span class="keyword">learn-chunk</span> 'guess)</p>
 
 Note that making a new chunk and calling `learn-chunk' will always
 create a separate chunk.  It will not merge the new chunk with any
@@ -243,10 +224,10 @@ must use the unique chunk name, or retrieve the chunk before
 comitting it, or use the `make-chunk*' syntax to extract a chunk from
 declarative memory for learning.  For example:
 
-<PRE>
-(learn-chunk (make-chunk :success 0.2))   [1]
-(learn-chunk (make-chunk* :success 0.2))  [2]
-</PRE>
+<P class="code">
+(<span class="keyword">learn-chunk</span> (<span class="keyword">make-chunk</span> <span class="builtin">:success</span> 0.2))&nbsp;&nbsp; [1]<br>
+(<span class="keyword">learn-chunk</span> (<span class="keyword">make-chunk*</span> <span class="builtin">:success</span> 0.2))&nbsp;&nbsp;[2]<br>
+</p>
 
 Case 1 would make a new chunk with the given success value, give it a
 unique name, and add it to declarative memory.  Case 2, on the other
@@ -261,12 +242,12 @@ boost its presentation count via base-level learning.
 <P>
 Simply use the high-level functions <a href="ACT-UP.html#retrieve-chunk">retrieve-chunk</a>, or <a href="ACT-UP.html#blend-retrieve-chunk">blend-retrieve-chunk</a> (for blending).  The following example retrieves the most active chunk that has the name <a href="ACT-UP.html#guess">guess</a> .  The chunk contained in the variable <i>valve-open-chunk</i> spreads activation.  No partial matching is used:
 
-<P>
-<PRE>
-(retrieve-chunk '(:name guess))
-	    (list valve-open-chunk) 
-	    nil)
-</PRE>
+
+<P class="code">
+(<span class="keyword">retrieve-chunk</span> '(<span class="builtin">:name</span> guess))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(list valve-open-chunk) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nil)<br>
+</p>
 
 <P>
 Several low-level functions are provided as well.  <a href="ACT-UP.html#filter-chunks">filter-chunks</a> produces a list of all chunks that match a given set of
@@ -275,14 +256,12 @@ criteria.  In the example below, we are looking for a chunk with the <i>name</i>
 <P>
 The <a href="ACT-UP.html#best-chunk">best-chunk</a> function does the actual (time-consuming and noisy) retrieval: it selects the best chunk out of the (filtered) list of chunks, given additional retrieval cues that spread activation and, if so desired, a set of filter specifications for partial matching.  In this example, we use an existing chunk stored in the <i>valve-open-chunk</i> variable as a single retrieval cue, and no partial matching:
 
-<P>
-<PRE>
-(best-chunk (filter-chunks 
-                 (model-chunks (current-actUP-model))
-		 '(:name guess))
-	    (list valve-open-chunk) 
-	    nil)
-</PRE>
+<P class="code">
+(<span class="keyword">best-chunk</span> (<span class="keyword">filter-chunks</span> <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">model-chunks</span> (current-actUP-model))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; '(<span class="builtin">:name</span> guess))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(list valve-open-chunk) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nil)<br></p>
 
 <P>
 
@@ -315,15 +294,12 @@ Use the <a href="ACT-UP.html#add-sji-fct">add-sji-fct</a> and reset-sji-fct' fun
 <P>
 Define competing procedures as above and give each a <TT>:group</TT> attribute in order to group them into a competition set:
 
-<P>
-<PRE>
-(defproc  force-over ()
-  :group choose-strategy
-  ...)
-(defproc force-under ()
-  :group choose-strategy
-  ...)
-</PRE>
+<p class="code">(<span class="keyword">defproc</span>&nbsp;&nbsp;force-over ()<br>
+&nbsp;&nbsp;<span class="builtin">:group</span> choose-strategy<br>
+&nbsp;&nbsp;...)<br>
+(<span class="keyword">defproc</span> force-under ()<br>
+&nbsp;&nbsp;<span class="builtin">:group</span> choose-strategy<br>
+&nbsp;&nbsp;...)</p>
 
 <P>
 Then, invoke one of the procedures (as chosen by utility) as such:
@@ -359,41 +335,38 @@ to some form of success.  To define competing procedures, they must be
 grouped together in a <em>Group</em>.  A group is a set of procedures, such
 as the following:
 
-<P>
-<PRE>
-(defproc subtract-digit-by-addition (minuend subtrahend)
-   :group subtract
-   "Perform subtraction of a single digit via addition."
-   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
-                                  :result ,minuend
-                                  :add1 ,subtrahend))))
-       (when chunk
-          (learn-chunk chunk)
-          (addition-fact-add2 chunk))))
-(defproc subtract-digit-by-subtraction (minuend subtrahend)
-   :group subtract
-   "Perform subtraction of a single digit via subtraction knowledge."
-   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
-                                  :min ,minuend
-                                  :sub subtrahend))))
-       (print "addition by subtraction.")
-       (when chunk
-          (learn-chunk chunk)
-          (subtraction-fact-result chunk))))
-(defproc subtract-digit-by-addition-faulty (minuend subtrahend)
-   :group subtract
-   "Perform subtraction of a single digit via addition.  Faulty strategy."
-   (let ((chunk (retrieve-chunk `(:chunk-type addition-fact
-                                  :add2 ,minuend
-                                  :result ,subtrahend))))
-       (when chunk
-          (learn-chunk chunk)
-          (addition-fact-add2 chunk))))
-(defproc subtract-digit-by-decrement (minuend subtrahend)
-   :group subtract
-   "Perform subtraction of a single digit via subtraction knowledge."
-   ...)
-</PRE>
+<p class="code">(<span class="keyword">defproc</span> subtract-digit-by-addition (minuend subtrahend)<br>
+&nbsp;&nbsp; <span class="builtin">:group</span> subtract<br>
+&nbsp;&nbsp; <span class="string">"Perform subtraction of a single digit via addition."</span><br>
+&nbsp;&nbsp; (<span class="keyword">let</span> ((chunk (<span class="keyword">retrieve-chunk</span> `(:<span class="keyword">chunk-type</span> addition-fact<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:result</span> ,minuend<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:add1</span> ,subtrahend))))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">when</span> chunk<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keyword">learn-chunk</span> chunk)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(addition-fact-add2 chunk))))<br>
+(<span class="keyword">defproc</span> subtract-digit-by-subtraction (minuend subtrahend)<br>
+&nbsp;&nbsp; <span class="builtin">:group</span> subtract<br>
+&nbsp;&nbsp; <span class="string">"Perform subtraction of a single digit via subtraction knowledge."</span><br>
+&nbsp;&nbsp; (<span class="keyword">let</span> ((chunk (<span class="keyword">retrieve-chunk</span> `(:<span class="keyword">chunk-type</span> addition-fact<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:min</span> ,minuend<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:sub</span> subtrahend))))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (print <span class="string">"addition by subtraction."</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">when</span> chunk<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keyword">learn-chunk</span> chunk)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(subtraction-fact-result chunk))))<br>
+(<span class="keyword">defproc</span> subtract-digit-by-addition-faulty (minuend subtrahend)<br>
+&nbsp;&nbsp; <span class="builtin">:group</span> subtract<br>
+&nbsp;&nbsp; <span class="string">"Perform subtraction of a single digit via addition.&nbsp;&nbsp;Faulty strategy."</span><br>
+&nbsp;&nbsp; (<span class="keyword">let</span> ((chunk (<span class="keyword">retrieve-chunk</span> `(:<span class="keyword">chunk-type</span> addition-fact<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:add2</span> ,minuend<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="builtin">:result</span> ,subtrahend))))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">when</span> chunk<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="keyword">learn-chunk</span> chunk)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(addition-fact-add2 chunk))))<br>
+(<span class="keyword">defproc</span> subtract-digit-by-decrement (minuend subtrahend)<br>
+&nbsp;&nbsp; <span class="builtin">:group</span> subtract<br>
+&nbsp;&nbsp; <span class="string">"Perform subtraction of a single digit via subtraction knowledge."</span><br>
+&nbsp;&nbsp; ...)</p>
 
 Note that each procedure in the group takes the same, two arguments
 (minuend, subtrahend).  In order to execute a subtraction, we simply
@@ -406,21 +379,18 @@ group.  In order to gauge the utility of each group, we must propagate
 rewards to the procedures.  This can be done with the `assign-reward'
 function:
 
-<pre>
-;; model entry point:
-(defproc subtraction-model (a b)
-  (let ((result (subtract a b)))
-     ;; obtain feedback from experimental environment:
-     (if (get-feedback a b result)
-         (assign-reward 2.0))))
-
-;; environment:
-(defun get-feedback (a b result)
-  "Environment function (experimental setup) - not part of the model.
-Return T if problem solved correctly."
-  (if result  ;; note result may be nil
-      (= result (- a b))))
-</pre>
+<p class="code">(<span class="keyword">defproc</span> subtraction-model (a b)<br>
+&nbsp;&nbsp;(<span class="keyword">let</span> ((result (subtract a b)))<br>
+&nbsp;&nbsp;&nbsp;&nbsp; <span class="comment-delimiter">;; </span><span class="comment">obtain feedback from experimental environment:<br>
+</span>&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">if</span> (get-feedback a b result)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (<span class="keyword">assign-reward</span> 2.0))))<br>
+<br>
+<span class="comment-delimiter">;; </span><span class="comment">environment:<br>
+</span>(<span class="keyword">defun</span> <span class="function-name">get-feedback</span> (a b result)<br>
+&nbsp;&nbsp;<span class="doc">"Environment function (experimental setup) - not part of the model.<br>
+Return T if problem solved correctly."</span><br>
+&nbsp;&nbsp;(<span class="keyword">if</span> result&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">note result may be nil<br>
+</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(= result (- a b))))</p>
 
 After a short period of time, this model should learn to choose an effective, reliable strategy to
 carry out a subtraction.
@@ -455,8 +425,8 @@ eventually, have a higher utility than the source procedure, and it will be
 executed instead.  In the subtraction example from above, the
 following gives a sample of the acquired compiled procedures:
 <pre>
-(subtract-digit-by-subtraction 8 3) --&gt;5
-(subtract-digit-by-addition 6 2) --&gt;4
+(subtract-digit-by-subtraction 8 3) --&gt; 5
+(subtract-digit-by-addition 6 2) --&gt; 4
 (subtract-digit-by-addition-faulty 7 3) --&gt; nil
 (subtraction-model 3 1) --&gt; 2
 </pre>
@@ -499,14 +469,12 @@ This function kicks off task execution in
 parallel; it returns without delay (in ACT-UP time).  Once the result
 of the operation is needed, it may be retrieved using the
 `receive' function and the previously obtained <em>handle</em>.
-<P>
-
-<br>
-(let ((handle (request-retrieve-chunk '(:chunk-type ...))))
-  ;; do something else
-  ...
-  (receive handle))
-<br>
+<div class="code">
+(<span class="keyword">let</span> ((handle (<span class="keyword">request-retrieve-chunk</span> '(:chunk-type ...)))) <br>
+  <span class="comment-delimiter">;; </span> <span class="comment"> do something else </span><br>
+  ... <br>
+  (<span class="keyword">receive</span> handle))
+</div>
 
 Different threads of execution may share resources.  We follow
 Anderson et al. (2004) in that each module can only handle one request
@@ -523,7 +491,7 @@ use the `response-available-p' function.
 The following example shows how a retrieval request is initiated and
 finished.  Upon initiating the request, ACT-UP does not "wait" for the
 retrieval to finish.
-<p>
+
 <div class="code">
 (<span class="keyword">print</span> (actup-time))<br>
 (<span class="keyword">let</span> ((retrieval-process (request-retrieve-chunk '(<span class="builtin">:chunk-type</span> person))))<br>
@@ -534,9 +502,8 @@ retrieval to finish.
 </span>&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">(wait-for-response retrieval-process)&nbsp;&nbsp; ;; wait for result - not needed<br>
 </span>&nbsp;&nbsp;<span class="comment-delimiter">;; </span><span class="comment">(<span class="keyword">print</span> (response-available-p retrieval-process))<br>
 </span>&nbsp;&nbsp;(<span class="keyword">print</span> (actup-time)) <span class="comment-delimiter">;; </span><span class="comment">this takes some time!<br>
-</span>&nbsp;&nbsp;(<span class="keyword">print</span> (receive retrieval-process))) <span class="comment-delimiter">;; </span><span class="comment">waits and receives<br>
-</span></p>
-</div>
+</span>&nbsp;&nbsp;(<span class="keyword">print</span> (receive retrieval-process))) <span class="comment-delimiter">;; </span><span class="comment">waits and receives
+</span></div>
 
 <h5>More related functions</h5>
 <P>
