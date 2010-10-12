@@ -161,45 +161,6 @@ when conditions CONDITION-LIST were present.
 Aggregation will occur over all VALUEs in this combination of conditions."
 
   (if (assoc condition-list *aggregate-sum*  :test 'equal)
-<<<<<<< HEAD:ACT-UP/actr-aux.lisp
-      (progn
-	(setf (cdr (assoc condition-list *aggregate-sum*  :test 'equal))
-	      (vector-add value (cdr (assoc condition-list *aggregate-sum* :test 'equal))))
-	(incf (cdr (assoc condition-list *aggregate-num*  :test 'equal))))
-      (progn
-	(push (cons condition-list value)
-	      *aggregate-sum*)
-	(push (cons condition-list 1)
-	      *aggregate-num*)))
-nil)
-(defun vector-add (v1 v2)
-  (if (and (numberp v1) (numberp v2))
-      (+ v1 v2)
-      (loop for i1 in v1 for i2 in v2 collect (+ i1 i2))))
-  
-
-;; (defvar tree nil)
-;; (defun get-tree (tree path)
-;;   (declare (special tree))
-;;   (if path
-;;       (let ((a (assoc (car path) tree)))
-;; 	(if a
-;; 	    (get-tree (cdr a) (cdr path))
-;; 	    (let ((new-tree '(nil)))
-;; 	      (format t "before ~a " new-tree)
-;; 	      (get-tree new-tree (cdr path))
-
-;; 	      (format t "after ~a " new-tree)
-;; 	      (push (cons (car path) new-tree) tree)
-;; 	      (print tree)
-;; 	      nil)))
-;;       tree))
-
-;; (setq uu '((q . ((u . ((k . 11)))))))
-;; (get-tree uu '(q u k))
-;; (setq xx '(a b c))
-;; (get-tree uu xx)
-=======
       (setf (cdr (assoc condition-list *aggregate-sum*  :test 'equal))
 	    (cons value (cdr (assoc condition-list *aggregate-sum* :test 'equal))))
       (push (cons condition-list (list value))
@@ -247,7 +208,6 @@ nil)
     
     (vec-op 'sqrt (vec-op '/ sum (length values)))))
  
->>>>>>> 470979a... Reorganized file structure.  Provide "load-act-up.lisp" file.:ACT-UP/util/act-up-experiments.lisp
 
 
 (defun print-aggregates (&optional file)
