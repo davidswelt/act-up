@@ -49,7 +49,7 @@ See also: ACT-R parameter :bll</blockquote>
 The meta process keeps track of simulation time.
 May be read and manipulated by setting it to a different
 instance of type <a href="#meta-process">meta-process</a>.</blockquote>
-<blockquote>Initial value: <tt>#S(ACT-UP:META-PROCESS :ACTUP-TIME 0.0 :NAME NIL)</tt></blockquote>
+<blockquote>Initial value: <tt>#S(META-PROCESS :ACTUP-TIME 0.0 :NAME NIL)</tt></blockquote>
 <a name="*dat*" /><p><b>*dat*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]</blockquote>
@@ -345,7 +345,10 @@ If not given, the initial utility will be the value of <a href="#*iu*">*iu*</a> 
 
 Procedure utilities, wether initial or acquired through rewards are always specific to the model.
 
-Procedures and groupings of procedures are not specific to the model.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Procedures and groupings of procedures are not specific to the model.</blockquote><a name="defrule" /><p>(<b>defrule</b> args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Alias for <a href="#defproc">defproc</a>.
+This is provided for compatibility with some early published examples
+of ACT-UP code.  Please use <a href="#defproc">defproc</a> instead.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -411,59 +414,19 @@ If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</
 A meta process keeps track of time for one or more models.</blockquote><a name="meta-process-name" /><p><b>META-PROCESS-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
 <a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="model-name" /><p><b>MODEL-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="module-busy-p" /><p>(<b>module-busy-p</b> symbol)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Determine whether module belonging to object SYMBOL is busy.
-SYMBOL may be the name of an ACT-UP module, 
-it may be an ACT-UP function belonging to a module,
-or it may be a result variable assigned with <a href="#request-bind">request-bind</a>.</blockquote><a name="non-nil" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<a name="non-nil" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> stream obj)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Print a human-readable representation of chunk OBJ to STREAM.
-Set stream to t to output to standard output.</blockquote><a name="receive" /><p>(<b>receive</b> handle)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Receive result from request HANDLE.
-Waits until the result is available.
-HANDLE is the handle obtained when the
-request was sent via a function such as
-<a href="#request-retrieve-chunk">request-retrieve-chunk</a>.</blockquote><a name="request" /><p>(<b>request</b> module-name command args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Runs ACT-UP expression (COMMAND . ARGS) asynchronuously.</blockquote><a name="request-best-chunk" /><p>(<b>request-best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Call <a href="#BEST-CHUNK">BEST-CHUNK</a> asynchronuously.
-Initiates execution of the BEST-CHUNK function.
-
-If the DECLARATIVE module is busy at the current time,
-wait until module is free.  The module will be busy and unavailable
-for other processing until the current operation has finished.
-
-See also <a href="#receive">receive</a>.</blockquote><a name="request-filter-chunks" /><p>(<b>request-filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Call <a href="#FILTER-CHUNKS">FILTER-CHUNKS</a> asynchronuously.
-Initiates execution of the FILTER-CHUNKS function.
-
-If the DECLARATIVE module is busy at the current time,
-wait until module is free.  The module will be busy and unavailable
-for other processing until the current operation has finished.
-
-See also <a href="#receive">receive</a>.</blockquote><a name="request-retrieve-chunk" /><p>(<b>request-retrieve-chunk</b> spec &optional cues pm-soft-spec timeout)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Call <a href="#RETRIEVE-CHUNK">RETRIEVE-CHUNK</a> asynchronuously.
-Initiates execution of the RETRIEVE-CHUNK function.
-
-If the DECLARATIVE module is busy at the current time,
-wait until module is free.  The module will be busy and unavailable
-for other processing until the current operation has finished.
-
-See also <a href="#receive">receive</a>.</blockquote><a name="reset-model" /><p>(<b>reset-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Set stream to t to output to standard output.</blockquote><a name="reset-model" /><p>(<b>reset-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets the current ACT-UP model. 
 All declarative memory and all subsymbolic knowledge is deleted.
 Global parameters (dynamic, global Lisp variables) are retained, as are
-functions and model-independent procedures.</blockquote><a name="reset-module" /><p>(<b>reset-module</b> module-name)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Reset module MODULE-NAME.
-MODULE-NAME is typically one of <a href="#procedural">procedural</a>, <a href="#declarative">declarative</a>.
-Ongoing operations are terminated; their results will 
-not become available to the requesters.</blockquote><a name="reset-mp" /><p>(<b>reset-mp</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+functions and model-independent procedures.</blockquote><a name="reset-mp" /><p>(<b>reset-mp</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets the current Meta process. 
 Resets the time in the meta process.</blockquote><a name="reset-sji-fct" /><p>(<b>reset-sji-fct</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="response-available-p" /><p>(<b>response-available-p</b> handle)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Returns non-nil if the request associated with HANDLE has terminated.
-See <a href="#request">request</a> functions.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec timeout)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec timeout)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -517,8 +480,7 @@ For example:
 See the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><a name="show-utilities" /><p>(<b>show-utilities</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Prints a list of all utilities in the current model.</blockquote><a name="stop-actup-time" /><p>(<b>stop-actup-time</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns execution time of BODY in current ACT-UP model.
-Evaluates BODY.  See also <a href="#actup-time">actup-time</a>.</blockquote><a name="terminate-request" /><p><b>TERMINATE-REQUEST</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="wait-for-model" /><p>(<b>wait-for-model</b> &optional model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Evaluates BODY.  See also <a href="#actup-time">actup-time</a>.</blockquote><a name="wait-for-model" /><p>(<b>wait-for-model</b> &optional model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Waits until meta-process and MODEL are synchronized.
 When a model is assigned a new meta-process, it can happen that
 the meta-process time is behind the model's time (since the model
@@ -526,12 +488,5 @@ was operated with a different meta-process before).
 This function waits (see <a href="#pass-time">pass-time</a>) until the model is ready, that
 is, it sets the meta process time to the model time if the model time
 is more advanced, plus the current value of <a href="#*dat*">*dat*</a>.
-MODEL defaults to the current model.</blockquote><a name="wait-for-module" /><p>(<b>wait-for-module</b> module-name &optional timeout)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Waits until module associated with MODULE-SYM has finished its current operation.
-MODUL-SYM may be the name of an ACT-UP module, 
-it may be an ACT-UP function belonging to a module,
-or it may be a result variable assigned with <a href="#request-bind">request-bind</a>.
-
-If TIMEOUT is given, never waits longer than that.</blockquote><a name="wait-for-response" /><p><b>WAIT-FOR-RESPONSE</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="with-current-model" /><p>(<b>with-current-model</b> model &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+MODEL defaults to the current model.</blockquote><a name="with-current-model" /><p>(<b>with-current-model</b> model &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Execute forms in BODY with the ACT-UP model MODEL being current.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>

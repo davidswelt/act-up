@@ -335,7 +335,9 @@ for other processing until the current operation has finished.
 
 See also `receive'." fun-name fun-name module)
 	 (request ',module ',fun-name  ,(cons 'list (append arglist2 (if rest-variable-name (list rest-variable-name))))))
-       (export ',(list fun-name req-name)))))
+       (export ',(list fun-name 
+		       ;; req-name   ; not exported until parallelism is tested
+		       )))))
 
 
 ;; To do:
@@ -377,9 +379,10 @@ See also `receive'." fun-name fun-name module)
 ;;        (setf (module-result-closure m) nil)))
 
 
-(export '(request 
-	  receive terminate-request response-available-p wait-for-response 
-	  module-busy-p wait-for-module reset-module))
+ ; not exported until parallelism is tested
+;; (export '(request 
+;; 	  receive terminate-request response-available-p wait-for-response 
+;; 	  module-busy-p wait-for-module reset-module))
 
 
 ;; (print (actup-time))
