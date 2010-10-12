@@ -98,11 +98,29 @@ How do I...</A>
 <H4><A NAME="SECTION00020010">
 ... load the library?</A>
 </H4>
-<P class="code"> 
-(<span class="keyword">require</span> <span class="string">"act-up"</span> <span class="string">"act-up.lisp"</span>)<br>
-(use-package <span class="builtin">:act-up</span>)</P>
 
-<P>
+<p>
+Just load the file <tt>load-act-up.lisp</tt>:
+
+The easiest way is to store the ACT-UP directory somewhere on your
+hard drive and then hard-code the path:
+
+<P class="code"> 
+(load <span class="string">"/Users/me/modeling/ACT-UP/load-act-up.lisp"</span>)<br>
+</p>
+
+Windows users, beware: backslashes need to be doubled in Lisp strings;
+forward slashes should work fine.
+<p>
+A more sophisticated solution uses a path relative to the model file.
+Assuming our model file is <tt>ACT-UP/tutorials/model.lisp</tt>, do this:
+<P class="code"> 
+(load (concatenate 'string (directory-namestring *load-truename*) <span class="string">"../load-act-up.lisp"</span>))<br>
+</p>
+<p>
+Here, we adjust its path so
+that it is relative to the current file (rather than the directory that
+happens to be current when Lisp is started or when the model file is loaded).
 
 <H4><A NAME="SECTION00020020">
 ... define a chunk type?</A>
