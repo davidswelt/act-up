@@ -10,8 +10,8 @@
 
 
 ;; (if (boundp 'emacs-version)
-;;     (load (format "%semacs-lisp-compat.el"  (file-name-directory (or load-file-name default-directory))))
-;;     (load (format nil "~a/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
+;;     load (format "%s../util/emacs-lisp-compat.el"  (file-name-directory (or load-file-name default-directory))))
+;;     (load (format nil "~a/../util/emacs-lisp-compat.el" (directory-namestring *load-truename*))))
 
 
 
@@ -2285,7 +2285,7 @@ See also `flush-procedure-queue'."
 (defun flush-procedure-queue ()
   "Empties the queue of procedures in the current model.
 This resets the list of procedures to which rewards can be distributed (see
-`assign-reward' and `assign-reward*'."
+`assign-reward' and `assign-reward*')."
 
     (setf (procedural-memory-proc-queue (model-pm (current-model))) nil))
 
