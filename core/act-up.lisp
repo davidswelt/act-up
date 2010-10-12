@@ -43,9 +43,10 @@ Anderson 2007, etc.).
   (apply #'format t form args))
 
 
-(load (format-nil "~a/actr6-compatibility.lisp" (directory-namestring *load-truename*)))
-(load (format-nil "~a/actr-aux.lisp" (directory-namestring *load-truename*)))
-(load (format-nil "~a/act-up-util.lisp" (directory-namestring *load-truename*)))
+(COMMON-LISP-USER:actup-load "actr6-compatibility.lisp")
+(COMMON-LISP-USER:actup-load "actr-aux.lisp")
+(COMMON-LISP-USER:actup-load "act-up-util.lisp")
+
 
 (defstruct meta-process
   "An ACT-UP meta process.
@@ -454,7 +455,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 	  actUP-time stop-actup-time
 	  pass-time wait-for-model
 	  model-chunks 
-	  defproc assign-reward assign-reward* flush-procedure-queue
+	  defproc defrule assign-reward assign-reward* flush-procedure-queue
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
 	  make-chunk* ; for untyped chunks
@@ -1813,6 +1814,12 @@ Procedures and groupings of procedures are not specific to the model."
 		   ',name ',args)
 )))
 
+(defmacro defrule (args)
+  "Alias for `defproc'.
+This is provided for compatibility with some early published examples
+of ACT-UP code.  Please use `defproc' instead."
+  (cons 'defproc args))
+
 (defun actup-proc-start (name args)
   (declare (ignore args))
   ;;(format-t "start: ~s ~s" name args)
@@ -2131,9 +2138,9 @@ This resets the list of procedures to which rewards can be distributed (see
     screen-x
   screen-y)
 
-(load (format-nil "~a/au-visual.lisp" (directory-namestring *load-truename*)))
-(load (format-nil "~a/au-manual.lisp" (directory-namestring *load-truename*)))
+(COMMON-LISP-USER:actup-load "au-visual.lisp" "modules")
 
+(COMMON-LISP-USER:actup-load "au-manual.lisp" "modules")
 
 
 

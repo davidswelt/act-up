@@ -181,6 +181,11 @@ on one side of the mean."
 
 ;; aggregation
 
+(defun vector-add (v1 v2)
+  (if (and (numberp v1) (numberp v2))
+      (+ v1 v2)
+      (loop for i1 in v1 for i2 in v2 collect (+ i1 i2))))
+  
 
 (defparameter *aggregate-sum* nil)
 (defparameter *aggregate-num* nil)
@@ -212,11 +217,6 @@ Aggregation will occur over all VALUEs in this combination of conditions."
 	(push (cons condition-list 1)
 	      *aggregate-num*)))
 nil)
-(defun vector-add (v1 v2)
-  (if (and (numberp v1) (numberp v2))
-      (+ v1 v2)
-      (loop for i1 in v1 for i2 in v2 collect (+ i1 i2))))
-  
 
 ;; (defvar tree nil)
 ;; (defun get-tree (tree path)

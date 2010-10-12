@@ -5,9 +5,9 @@
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-(require "act-up" "../act-up.lisp")
-(use-package :act-up)
-(load "../actr-stats.lisp")
+;; we use a more complex notation to find the ACT-UP file
+;; relative to the location of the tutorial file.
+(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 
 ;; ACT-R Parameters
 (setq *egs* 0.7)
