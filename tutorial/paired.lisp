@@ -6,9 +6,10 @@
 ;;; Acknowledgements: Dan Bothell
 
 
-(load "../actr-stats")
-(require "act-up" "../act-up.lisp")
-(use-package :act-up)
+;; we use a more complex notation to find the ACT-UP file
+;; relative to the location of the tutorial file.
+(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+
 
 (setf *rt* -2)
 (setf *ans* 0.5)

@@ -1,6 +1,6 @@
-;;; Filename: count.lisp
+;;; Filename: add-by-counting.lisp
 
-;;; Author: Jasmeet Ajmani
+;;; Author: David Reitter
 
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
@@ -21,23 +21,39 @@
 (learn-chunk (make-count-order :name 'three-four :first 3 :second 4))
 (learn-chunk (make-count-order :name 'four-five :first 4 :second 5))
 (learn-chunk (make-count-order :name 'five-six :first 5 :second 6))
+(learn-chunk (make-count-order :name 'six-seven :first 6 :second 7))
+(learn-chunk (make-count-order :name 'seven-eight :first 7 :second 8))
+(learn-chunk (make-count-order :name 'eight-nine :first 8 :second 9))
+(learn-chunk (make-count-order :name 'nine-ten :first 9 :second 10))
 
 ;;;; Defining procedural rule
 
-(defproc count-model (arg1 arg2) 
+
+(defrule add-by-counting (start addend)
   "Count from ARG1 to ARG1.
 ARG1 is the starting point and ARG2 is the ending point.
 Each increment is 1 unit."
-  (speak arg1)
-  (if (not (eq arg1 arg2))
+  (let ((current start))
+    (unfold-fingers addend)
+    (loop while (finger-left) do
       (let ((p (retrieve-chunk (list :chunk-type 'count-order 
-				     :first arg1))))
-	(if p
-	    (count-model (count-order-second p) arg2)))
-      ;; else return end point
-      arg2))
+				     :first current))))
+	(when p
+	  (setq current (count-order-second p))
+	  (fold-one-finger))))
+    current))
 
-(defproc speak (number)
-  "Say number."
-  (print number)
-  (pass-time 0.3))
+
+(defvar *fingers*)
+(defrule unfold-fingers (n)
+  (setq *fingers* n))
+
+(defrule fold-one-finger ()
+  (decf *fingers*))
+
+(defrule finger-left ()
+  (> *fingers* 0))
+
+;; example:
+
+(stop-actup-time (add-by-counting 2 6))

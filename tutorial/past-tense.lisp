@@ -1,8 +1,8 @@
 (declaim (optimize (speed 0) (space 0) (debug 03)))
 
-(require "act-up" "../act-up.lisp")
-(use-package :act-up)
-(load "../actr-stats")
+;; we use a more complex notation to find the ACT-UP file
+;; relative to the location of the tutorial file.
+(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 
 ;; ACT-R parameters
 (setq *rule-compilation* t)
