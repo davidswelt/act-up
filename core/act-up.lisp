@@ -54,6 +54,15 @@ A meta process keeps track of time for one or more models."
   (actUP-time 0.0 :type number)
   name
 )
+
+
+(setf (documentation 'make-meta-process 'function) "Create a new ACT-UP meta-process.
+NAME, if given, specifies a name.
+The meta process keeps track of simulation time.
+See also `meta-process' and `*current-actUP-meta-process*'.")
+(setf (documentation 'meta-process-name 'function) "Return the name of an ACT-UP meta-process.
+See also `meta-process' and `*current-actUP-meta-process*'.")
+
 (defparameter *current-actUP-meta-process* (make-meta-process)
   "The current ACT-UP meta-process.
 The meta process keeps track of simulation time.
@@ -254,6 +263,7 @@ not become available to the requesters."
       (setf (module-last-operation-handle module) nil))))
 
 (defun terminate-request (handle)
+  "Terminate a parallel request, discarding any results."
   (when handle
     (setf (request-handle-result handle) nil)
     (setf (request-handle-busy-until handle) 0)))
@@ -435,7 +445,11 @@ See also `receive'." fun-name fun-name module)
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
   (time 0))
 
-    
+   
+(setf (documentation 'make-model 'function) "Create a new ACT-UP model.
+NAME, if given, specifies a name.")
+(setf (documentation 'model-name 'function) "Return the name of an ACT-UP model.")
+ 
 
 
 (defparameter *current-actUP-model* (make-model))

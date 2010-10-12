@@ -407,14 +407,19 @@ will create a chunk (first call), and then boost it, while
 will always create new chunk and add it to declarative memory.
 
 If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</a>, then use the
-<a href="#make-TYPE*">make-TYPE*</a> syntax instead.</blockquote><a name="make-meta-process" /><p><b>MAKE-META-PROCESS</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="make-model" /><p><b>MAKE-MODEL</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
+<a href="#make-TYPE*">make-TYPE*</a> syntax instead.</blockquote><a name="make-meta-process" /><p>(<b>make-meta-process</b> &key actup-time name)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Create a new ACT-UP meta-process.
+NAME, if given, specifies a name.
+The meta process keeps track of simulation time.
+See also <a href="#meta-process">meta-process</a> and <a href="#*current-actUP-meta-process*">*current-actUP-meta-process*</a>.</blockquote><a name="make-model" /><p>(<b>make-model</b> &key name parms pm dm modules time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Create a new ACT-UP model.
+NAME, if given, specifies a name.</blockquote><a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>An ACT-UP meta process.
-A meta process keeps track of time for one or more models.</blockquote><a name="meta-process-name" /><p><b>META-PROCESS-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="model-name" /><p><b>MODEL-NAME</b></p>&nbsp;&nbsp;&nbsp;<i><font color="FF0000">undocumented</font></i></p>
-<a name="non-nil" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+A meta process keeps track of time for one or more models.</blockquote><a name="meta-process-name" /><p>(<b>meta-process-name</b> x)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Return the name of an ACT-UP meta-process.
+See also <a href="#meta-process">meta-process</a> and <a href="#*current-actUP-meta-process*">*current-actUP-meta-process*</a>.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="model-name" /><p>(<b>model-name</b> x)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Return the name of an ACT-UP model.</blockquote><a name="non-nil" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> stream obj)&nbsp;&nbsp;&nbsp;<i>function</i></p>
