@@ -1,4 +1,4 @@
-(defparameter source-files '("choice.lisp" "siegler.lisp" "paired.lisp" "tuto5pm.lisp" "fan.lisp" ))
+(defparameter source-files '("C:/emacs/usar-interface/ACT-UP/tutorial/choice.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/siegler.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/paired.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/fan.lisp" ))
 
 (defun regression ()
   (loop for i in source-files

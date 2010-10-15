@@ -39,7 +39,7 @@
       (reset-model)
       (push (do-n-blocks-of-m-trials 4 12) data))
     (print-results-choice (analyze-choice data)))
-  (list *correlation-choice* *meandev-choice))
+  (list *correlation-choice* *meandev-choice*))
 
 (defun analyze-choice (data)
   (let ((n (length data))

@@ -93,7 +93,7 @@
       (push (do-one-set) responses))
     (setq *responses* responses)
     (analyze responses))
-  (list *correlation-paired* *meandev-paired*))
+  (list *correlation-siegler* *meandev-siegler*))
 
 (defun aggregate-responses (responses)
   (mapcar (lambda (x) 
