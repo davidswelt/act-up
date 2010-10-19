@@ -17,12 +17,11 @@
 
 
 
-;;; This is the correlation and deviation functions from the scripting
-;;; extensions file and the necessary support.  I figured since they are
-;;; still used they should be put here because the scripting extensions 
-;;; aren't part of ACT-R 5, but making people load the scripting file
-;;; separately is a pain...  I also changed mean-deviation so that it
-;;; actually returned the deviation.
+;;; These are the correlation and deviation functions.
+;;; Unless *actr-stats-show-results* is non-nil, they DO NOT print
+;;; the results - they just return them.
+
+(defparameter *actr-stats-show-results* t)
 
 (defstruct data labels array)
 
@@ -90,7 +89,7 @@
     (let ((result (sqrt (/ (+ (square-list results-list) (square-list data-list)
                               (* -2.0 (product-list results-list data-list)))
                            n))))
-      (format output "~&MEAN DEVIATION: ~6,3F~%" result)
+      (if *actr-stats-show-results* (format output "~&MEAN DEVIATION: ~6,3F~%" result))
       (when opened (close output))
       
       result)))
@@ -120,8 +119,8 @@
                                 (square-data average-results)))
                        (sqrt (- (/-safe (square-list data-list) n)
                                 (square-data average-data)))))))
-      (format output "~&CORRELATION: ~6,3F~%"
-            result)
+      (if *actr-stats-show-results* (format output "~&CORRELATION: ~6,3F~%"
+					    result))
     (when opened (close output))
       result)))
 
