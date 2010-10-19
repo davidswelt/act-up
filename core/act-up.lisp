@@ -51,7 +51,7 @@ Anderson 2007, etc.).
 (defstruct meta-process
   "An ACT-UP meta process.
 A meta process keeps track of time for one or more models."
-  (actUP-time 0.0 :type number)
+  (actUP-time 0.0d0 :type  long-float)
   name
 )
 
@@ -772,7 +772,7 @@ See also: ACT-R parameter :mas.")
 				   (meta-process-name *current-actUP-meta-process*)
 				   (actup-chunk-name chunk)
 				   time pres *dat* (model-time *current-actUP-model*))
-		      ;; (error 'warning)
+		       ;; (error 'warning)
 		      )	   
 		  (expt (max *dat* decay-time) (- *bll*))))
 	   
