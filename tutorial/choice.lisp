@@ -1,3 +1,4 @@
+;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
 ;;; Filename: choice.lisp
 
 ;; To use: (unit-test)
@@ -78,3 +79,5 @@
 	(assign-reward 0.0))
     response))
 
+
+;; -*-Mode: ACT-UP; fill-column: 75; comment-column: 50; -*-
