@@ -1,4 +1,10 @@
-(defparameter source-files '("C:/emacs/usar-interface/ACT-UP/tutorial/choice.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/siegler.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/paired.lisp" "C:/emacs/usar-interface/ACT-UP/tutorial/fan.lisp" ))
+;;; Filename: regressionsuite.lisp
+
+;; To use: (regression)
+
+;;; Author: Jasmeet Ajmani
+
+(defparameter source-files '("choice.lisp" "siegler.lisp" "paired.lisp" "fan.lisp" ))
 
 (defun regression ()
   (loop for i in source-files
