@@ -27,7 +27,7 @@
 (defvar *response*)
 (defvar *response-time* nil)
 (defparameter *correlation-pm* nil)
-(defparamater *meandev-pm* nil)
+(defparameter *meandev-pm* nil)
 
 ;;;; chunk-types
 (define-chunk-type comprehendfact relation arg1 arg2)
@@ -36,21 +36,11 @@
 
 (defun init-model ()
   (reset-model)
-;;;; committing chunks to memory
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'park))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'church))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'bank))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'captain :arg2 'park))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'captain :arg2 'cave))
-  (learn-chunk (make-comprehendfact :name 'deb-bank :relation 'in :arg1 'debutante :arg2 'bank))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'fireman :arg2 'park))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'beach))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'castle))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'dungeon))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'earl :arg2 'castle))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'earl :arg2 'forest))
-  (learn-chunk (make-comprehendfact :relation 'in :arg1 'lawyer :arg2 'store))
 
+;; add the simple chunks first
+;; without adding those chunks, the system will
+;; implicitly generate them when learning the
+;; `comprehendfact' chunks.
   (learn-chunk (make-person :name 'hippie))
   (learn-chunk (make-person :name 'captain))
   (learn-chunk (make-person :name 'debutante))
@@ -69,31 +59,47 @@
   (learn-chunk (make-location :name 'forest))
   (learn-chunk (make-location :name 'store))
 
-  (add-sji-fct 
-   (list 
-    (list 'lawyer 'store 0.90685)
-    (list 'earl 'forest 1.40824)
-    (list 'earl 'castle 1.00277)
-    (list 'giant 'dungeon 1.12055)
-    (list 'giant 'castle 0.71509)
-    (list 'giant 'beach 1.12055)
-    (list 'fireman 'park 1.12055)
-    (list 'debutante 'bank 1.40824)
-    (list 'captain 'cave 1.40824)
-    (list 'captain 'park 0.71509)
-    (list 'hippie 'bank 0.71509)
-    (list 'hippie 'church 1.12055)
-    (list 'hippie 'park 0.42741)
-    ))
+
+;;;; committing chunks to memory
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'park))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'church))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'hippie :arg2 'bank))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'captain :arg2 'park))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'captain :arg2 'cave))
+  (learn-chunk (make-comprehendfact :name 'deb-bank :relation 'in :arg1 'debutante :arg2 'bank))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'fireman :arg2 'park))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'beach))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'castle))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'giant :arg2 'dungeon))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'earl :arg2 'castle))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'earl :arg2 'forest))
+  (learn-chunk (make-comprehendfact :relation 'in :arg1 'lawyer :arg2 'store))
+
+  ;; The Sji (Rji) values will be set by the architecture.
+  ;; (add-sji-fct 
+  ;;  (list 
+  ;;   (list 'lawyer 'store 0.90685)
+  ;;   (list 'earl 'forest 1.40824)
+  ;;   (list 'earl 'castle 1.00277)
+  ;;   (list 'giant 'dungeon 1.12055)
+  ;;   (list 'giant 'castle 0.71509)
+  ;;   (list 'giant 'beach 1.12055)
+  ;;   (list 'fireman 'park 1.12055)
+  ;;   (list 'debutante 'bank 1.40824)
+  ;;   (list 'captain 'cave 1.40824)
+  ;;   (list 'captain 'park 0.71509)
+  ;;   (list 'hippie 'bank 0.71509)
+  ;;   (list 'hippie 'church 1.12055)
+  ;;   (list 'hippie 'park 0.42741)))
   )
 
 
-(list (test-sentence-model 'earl 'castle t 'person)
-      (test-sentence-model 'earl 'castle t 'location)
-      (test-sentence-model 'captain 'bank nil 'person)
-      (test-sentence-model 'captain 'bank nil 'person))
+;; (list (test-sentence-model-pm 'earl 'castle t 'person)
+;;       (test-sentence-model-pm 'earl 'castle t 'location)
+;;       (test-sentence-model-pm 'captain 'bank nil 'person)
+;;       (test-sentence-model-pm 'captain 'bank nil 'person))
 
-(defun unit-test()
+(defun unit-test ()
   (average-person-location-pm))
 
 
@@ -105,12 +111,12 @@
 
 
 (defun do-person-location-pm (term) 
-  (let ((test-set '(('lawyer 'store t)('captain 'cave t)('hippie 'church t)
-                      ('debutante 'bank t)('earl 'castle t)('hippie 'bank t)
-                      ('fireman 'park t)('captain 'park t)('hippie 'park t)
-                      ('fireman 'store nil)('captain 'store nil)('giant 'store nil)
-                      ('fireman 'bank nil)('captain 'bank nil)('giant 'bank nil)
-                      ('lawyer 'park nil)('earl 'park nil)('giant 'park nil)))
+  (let ((test-set '((lawyer store t) (captain cave t) (hippie church t)
+		    (debutante bank t) (earl castle t) (hippie bank t)
+		    (fireman park t) (captain park t) (hippie park t)
+		    (fireman store nil) (captain store nil) (giant store nil)
+		    (fireman bank nil) (captain bank nil) (giant bank nil)
+		    (lawyer park nil) (earl park nil) (giant park nil)))
         (results nil))
 
     (dolist (sentence test-set)
