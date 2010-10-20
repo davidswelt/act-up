@@ -360,15 +360,6 @@
   (and (numberp val1) (numberp val2) (<= val1 val2)))
 
 
-;;; SPLICE-INTO-LIST      [Function]
-;;; Date        : 97.01.15
-;;; Description : 
-
-(defun splice-into-list (lis position item)
-  (let ((temp (copy-list lis)))
-    (splice-into-list-des temp position item)))
-      
-    
 ;;; SPLICE-INTO-LIST-DES      [Function]
 ;;; Date        : 97.01.15
 ;;; Description : 
@@ -380,6 +371,15 @@
        (nconc (subseq lis 0 position) item (nthcdr position lis))   
       (nconc (subseq lis 0 position) (list item) (nthcdr position lis)))))
 
+;;; SPLICE-INTO-LIST      [Function]
+;;; Date        : 97.01.15
+;;; Description : 
+
+(defun splice-into-list (lis position item)
+  (let ((temp (copy-list lis)))
+    (splice-into-list-des temp position item)))
+      
+    
 
 ;;; MKLIST      [Function]
 ;;; Description : From Graham's _On Lisp_, make sure we have a list.
@@ -694,6 +694,9 @@
 (defgeneric random-item (seq)
   (:documentation "Returns a random item from a sequence using act-r-random."))
 
+
+(DECLAIM (FTYPE (FUNCTION (T) T) act-r-random))
+
 (defmethod random-item ((seq list))
   (nth (act-r-random (length seq)) seq))
 
@@ -798,7 +801,12 @@
   (not (eq x y)))
 
 
-(defmethod string-to-lines ((s string))
+
+(DECLAIM (FTYPE (FUNCTION (T) T) string-to-lines))
+
+;; changed to avoid a warnings:
+;(defmethod string-to-lines ((s string))
+(defun string-to-lines (s)
   (aif (position #\Newline s)
     (append (mklist (subseq s 0 it))
             (string-to-lines (subseq s (1+ it) (length s))))
