@@ -42,10 +42,13 @@ Anderson 2007, etc.).
 (defun format-t (form &rest args)
   (apply #'format t form args))
 
+(defun actup-load (file &optional (dir "core"))
+  (format t "Loading ~s.~%" file)
+  (load (merge-pathnames file (translate-logical-pathname (format nil "ACT-UP1:~a;" dir)))))
 
-(COMMON-LISP-USER:actup-load "actr6-compatibility.lisp")
-(COMMON-LISP-USER:actup-load "actr-aux.lisp")
-(COMMON-LISP-USER:actup-load "act-up-util.lisp")
+(actup-load "actr6-compatibility.lisp")
+(actup-load "actr-aux.lisp")
+(actup-load "act-up-util.lisp")
 
 
 (defstruct meta-process
@@ -320,13 +323,12 @@ but &rest and &body are not."
   (let ((req-name (intern (format nil "REQUEST-~a" fun-name)))
 	(docstring (if (stringp (car body)) (prog1 (car body) (setq body (cdr body)))))
 	(rest-variable-name nil)
-	(arglist2 (remove-if (lambda (x) (member x '(&optional))) arglist)))
+	(arglist2 (filter-argument-list arglist))) ;;  (remove-if (lambda (x) (member x '(&optional))) arglist)))
     (when (and (cdr arglist2) (eq '&rest (elt arglist2 (- (length arglist2) 2))))
       (setq rest-variable-name (car (last arglist2)))
       (if (> (length arglist2) 2)
 	  (setf (cdr (nthcdr (- (length arglist2) 3) arglist2)) nil)
 	  (setq arglist2 nil)))
-
     `(progn
        (defun ,fun-name ,arglist  
 	 ;; we need to wait until this request has been completed:
@@ -1961,6 +1963,19 @@ Add a procedure object to current model PM if necessary."
 	  (setf (gethash name regular-procs) proc)))
     proc))
    
+(defun filter-argument-list (args)
+  (loop for a in args 
+     when (or (consp a)
+	      (and (symbolp a)
+		   (not (eq a '&optional))
+		   ))
+     collect
+       (progn
+	 (if (eq a '&key)
+	     (error "Argument list: &key specifier not supported."))
+	 (if (consp a)
+	     (car a)
+	   a))))
 
 (defmacro defproc (name args &rest body)
   "Define an ACT-UP procedure.
@@ -2000,7 +2015,7 @@ These procedures can be invoked via a function call such as
 
  (subtract 5 2)
 
-ACT-Up will choose the procedure that has the highest utility.  See
+ACT-UP will choose the procedure that has the highest utility.  See
 `assign-reward' for manipulation of utilities (reinforcement
 learning), and `*procedure-compilation*' for in-theory compilation of
 procedures (routinization, internalization).
@@ -2014,16 +2029,11 @@ Procedure utilities, wether initial or acquired through rewards are always speci
 
 Procedures and groupings of procedures are not specific to the model."
   ;; remove keyword args from body
+  (if (member '&rest args)
+      (error "defproc: &rest specifier not supported in argument list."))
+
   (let* (
-	 (args-filtered (loop for a in args 
-			   when (or (consp a)
-				    (and (symbolp a)
-					 (not (eq a '&optional))
-					 (not (eq a '&key))))
-			   collect
-			     (if (consp a)
-				 (car a)
-				 a)))
+	 (args-filtered (filter-argument-list args))
 	 (doc-string "Invoke ACT-UP procedure.")
 	 iu
 	 (groups
@@ -2070,7 +2080,7 @@ Procedures and groupings of procedures are not specific to the model."
 	 actup---proc-result))
     (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
     (declare-proc ',groups
-		   ',name ',args)
+		   ',name ',args ',args-filtered)
 )))
 
 (defmacro defrule (args)
@@ -2149,9 +2159,12 @@ The initial utility of a compiled procedure equals the initial utility of the so
   (pass-time (or (proc-firing-time this-proc) *dat*)) ;; to do: randomization (:vpft parameter)
 )
 
-(defun declare-proc (groups name args)
+(defun declare-proc (groups name args args-filtered)
   "Declares ACT-R procedure NAME,
 belonging to GROUPS, taking arguments ARGS.
+ARGS-FILTERED is the filtered list of arguments (as it
+would occur in a function call - without &key, &rest, &optional
+specifiers and defaults).
 Returns NAME."
   ;; to do: check number of arguments 
   ; remove procedure from all groups first
@@ -2164,7 +2177,7 @@ Returns NAME."
      ;; (re)define lisp function with group name
        (eval `(defun-module procedural ,g ,args 
 		,(format-nil "Choose a procedure out of group %s" g)
-		(actup-eval-proc ',g ,@args)))
+		(actup-eval-proc ',g ,@args-filtered)))
        (let ((group-cons (assoc g *actup-procgroups*)))
 	 (if group-cons
 	     (unless (member name (cdr group-cons))
@@ -2256,7 +2269,7 @@ the chose procedure."
   (let ((proc (best-proc-of-group group args)))
       (when proc
 	(if (compiled-proc-p proc) ;; compiled proc?	    
-	    (fire-compiled-proc proc) ;; (car proc) is result
+	      (fire-compiled-proc proc) ;; (car proc) is result
 	    ;; regular proc:
 	    (apply (proc-name proc) args)))))
 
@@ -2416,10 +2429,12 @@ See also `flush-procedure-queue'."
     screen-x
   screen-y)
 
-(COMMON-LISP-USER:actup-load "au-visual.lisp" "modules")
+(actup-load "au-visual.lisp" "modules")
 
-(COMMON-LISP-USER:actup-load "au-manual.lisp" "modules")
+(actup-load "au-manual.lisp" "modules")
 
-
+(defparameter *act-up-version* 0.1 "Version of a loaded ACT-UP.
+ACT-UP has been correctly initialized if this is defined and non-nil.")
+(export '(*act-up-version*))
 
 (provide "act-up")
