@@ -18,10 +18,13 @@
 ;; D. Reitter / J. Ajmani
 ;; Carnegie Mellon University, 2010
 
+;; (defpackage siegler (:use :common-lisp ))
+;; (in-package siegler)
 
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
 (setq *rt* -.45
       *ans* .5 
@@ -153,4 +156,3 @@
 			       :addend1 arg1 :addend2 arg2))))
     (pass-time 0.4)
     (if cfd (plus-fact-sum cfd))))
-  

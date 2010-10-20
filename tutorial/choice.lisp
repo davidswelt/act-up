@@ -8,7 +8,12 @@
 
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
+
+;; (defpackage actup-choice (:use :common-lisp ))
+;; (in-package actup-choice)
+
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
 ;; ACT-R Parameters
 (setq *egs* 0.7)
@@ -17,11 +22,6 @@
 (defparameter *meandev-choice* nil)
 
 (defvar *choice-data* '(0.66 0.78 0.82 0.84))
-
-;;;; Test harness for the experiment
-
-(defun unit-test ()
-  (collect-data-choice 100))
 
 (defun do-block-of-m-trials (m)
    (let ((count 0))
@@ -54,6 +54,11 @@
   (format t " Original     Current~%")
   (dotimes (i 4)
     (format t "~8,3F    ~8,3F~%" (nth i *choice-data*) (nth i results))))
+
+;;;; Test harness for the experiment
+
+(defun unit-test ()
+  (collect-data-choice 100))
 
 ;; Experimental environment
 (defun toss-coin ()

@@ -3,8 +3,7 @@
 
 ;; (load "load-act-up.lisp")
 
-
-
+(defvar *act-up-avoid-multiple-loading* nil)
 
 
 ;;; The Windows version of SBCL doesn't properly handle wild cards in the
@@ -215,11 +214,13 @@
 (defun actup-load (file &optional (dir "core"))
   (format t "Loading ~s.~%" file)
   (load (merge-pathnames file (translate-logical-pathname (format nil "ACT-UP1:~a;" dir)))))
+
 (export '(actup-load))
 
-(actup-load "act-up.lisp")
+(when (or (not *act-up-avoid-multiple-loading*)
+	(not (find-symbol "*ACT-UP-VERSION*")))
+    (actup-load "act-up.lisp"))
 
-(actup-load "actr-stats.lisp" "util")
 
 ;;(require "act-up" "/act-up.lisp")
 

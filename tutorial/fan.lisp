@@ -11,6 +11,7 @@
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
 ;; ACT-R Parameters:
 (setq *ans* nil
