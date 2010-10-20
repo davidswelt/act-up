@@ -314,6 +314,20 @@ request was sent via a function such as
   (request-handle-result handle))
 
 
+(defun filter-argument-list (args)
+  (loop for a in args 
+     when (or (consp a)
+	      (and (symbolp a)
+		   (not (eq a '&optional))
+		   ))
+     collect
+       (progn
+	 (if (eq a '&key)
+	     (error "Argument list: &key specifier not supported."))
+	 (if (consp a)
+	     (car a)
+	   a))))
+
 (defmacro defun-module (module fun-name arglist &body body)
   "Define module function.
 MODULE must be a defined ACT-UP module.
@@ -1963,20 +1977,6 @@ Add a procedure object to current model PM if necessary."
 	  (setf (gethash name regular-procs) proc)))
     proc))
    
-(defun filter-argument-list (args)
-  (loop for a in args 
-     when (or (consp a)
-	      (and (symbolp a)
-		   (not (eq a '&optional))
-		   ))
-     collect
-       (progn
-	 (if (eq a '&key)
-	     (error "Argument list: &key specifier not supported."))
-	 (if (consp a)
-	     (car a)
-	   a))))
-
 (defmacro defproc (name args &rest body)
   "Define an ACT-UP procedure.
 The syntax follows the Lisp `defun' macro, except that 
