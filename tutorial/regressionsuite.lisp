@@ -4,6 +4,8 @@
 
 ;;; Author: Jasmeet Ajmani
 
+(defparameter *regression-hash* (make-hash-table))
+
 (defparameter units  ;; Unit files (to be tested), including bounds for correlation and mean deviation.
   '(("choice.lisp")
     ("siegler.lisp")
@@ -11,31 +13,24 @@
     ("fan.lisp" 0.8 0.07)))
 
 (defun regression ()
-  (loop for i in units
+  (loop for files in units
 	do
 	(progn
-	  (load (first i))
-	  (print i)
+	  (load (first files))
 	  (let ((*standard-output* (make-string-output-stream)))  
-	    (setq val (unit-test)))    
+	    (progn
+	      (setq val (unit-test))   
+	      (if (and (> (first val) (or (second files) 0.90))
+		       (< (second val) (or (third files) 0.1)))
+		  (setf (gethash (first files) *regression-hash*) 'OK)
+		(setf (gethash (first files) *regression-hash*) 'FAIL))))))
+  (print-hash))
 
-	  ;; DR: Jasmeet, please fix the following to use a proper
-	  ;; `and' expression rather than two nested `if's with redundant
-	  ;; inner code (print 'FAIL).
-	  
-	  (if (> (first val) (or (second i) 0.90))
-	      (if (> (second val) (or (third i) 0.1))
-		  (print 'FAIL)
-		(print 'OK))
-	    (print 'FAIL)))))
-	
+(defun print-hash () 
+  (loop for value being the hash-values of *regression-hash*
+        using (hash-key key)
+        do (format t "~&~A -> ~A" key value)))
 
-;; DR: Jasmeet, please ensure `val' and `i' are named appropriately, and that
-;; `val' is correctly let-bound.
-
-;; DR: Jasmeet, please make sure we get a nice table at the end that contains
-;; PASS/FAIL for each unit.  Right now, the output is not very useful, due to
-;; massive loading operations for each tutorial unit.
 
 
 
