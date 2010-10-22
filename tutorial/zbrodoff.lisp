@@ -254,6 +254,9 @@
     (format t "Best tradeoff (?): ~,4F at parameters ~a~%"
 	    best-tradeoff best-tradeoff-par))))
 
+(defun unit-test ()
+  (collect-data 30))
+
 
 
 ;; With the ACT-R default parameters (*lf*=1.0)

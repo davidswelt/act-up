@@ -10,6 +10,7 @@
   '(("choice.lisp")
     ("siegler.lisp")
     ("paired.lisp")
+    ("zbrodoff.lisp")
     ("fan.lisp" 0.8 0.07)))
 
 (defun regression ()
