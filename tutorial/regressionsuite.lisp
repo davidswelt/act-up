@@ -21,10 +21,10 @@
 	  (let ((*standard-output* (make-string-output-stream)))  
 	    (progn
 	      (setq val (unit-test)) 
-	      (setf (gethash (first files)  
-			     (if (and (> (first val) (or (second files) 0.90))
-				      (< (second val) (or (third files) 0.1)))
-				 'OK 'FAIL)))))))
+	      (setf (gethash (first files) *regression-hash*)
+		    (if (and (> (first val) (or (second files) 0.90))
+			     (< (second val) (or (third files) 0.1)))
+			'OK 'FAIL))))))
   (print-hash))
 
 (defun print-hash () 

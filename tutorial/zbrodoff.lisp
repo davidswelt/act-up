@@ -1,12 +1,12 @@
 ;;; Filename: zbrodoff.lisp
 
-;;; To run use command: (collect-data 100)
+;;; To run use command: (collect-data 40)
 
 ;;; Author: David Reitter/ Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-;; we use a more complex notation to find the ACT-UP file
-;; relative to the location of the tutorial file.
+;; These load commands will find the ACT-UP files
+;; relative to the location of the present file:
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
@@ -21,6 +21,9 @@
 ;; Model parameters:
 (defparameter *model-time-parameter-1* 0.55)
 (defparameter *model-time-parameter-2* 0.54)
+
+(defparameter *model-time-parameter-1* 0.5)
+(defparameter *model-time-parameter-2* 0.6)
 
 
 ;; Alternative, using *lf* from the ACT-R Tutorial:
@@ -74,28 +77,20 @@
   (let ((results nil))
     (dotimes (i n)
       (push (do-experiment) results))
-    
     (let ((rts (mapcar #'(lambda (x) (/ x (length results)))
                  (apply #'mapcar #'+ (mapcar #'first results)))))
-      
-      
       (list (correlation rts *zbrodoff-control-data*)
 	    (mean-deviation rts *zbrodoff-control-data*)))))
 
 (defun collect-data (n)
-
   (setf *results* nil)
   (let ((results nil))
     (dotimes (i n)
-      (init-model)
       (push (do-experiment) results))
-    
     (let ((rts (mapcar #'(lambda (x) (/ x (length results)))
                  (apply #'mapcar #'+ (mapcar #'first results))))
           (counts (mapcar #'(lambda (x) (truncate x (length results)))
                     (apply #'mapcar #'+ (mapcar #'second results)))))
-      
-      
       (print-analysis rts counts '(1 2 3) '("2" "3" "4") '(64 64 64))
       (list (correlation rts *zbrodoff-control-data*)
 	    (mean-deviation rts *zbrodoff-control-data*)))))
@@ -255,7 +250,7 @@
 	    best-tradeoff best-tradeoff-par))))
 
 (defun unit-test ()
-  (collect-data 30))
+  (collect-data-silently 60))
 
 
 

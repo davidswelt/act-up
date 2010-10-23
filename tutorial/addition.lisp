@@ -2,12 +2,13 @@
 
 ;;; to use: (add-digit 1 2 4 1)
 
-;;; Author: David Reitter/ Jasmeet Ajmani
+;;; Authors: David Reitter/ Jasmeet Ajmani
 
-;; we use a more complex notation to find the ACT-UP file
-;; relative to the location of the tutorial file.
+;; This load command will find the ACT-UP file
+;; relative to the location of the present file:
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 
+;; Architectural (ACT-R) parameter
 (setq *rt* -5) ; ensure retrieval
 
 ;;;; Defining chunk-types

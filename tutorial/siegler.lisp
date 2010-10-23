@@ -1,4 +1,7 @@
+;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
+
 ;; Siegler Model
+
 ;; paralleling the ACT-R 6 tutorial
 ;; translated to ACT-UP
 
@@ -15,17 +18,19 @@
 
 ; (fit-parameters)
 
-;; D. Reitter / J. Ajmani
+;; Authors: D. Reitter / J. Ajmani
 ;; Carnegie Mellon University, 2010
 
 ;; (defpackage siegler (:use :common-lisp ))
 ;; (in-package siegler)
 
-;; we use a more complex notation to find the ACT-UP file
-;; relative to the location of the tutorial file.
+;; These load commands will find the ACT-UP files
+;; relative to the location of the present file:
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
+
+;; Architectural (ACT-R) parameters
 (setq *rt* -.45
       *ans* .5 
       *bll* nil  ; defaults to nil in ACT-R
@@ -143,9 +148,14 @@
   (loop for s in *responses* do
       (format t "~{~a ~}~%"
 	      (mapcar 'name-num s))))
- ;; d = read.table("/Users/dr/ACT-UP/siegler-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
-;; ds = read.table("/Users/dr/ACT-UP/siegler-actr-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
-;;  plot(density(d$c12,na.rm=T,n=18,from=0, to=8, kernel="g",adjust=10))
+
+;; R code for plotting the data and the results:
+;; d = read.table("siegler-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
+;; ds = read.table("siegler-actr-responses.txt", header=T, colClasses=c("numeric","numeric","numeric","numeric","numeric","numeric"), na.strings=c("NIL"))
+;; plot(density(d$c12,na.rm=T,n=18,from=0, to=8, kernel="g",adjust=10))
+
+
+;; The Model
 
 (defproc test-fact (arg1 arg2)
   ;; encoding /aural is deterministic in ACT-R

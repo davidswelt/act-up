@@ -83,13 +83,39 @@
 
   (pass-time *model-initial-delay*))
 
+
+
+;; The Model
+;;;; define a production
+(defproc check-factual-sentence (person location target term)
+  (let ((cfd
+	 (retrieve-chunk
+	  ;; hard constraints:
+	  (append (list :chunk-type 'comprehendfact)
+		  (if (eq term 'person)
+		      (list :arg1 person)
+		      (list :arg2 location)))
+	  ;; cues:
+	  (list person location))))
+    (pass-time *model-time-parameter*)
+    (if (and cfd ; if not retrieved, answer would be NO
+	     (equal person (comprehendfact-arg1 cfd))
+	     (equal location (comprehendfact-arg2 cfd)))
+	;; answer "K" (yes)
+	(if target t nil) ; YES
+	;; answer "d" (no)
+	(if target nil t))))
+
+
+
+
 ;; (list (check-factual-sentence 'earl 'castle t 'person)
 ;;       (check-factual-sentence 'earl 'castle t 'location)
 ;;       (check-factual-sentence 'captain 'bank nil 'person)
 ;;       (check-factual-sentence 'captain 'bank nil 'person))
 
-(defun unit-test ()
-  (average-person-location))
+
+;;; Environment, etc.
 
 
 (defun run-model (person location target term)
@@ -121,17 +147,6 @@
             results))
     (mapcar #'second (sort results #'< :key #'(lambda (x) (position (car x) test-set))))))
 
-(defun average-person-location ()
-  "Calculates and outputs average correlations and mean deviations.
-Runs model, for retrieval via person and via location and averages
-over the results."
-  (output-person-location 
-   (mapcar #'(lambda (x y) 
-	       (list (/ (+ (car x) (car y)) 2.0)  ; first element of list: time
-		     (and (cadr x) (cadr y))))  ; second element: answer
-	   (do-person-location 'person)
-	   (do-person-location 'location))))
-
 (defun output-person-location (data)
   "Outputs and returns correlation and mean deviation of DATA"
   (let ((rts (mapcar 'first data)))
@@ -152,27 +167,19 @@ over the results."
 	  (format t "~{~8,3F (~3s)~}" (nth (+ j (* (+ i 3) 3)) data))))
       (list correlation meandev))))
 
+(defun average-person-location ()
+  "Calculates and outputs average correlations and mean deviations.
+Runs model, for retrieval via person and via location and averages
+over the results."
+  (output-person-location 
+   (mapcar #'(lambda (x y) 
+	       (list (/ (+ (car x) (car y)) 2.0)  ; first element of list: time
+		     (and (cadr x) (cadr y))))  ; second element: answer
+	   (do-person-location 'person)
+	   (do-person-location 'location))))
 
-;;;; define a production
-(defproc check-factual-sentence (person location target term)
-  (let ((cfd
-	 (retrieve-chunk
-	  ;; hard constraints:
-	  (append (list :chunk-type 'comprehendfact)
-		  (if (eq term 'person)
-		      (list :arg1 person)
-		      (list :arg2 location)))
-	  ;; cues:
-	  (list person location))))
-    (pass-time *model-time-parameter*)
-    (if (and cfd ; if not retrieved, answer would be NO
-	     (equal person (comprehendfact-arg1 cfd))
-	     (equal location (comprehendfact-arg2 cfd)))
-	;; answer "K" (yes)
-	(if target t nil) ; YES
-	;; answer "d" (no)
-	(if target nil t))))
-
+(defun unit-test ()
+  (average-person-location))
 
 
 (defun optimize-parameters ()

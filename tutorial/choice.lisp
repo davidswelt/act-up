@@ -6,20 +6,19 @@
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-;; we use a more complex notation to find the ACT-UP file
-;; relative to the location of the tutorial file.
-
 ;; (defpackage actup-choice (:use :common-lisp ))
 ;; (in-package actup-choice)
 
+;; These load commands will find the ACT-UP files
+;; relative to the location of the present file:
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
-;; ACT-R Parameters
+;; Architectural (ACT-R) Parameters
 (setq *egs* 0.7)
 
-(defparameter *correlation-choice* nil)
-(defparameter *meandev-choice* nil)
+;; Model parameter
+(defparameter *positive-reward* 2.0)
 
 (defvar *choice-data* '(0.66 0.78 0.82 0.84))
 
@@ -39,8 +38,7 @@
     (dotimes (i n)
       (reset-model)
       (push (do-n-blocks-of-m-trials 4 12) data))
-    (print-results-choice (analyze-choice data)))
-  (list *correlation-choice* *meandev-choice*))
+    (print-results-choice (analyze-choice data))))
 
 (defun analyze-choice (data)
   (let ((n (length data))
@@ -49,11 +47,11 @@
       (push (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12)) result))))
 
 (defun print-results-choice (results)
-  (setq *correlation-choice* (correlation results *choice-data*))
-  (setq *meandev-choice* (mean-deviation results *choice-data*))
   (format t " Original     Current~%")
   (dotimes (i 4)
-    (format t "~8,3F    ~8,3F~%" (nth i *choice-data*) (nth i results))))
+    (format t "~8,3F    ~8,3F~%" (nth i *choice-data*) (nth i results)))
+  (list (correlation results *choice-data*)
+	(mean-deviation results *choice-data*)))
 
 ;;;; Test harness for the experiment
 
@@ -80,7 +78,7 @@
   "Choose heads or tails and learn from it."
   (let ((response (choose-coin)))
     (if (eq (toss-coin) response)
-	(assign-reward 2.0)
+	(assign-reward *positive-reward*)
 	(assign-reward 0.0))
     response))
 

@@ -1,3 +1,5 @@
+;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
+
 ;;; Filename: sticks.lisp
 
 ;;; To run use command: (collect-data 10000)
@@ -5,8 +7,8 @@
 ;;; Author: Jasmeet Ajmani
 ;;; Acknowledgements: Dan Bothell
 
-;; we use a more complex notation to find the ACT-UP file
-;; relative to the location of the tutorial file.
+;; These load commands will find the ACT-UP files
+;; relative to the location of the present file:
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
@@ -33,53 +35,55 @@
 
 ;;;; Procedures that form a group of strategies to solve the problem
 
-(defproc decide-over (current A B C G) :initial-utility 13
-  :group (choose-strategy-over)
+
+(defproc strategy-over (current A B C G)
   (setq *strategy* 'over)
   (if (= current 0)
+      ;; select medium stick if current length is 0
       (setq current B))
   (loop while (> current G) do 
-	(cond
+       (cond
 	 ((= (- (- current G) C) 0) (setq current (- current C)))
 	 ((= (- (- current G) A) 0) (setq current (- current A)))
+	 (t (setq current (- current A)))
 	 ((> (- (- current G) A)  (- (- current G) C)) (setq current (- current C)))
-	 ((< (- (- current G) A)  (- (- current G) C)) (setq current (- current A))))))
+	 ((< (- (- current G) A)  (- (- current G) C)) (setq current (- current A)))))
+)
+(defproc strategy-under (current stick-A-len stick-B-len stick-C-len stick-G-len)
+  (setq *strategy* 'under)
+  (if (= current 0)
+      ;; select longest stick if current length is 0
+      (setq current stick-C-len))
+  (loop while (< current stick-G-len) do
+       (setq current (+ current
+			(let ((rem (abs (- current stick-G-len))))
+			  (cond
+			    ((= stick-C-len (- stick-G-len current)) stick-C-len)
+			    ((= stick-A-len (- stick-G-len current)) stick-A-len)
+			    (t stick-A-len)))))))
+			    ;; ((< (- (+ current stick-A-len) stick-G-len)
+			    ;; 	(- (+ current stick-C-len) stick-G-len)) 
+			    ;;  stick-C-len)
+			    ;; ((< (- rem stick-A-len)
+			    ;; 	(- rem stick-C-len)) 
+			    ;;  stick-A-len)))))))
+
+
+(defproc decide-over (current A B C G) :initial-utility 13
+  :group (choose-strategy-over)
+  (strategy-over current A B C G))
 
 (defproc decide-under (current A B C G) :initial-utility 13
   :group (choose-strategy-under)
-  (setq *strategy* 'under)
-  (if (= current 0)
-      (setq current C))
-  (loop while (< current G) do
-	(cond
-	 ((= (- (- G current) C) 0) (setq current (+ current C)))
-	 ((= (- (- G current) A) 0) (setq current (+ current A)))
-	 ((> (- (abs(- current G)) A)  (- (abs(- current G)) C)) (setq current (+ current C)))
-	 ((< (- (abs(- current G)) A)  (- (abs(- current G)) C)) (setq current (+ current A))))))
+  (strategy-under current A B C G))
 
 (defproc force-over (current A B C G) :initial-utility 10
   :group (choose-strategy-over choose-strategy-under choose-strategy-force)
-  (setq *strategy* 'over)
-  (if (= current 0)
-      (setq current B))
-  (loop while (> current G) do
-	(cond
-	 ((= (- (- current G) C) 0) (setq current (- current C)))
-	 ((= (- (- current G) A) 0) (setq current (- current A)))
-	 ((> (- (- current G) A)  (- (- current G) C)) (setq current (- current C)))
-	 ((< (- (- current G) A)  (- (- current G) C)) (setq current (- current A))))))
+  (strategy-over current A B C G))
 
 (defproc force-under (current A B C G) :initial-utility 10
   :group (choose-strategy-over choose-strategy-under choose-strategy-force)
-  (setq *strategy* 'under)
-  (if (= current 0)
-      (setq current C))
-  (loop while (< current G) do
-	(cond
-	 ((= (- (- G current) C) 0) (setq current (+ current C)))
-	 ((= (- (- G current) A) 0) (setq current (+ current A)))
-	 ((> (- (abs(- current G)) A)  (- (abs(- current G)) C)) (setq current (+ current C)))
-	 ((< (- (abs(- current G)) A)  (- (abs(- current G)) C)) (setq current (+ current A))))))
+  (strategy-under current A B C G))
 
 
 (defproc bst (A B C G) ;;;; A=smallest stick, B=longest stick, C=medium stick and G=target stick
@@ -125,7 +129,6 @@
        (format t "~8s" (1+ i)))
 
      (format t "~%  ~{~8,2f~}~%~%" result)
-
      (when (= (length result) (length *bst-exp-data*))
        (list (correlation result *bst-exp-data*)
 	     (mean-deviation result *bst-exp-data*)))))
