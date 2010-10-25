@@ -2279,8 +2279,9 @@ the chose procedure."
 See also `flush-procedure-queue'."
 
   (let ((last-time (actup-time)))
-    (debug-print *informational* "Assigning reward ~a~%" reward)
+    (debug-print *informational* "Assigning reward ~2f:~%" reward)
     (loop for rc in (procedural-memory-proc-queue (model-pm (current-model))) do
+	
 	 (let* ((r-time (first rc))
 		(r-proc (second rc))
 		(reward-portion (if (and *au-rfr* *au-rpps*)
@@ -2289,8 +2290,10 @@ See also `flush-procedure-queue'."
 					  (* *au-rpps* (- last-time r-time))))
 				    (- reward (- (actup-time) r-time)) ; as in ACT-R
 				    )))
-	   (setq reward (- reward reward-portion)
-		 last-time r-time)
+	   ;; (debug-print *informational* "~a invoked ~2,2f sec. ago ~%" (proc-name (second rc)) (- (actup-time) r-time))
+	   (if  (and *au-rfr* *au-rpps*)
+		(setq reward (- reward reward-portion)
+		      last-time r-time))
 	   (and stop-at-0 (< reward-portion 0) (return nil))
 	   (assign-reward-to-proc reward-portion r-proc)  ;; assign reward
 	   ))))
@@ -2338,12 +2341,14 @@ See also `flush-procedure-queue'."
   ;; assign reward
 	   (let* ((current (or (proc-utility proc) *iu*))
 		  (scaled (* *alpha* (- reward-portion current))))
-	     (debug-print *informational* "Assigning reward ~a to ~a.~{~a~}~%" reward-portion (proc-name proc)
+	     (debug-print *informational* "  Assigning reward ~2,3f to ~a.~{~a~}~%" reward-portion (proc-name proc)
 			  (loop for g in (get 
 					       (if (compiled-proc-p proc)
 						   (compiled-proc-original-proc proc)
 						   (proc-name proc))
-					       'groups) collect
+					       'groups)
+			       when g
+			     collect
 			       ;; for all groups that this proc belongs to
 			       (let ((best
 				      (let ((*egs* nil)
@@ -2355,7 +2360,8 @@ See also `flush-procedure-queue'."
 				     ;; only for compiled procedures can we determine
 				     ;; the best procedure overall, because only then do we know
 				     ;; what the arguments were!
-				     (format nil " Best~a procedure among alternatives in group ~a!"
+				     (format nil " ~a is best~a procedure among alternatives in group ~a!"
+					     (proc-name best)
 					     (if (compiled-proc-p proc) "" " regular")
 					     g)
 				     (format nil " ~a remains best~a procedure in group ~a."
