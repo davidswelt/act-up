@@ -1142,6 +1142,7 @@ An optional parameter META-PROCESS specifies the meta-process to use.
 It defaults to the current meta-process."
   (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
 
+(defvar *actup-timeout* nil)
 (defun pass-time (seconds &optional meta-process)
   "Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
@@ -1154,7 +1155,21 @@ It defaults to the current meta-process."
   ;; (format t "~a: ~a ~a ~%"
   ;; 	  (meta-process-name *current-actUP-meta-process*) 
   ;; 	  (model-time *current-actUP-model*) (meta-process-actUP-time (or meta-process *current-actUP-meta-process*)))
-  )
+  (and *actup-timeout*
+       (> (model-time *current-actUP-model*)
+	  *actup-timeout*)
+       
+       (throw 'actup-timeout 'timeout)))
+
+(defmacro with-actup-timeout (timeout &body body)
+  `(let ((*actup-timeout* (+ ,timeout (meta-process-actUP-time *current-actUP-meta-process*))))
+     (let ((result
+	    (catch 'actup-timeout
+	      ,@body)))
+       ;; (if (eq result 'timeout)
+       ;; 	   (debug-print *warning* "with-actup-time: timeout reached after ~2,2f sec.." ,timeout) t)
+       result)))
+
 
 
 (defparameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
@@ -2256,10 +2271,8 @@ Returns PROCEDURE."
 		   (if (cdr procs)
 		       (format nil " from subset of best ~a" (length procs))
 		       ""))
-      proc)))
+     (values proc (length regular-procs) (length compiled-procs)))))
       
-
- 
 (defun actup-eval-proc (group &rest args)
   "Evaluates an ACT-UP procedure from procedure group GROUP.
 Passes arguments ARG to the lisp function representing 
@@ -2342,35 +2355,35 @@ See also `flush-procedure-queue'."
 	   (let* ((current (or (proc-utility proc) *iu*))
 		  (scaled (* *alpha* (- reward-portion current))))
 	     (debug-print *informational* "  Assigning reward ~2,3f to ~a.~{~a~}~%" reward-portion (proc-name proc)
-			  (loop for g in (get 
-					       (if (compiled-proc-p proc)
-						   (compiled-proc-original-proc proc)
-						   (proc-name proc))
+			  (loop with groups = (get (if (compiled-proc-p proc)
+						       (compiled-proc-original-proc proc)
+						       (proc-name proc))
 					       'groups)
-			       when g
+			     for g in groups
+			     when g
 			     collect
 			       ;; for all groups that this proc belongs to
-			       (let ((best
+			       (multiple-value-bind (best  group-r group-c)
 				      (let ((*egs* nil)
 					    (*debug* nil))
-					(best-proc-of-group g (if (compiled-proc-p proc)
-								  (compiled-proc-args proc)
-								  'not-available)))))
-				 (if (eq best proc)
 				     ;; only for compiled procedures can we determine
 				     ;; the best procedure overall, because only then do we know
 				     ;; what the arguments were!
-				     (format nil " ~a is best~a procedure among alternatives in group ~a!"
-					     (proc-name best)
-					     (if (compiled-proc-p proc) "" " regular")
-					     g)
-				     (format nil " ~a remains best~a procedure in group ~a."
-					     (proc-name best)
-					     (if (compiled-proc-p proc) "" " regular")
-					     g)))))
-	     (setf (proc-utility proc)
-		   (+ current scaled))
-	     ))
+					(best-proc-of-group g (if (compiled-proc-p proc)
+								  (compiled-proc-args proc)
+								  'not-available)))
+			
+				 (format nil 
+					 (if (eq best proc)  ; Is this the procedure that we're updating?
+					     " ~a is ~a~a procedure in group ~a."
+					     " ~a remains ~a~a procedure in group ~a.")
+					 (proc-name best)
+					 (if (> (+  group-r group-c) 1) "best" "only")
+					 (if (compiled-proc-p proc) "" " regular")
+					 g))))
+	   (setf (proc-utility proc)
+		 (+ current scaled))
+	   ))
 
 
 
@@ -2394,16 +2407,19 @@ See also `flush-procedure-queue'."
 			    (if (get name 'initial-utility)
 				(list (get name 'initial-utility) 'proc-iu)
 				(list  *iu* '*iu*)))))))
-    (format t "Compiled procs:~%")
-    (maptree (lambda (path v)
-	       (let ((big-group (cddr (assoc (car path) act-up::*actup-procgroups*))))  ;; more than one proc in group?
-		 (if (cdr v)
-		     (progn
-		       (format t "~a:~%" path)
-		       (loop for r in (sort v (lambda (a b) (> (proc-utility a) (proc-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
-			    (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-proc-original-proc r)) "") (compiled-proc-result r) (proc-utility r))))
-		     (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-proc-original-proc (car v))) "") (compiled-proc-result (car v)) (proc-utility (car v))))))
-	     compiled-procs))
+    (let ((num))
+      (maptree (lambda (path v)
+		 (let ((big-group (cddr (assoc (car path) act-up::*actup-procgroups*))))  ;; more than one proc in group?
+		   (if (cdr v)
+		       (progn
+			 (unless num
+			   (format t "~%Compiled procs:~%")
+			   (setq num t))
+			 (format t "~a:~%" path)
+			 (loop for r in (sort v (lambda (a b) (> (proc-utility a) (proc-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
+			      (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-proc-original-proc r)) "") (compiled-proc-result r) (proc-utility r))))
+		       (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-proc-original-proc (car v))) "") (compiled-proc-result (car v)) (proc-utility (car v))))))
+	       compiled-procs)))
   nil)
 
 ;; experimental
