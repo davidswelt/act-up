@@ -51,6 +51,47 @@ Anderson 2007, etc.).
 (actup-load "act-up-util.lisp")
 
 
+;;; ACT-UP parameter system
+
+(defparameter *actup-parameters* nil
+  "List of ACT-UP parameters
+Each element is of form (name init-form init-value module).")
+
+(defmacro def-actup-parameter (name init-value &optional doc-string module)
+  "Define ACT-UP parameter.
+Macro internal to ACT-UP. Modifies `*actup-parameters*'.
+Upon reset, ACT-UP initializes each parameters of NAME with 
+the result of evaluating INIT-FORM.
+Internal parameters should be marked with MODULE `internal'.
+These are not shown by `show-parameters'." 
+  `(progn
+     (defparameter ,name ,init-value ,doc-string)
+     (push (list ',name ',init-value ,name ,module) *actup-parameters*)))
+
+(defun reset-actup ()
+  "Resets architectural ACT-UP parameters, meta-process and current model."
+  
+  (loop for (par init-form init-value) in *actup-parameters* do
+       (set par (eval init-form))))
+
+(defun show-parameters (&optional show-all)
+  "Print architectural ACT-UP parameters different from their defaults.
+If SHOW-ALL is non-nil, print even unchanged parameters."
+  
+  (format t ";; ACT-UP parameters:~%")
+  (loop for (par init-form init-value module) in *actup-parameters* 
+       when (not (eq 'internal module))
+     do
+       (when (or show-all (not (equal init-value (eval par))))
+	   (format t (format nil "~~~aT" (max 0 (- 32 (length (symbol-name par))))))
+	   (format t "~a ~a ~40T;; (~a)~%" par (eval par) init-value))))
+
+(export '(reset-actup show-parameters))
+
+   
+;; Meta processes
+
+
 (defstruct meta-process
   "An ACT-UP meta process.
 A meta process keeps track of time for one or more models."
@@ -66,12 +107,14 @@ See also `meta-process' and `*current-actUP-meta-process*'.")
 (setf (documentation 'meta-process-name 'function) "Return the name of an ACT-UP meta-process.
 See also `meta-process' and `*current-actUP-meta-process*'.")
 
-(defparameter *current-actUP-meta-process* (make-meta-process)
+(def-actup-parameter *current-actUP-meta-process* (make-meta-process)
   "The current ACT-UP meta-process.
 The meta process keeps track of simulation time.
 May be read and manipulated by setting it to a different
-instance of type `meta-process'.")
+instance of type `meta-process'." 'internal)
 (export '(meta-process make-meta-process meta-process-name *current-actUP-meta-process*))
+
+
 
 ;; Debugging
 
@@ -84,7 +127,7 @@ instance of type `meta-process'.")
 (export '(*critical* *warning* *informational* *detailed* *all* *debug*
 	  *debug-to-log* debug-log debug-clear debug-detail debug-detail* debug-grep))
 
-(defparameter *debug* *warning*
+(def-actup-parameter *debug* *warning*
   "Level of debug output currently in effect.
 The following constants may be used:
 
@@ -92,7 +135,7 @@ The following constants may be used:
 
 The parameter `*debug-to-log*' is helpful in logging debug messages to a file.")
 
-(defparameter *debug-to-log* nil
+(def-actup-parameter *debug-to-log* nil
 "Enable off-screen logging of debug output.
 If t, ACT-UP logs all debug messages not to standard output,
 but to a buffer that can be read with `debug-log' and cleared with `debug-clear'.
@@ -101,7 +144,7 @@ If a stream, ACT-UP logs to the stream.")
 (defvar *debug-stream* nil)
 
 
-(defparameter *debug-grep* nil  "Grep debug output with this keyword.")
+(def-actup-parameter *debug-grep* nil  "Grep debug output with this keyword.")
 
 (defun debug-log ()
   "Returns logged ACT-R output.
@@ -468,8 +511,7 @@ NAME, if given, specifies a name.")
  
 
 
-(defparameter *current-actUP-model* (make-model))
-(defparameter *actUP-time* nil)
+(def-actup-parameter *current-actUP-model* (make-model) "Current ACT-UP Model" 'internal)
 
 (defvar *dat* nil) ;; forward declaration
 
@@ -515,18 +557,18 @@ functions and model-independent procedures."
 
 ;; parameters
 
-(defparameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
+(def-actup-parameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
 See also: ACT-R parameter :bll")
-(defparameter *blc* 0.0 "Base-level constant parameter for declarative memory.
+(def-actup-parameter *blc* 0.0 "Base-level constant parameter for declarative memory.
 See also: ACT-R parameter :blc") 
-(defparameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
+(def-actup-parameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
 Chunks with activation lower than `*rt*' are not retrieved.
 See also: ACT-R parameter :rt")  ; can be (cons 'pres 4)
 
-(defparameter *ans* 0.2 "Transient noise parameter for declarative memory.
+(def-actup-parameter *ans* 0.2 "Transient noise parameter for declarative memory.
 See also: ACT-R parameter :ans") ;; transient noise  
 
-(defparameter *pas* nil "Permanent noise parameter for declarative memory.
+(def-actup-parameter *pas* nil "Permanent noise parameter for declarative memory.
 See also: ACT-R parameter :pas") ;; permanent noise  
 
 (export '(*bll* *blc* *rt* *ans* *pas* *dat*))
@@ -536,7 +578,7 @@ See also: ACT-R parameter :pas") ;; permanent noise
 OL is always on in ACT-UP.
 See also: ACT-R parameter :ol")
 
-(defparameter *associative-learning* nil ; would be 1.0 if on
+(def-actup-parameter *associative-learning* nil ; would be 1.0 if on
   "The trigger for associative learning, a in ROM Equation 4.5.
    Can be any non-negative value.")
 (export '(*ol* *associative-learning*))
@@ -682,7 +724,7 @@ Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be 
 		 (cons (get-chunk-name c) link)
 		 (actup-chunk-references n)))))))
 
-(defparameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory.
+(def-actup-parameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory.
 `*mas*' is defined as alias for `maximum-associative-strength'.
 See also `*associative-learning*', `reset-sji-fct'.
 See also: ACT-R parameter :mas.")
@@ -845,14 +887,14 @@ See also: ACT-R parameter :mas.")
       0))
 
 
-(defparameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter
+(def-actup-parameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter
 Mismatch (`set-similarities-fct') is linearly scaled using this coefficient.")
 
-(defparameter *ms* 0 "ACT-UP Partial Match Maximum Similarity
+(def-actup-parameter *ms* 0 "ACT-UP Partial Match Maximum Similarity
 Similarity penalty assigned when chunks are equal.
 Value in activation (log) space.")
 
-(defparameter *md* -1 "ACT-UP Partial Match Maximum Difference
+(def-actup-parameter *md* -1 "ACT-UP Partial Match Maximum Difference
 Similarity penalty assigned when chunks are different
 and no explicit similarity is set.
 Value in activation (log) space.")
@@ -1172,9 +1214,9 @@ It defaults to the current meta-process."
 
 
 
-(defparameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
+(def-actup-parameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
 See ACT-R parameter :lf")
-(defparameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
+(def-actup-parameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
 See ACT-R parameter :le")
 (export '(*lf* *le*))
 
@@ -1553,7 +1595,7 @@ the retrieval fails."
 	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec pm-soft-spec))))
     best-chunk))
  
-(defparameter *blend-temperature* 1.0)
+(def-actup-parameter *blend-temperature* 1.0)
 
 (defun blend (chunks &optional cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
@@ -1869,31 +1911,31 @@ See the function `filter-chunks' for a description of possible constraints."
 ;; PROCEDURAL
 
 
-(defparameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
+(def-actup-parameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 
 ;; this is, as of now, independent of the model
-(defparameter *actup-procgroups* nil)
+(def-actup-parameter *actup-procgroups* nil)
 
-(defparameter *au-rpps* nil
+(def-actup-parameter *au-rpps* nil
   "Reward proportion per second elapsed.
 e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
 time is in between procedures.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rfr*' and the function `assign-reward'.")
 
-(defparameter *au-rfr* nil
+(def-actup-parameter *au-rfr* nil
   "base reward proportion for each procedure
 e.g., the each procedure before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
 See also the parameter `*au-rpps*' and the function `assign-reward'.")
 	   
-(defparameter *alpha* 0.2  "Utility learning rate.
+(def-actup-parameter *alpha* 0.2  "Utility learning rate.
 See also the function `assign-reward'.
 See also: ACT-R parameter :alpha")
 		   
-(defparameter *nu* 0.0 "Utility assigned to compiled procedures.
+(def-actup-parameter *nu* 0.0 "Utility assigned to compiled procedures.
 
 This is the starting utility for a newly learned procedure (those created
 by the production compilation mechanism). This is the U(0) value for
@@ -1903,7 +1945,7 @@ learning is not enabled. The default value is 0.
 See also the function `assign-reward' and the variable `*procedure-compilation*'.
 See also: ACT-R parameter :nu")
 
-(defparameter *iu* 0.0 "Initial procedure utility.
+(def-actup-parameter *iu* 0.0 "Initial procedure utility.
 
 The initial utility value for a user-defined procedure (`defproc'). This is
 the U(0) value for a production if utility learning is enabled and the
@@ -1913,7 +1955,7 @@ is 0.
 See also the function `assign-reward'.
 See also: ACT-R parameter :iu")
 
-(defparameter *ul* t "Utility learning flag.
+(def-actup-parameter *ul* t "Utility learning flag.
 
 If this is set to t, then the utility learning equation used above
 will be used to learn the utilities as the model runs. If it is set to
@@ -1926,7 +1968,7 @@ Only if `assign-reward' is called will this parameter have any effect.
 
 See also: ACT-R parameter :ul")
 
-(defparameter *ut* nil "Utility threshold.
+(def-actup-parameter *ut* nil "Utility threshold.
 
 This is the utility threshold. If it is set to a number then that is
 the minimum utility value that a procedure must have to compete in
@@ -1936,7 +1978,7 @@ is no threshold value and all procedures will be considered.
 
 See also: ACT-R parameter :ut")
 
-(defparameter *egs* nil "Transient noise parameter for ACT-UP procedures.
+(def-actup-parameter *egs* nil "Transient noise parameter for ACT-UP procedures.
 
 This is the expected gain s parameter. It specifies the s parameter
 for the noise added to the utility values. It defaults to 0 which
@@ -2127,7 +2169,7 @@ of ACT-UP code.  Please use `defproc' instead."
 			(t "*")))))
 
 
-(defparameter *procedure-compilation* nil "If non-nil, procedure compilation is enabled.
+(def-actup-parameter *procedure-compilation* nil "If non-nil, procedure compilation is enabled.
 Procedure compilation causes ACT-UP procedures defined with `defproc' to be compiled (or: cached).
 After execution of a source procedure,  name, execution arguments and the result are stored as
 compiled procedure.  The compiled procedure is added to each of the source procedure's groups.
