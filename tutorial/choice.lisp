@@ -14,11 +14,18 @@
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
-;; Architectural (ACT-R) Parameters
-(setq *egs* 0.7)
 
-;; Model parameter
-(defparameter *positive-reward* 2.0)
+;; Architectural (ACT-R) Parameters
+
+;; [tutorial students - fill in this section]
+
+;; Model parameter:
+
+;; [tutorial students - fill in this section]
+(defparameter *positive-reward* 10)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *choice-data* '(0.66 0.78 0.82 0.84))
 
@@ -29,9 +36,9 @@
          (incf count)))))
 
 (defun do-n-blocks-of-m-trials (n m)
-     (let (result)
-     (dotimes (i n (reverse result))
-       (push (do-block-of-m-trials m) result))))
+  (let (result)
+    (dotimes (i n (reverse result))
+      (push (do-block-of-m-trials m) result))))
 
 (defun collect-data-choice (n)
   (let (data)

@@ -11,26 +11,19 @@
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
 
-;; Architectural parameters
-(setq *bll* 0.5)                  
-(setq *lf* 1.0)
-(setq *ans* 0.5)
-(setq *rt* 1.2)
-(setq *blc* 0.0)
+
+;; Architectural (ACT-R) Parameters
+
+;; [tutorial students - fill in this section]
 
 ;; Model parameters:
-(defparameter *model-time-parameter-1* 0.55)
-(defparameter *model-time-parameter-2* 0.54)
 
-(defparameter *model-time-parameter-1* 0.5)
-(defparameter *model-time-parameter-2* 0.6)
+;; [tutorial students - fill in this section]
+(defparameter *model-time-parameter-1* 1)
+(defparameter *model-time-parameter-2* 1)
 
 
-;; Alternative, using *lf* from the ACT-R Tutorial:
-;; (setq *lf* 0.4)
-;; (defparameter *model-time-parameter-1* 0.6)
-;; (defparameter *model-time-parameter-2* 0.8)
-
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (defvar *trials*)
@@ -251,28 +244,3 @@
 
 (defun unit-test ()
   (collect-data-silently 60))
-
-
-
-;; With the ACT-R default parameters (*lf*=1.0)
-;; Best correlation: 0.9972 at parameters (0.4 0.41)
-;; Best mean deviation: 0.0549 at parameters (0.5499999 0.5399999)
-;; manual selection (via plots, and in R)
-;; suggests 0.55 and 0.54, giving these:
-;; CORRELATION:  0.994
-;; MEAN DEVIATION:  0.066
-
-;; With the LF parameter from the ACT-R tutorial (*lf*=0.4)
-;; Best correlation: 0.9971 at parameters (0.4 0.45000002)
-;; Best mean deviation: 0.0775 at parameters (0.6 0.8000001)
-;; CORRELATION:  0.992
-;; MEAN DEVIATION:  0.095
-
-
-;; R code to plot and inspect the results:
-;; d <- read.table("zbrodoff-results.txt", header=T)
-;; library (Hmisc)  # may need to be installed!
-;; xYplot(deviation~time1+time2, data=d, method=smean.cl.boot)
-;; xYplot(deviation~I(time1+time2), data=d, method=smean.cl.boot)
-;; d2 = subset(d, time1+time2>1.07 & time1+time2<1.12)
-;; subset(d2, correlation==max(d2$correlation))

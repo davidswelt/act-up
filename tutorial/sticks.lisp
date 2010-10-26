@@ -39,7 +39,7 @@
 ;;;; Procedures that form a group of strategies to solve the problem
 
 (defvar *current* 0)
-(defvar *small* 0)
+(defvar *short* 0)
 (defvar *long* 0)
 (defvar *medium* 0)
 (defvar *goal* 0)
