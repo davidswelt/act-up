@@ -11,13 +11,14 @@
     ("siegler.lisp")
     ("paired.lisp")
     ("zbrodoff.lisp")
+    ("sticks.lisp")
     ("fan.lisp" 0.8 0.07)))
 
 (defun regression ()
   (loop for files in units
 	do
 	(progn
-	  (load (first files))
+	  (load (concatenate 'string (directory-namestring *load-truename*) (first files)))
 	  (let ((*standard-output* (make-string-output-stream)))  
 	    (progn
 	      (setq val (unit-test)) 
