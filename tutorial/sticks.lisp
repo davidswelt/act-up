@@ -16,8 +16,7 @@
 (setq *egs* 3.25)
 
 ;; Model parameters
-(defparameter *model-time-parameter* 0.25)
-(defparameter *model-time-parameter-2* 0.25)
+(defparameter *model-time-parameter* 0.2)
 (defparameter *model-reward* 20)
 
 
@@ -112,7 +111,6 @@
 	   ;; if medium is much better than long
 	   (prefer-under))
 	  (t (either-strategy)))
-      (pass-time *model-time-parameter-2*)
       (assign-reward
        (if (= *current* goal) *model-reward* 0)))))
 
@@ -169,8 +167,6 @@
 	  (*actr-stats-show-results* nil))
     (loop 
        for *model-reward* from 10 to 30 by 5 do
-	 (loop 
-       for *model-time-parameter-2* from 0 to 4 by 1 do
     (loop with *actr-stats-show-results* = nil
        for *model-time-parameter* from minimum to maximum by 0.1
 	    for performance = (collect-data 20000 'silent)
@@ -186,7 +182,7 @@
 		(format output "~,4F ~t~,4F~t~,4F~%" 
 			*model-time-parameter*
 			cor
-			meandev)))))
+			meandev))))
     (format t "Best correlation: ~,4F at parameters ~a~%"
 	    best-cor best-cor-par)
     (format t "Best mean deviation: ~,4F at parameters ~a~%"
