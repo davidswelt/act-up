@@ -1,3 +1,12 @@
+;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
+;;; Filename: past-tense.lisp
+
+;;; To run use command: (do-it 5000)
+
+;;; Author: Jasmeet Ajmani
+;;; Acknowledgements: Dan Bothell
+
+
 (declaim (optimize (speed 0) (space 0) (debug 03)))
 
 ;; These load commands will find the ACT-UP file
@@ -5,7 +14,7 @@
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 
 ;; Architectural (ACT-R) parameters
-(setq *rule-compilation* t)
+
 (setq *rt* 0.5)
 (setq *bll* 0.5)
 (setq *ans* 0.1)
@@ -15,8 +24,12 @@
 (setq *egs* 0.2)
 (setq *mas*  3.5)
 (setq *rt* 0.5)
+(setq *procedure-compilation* t)
 (setq *alpha* 0.1)
 (setq *iu* 5)
+
+;;     :OL 6    
+     
 
 (defvar *report*)
 (defvar *repcount*)
@@ -190,13 +203,14 @@
 ;;; All of them take a word as input and
 ;;; return a list with verb, stem, and suffix.
 
+(defparameter *model-time-parameter* 1.0)
 (defproc strategy-by-retrieval (word)
   "Retrieve memorized past tense form for WORD."
   :group form-past-tense
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word :suffix 'non-nil))))
     (when dec  ;; retrieved?
       (learn-chunk dec)
-      (pass-time 0.05)
+      (pass-time *model-time-parameter*)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
 (defproc strategy-without-analogy (word)
@@ -205,7 +219,7 @@
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word))))
     (when dec  ;; retrieved?
       (learn-chunk dec)
-      (pass-time 0.05)
+      (pass-time *model-time-parameter*)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
 (defproc strategy-with-analogy (word)
@@ -214,5 +228,5 @@
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense))))
     (when dec  ;; retrieved?
       (learn-chunk dec)
-      (pass-time 0.05)
+      (pass-time *model-time-parameter*)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
