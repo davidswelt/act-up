@@ -15,13 +15,17 @@
 (load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
 
 
-;; Architectural (ACT-R) Parameters
 
-;; [tutorial students - fill in this section]
+;; Architectural (ACT-R) Parameter(s)
+
+;; [tutorial students - fill in this section:
+;;  consider setting parameters relevant to utility learning.]
 
 ;; Model parameter:
 
-;; [tutorial students - fill in this section]
+;; [tutorial students - fill in this section:
+;;  modify the parameter.  Perhaps write some code to explore
+;;  this parameter systematically!]
 (defparameter *positive-reward* 10)
 
 
@@ -29,29 +33,54 @@
 
 (defvar *choice-data* '(0.66 0.78 0.82 0.84))
 
-(defun do-block-of-m-trials (m)
+
+
+
+;; Experimental environment
+(defun toss-coin ()
+  "Toss the coin and return heads or tails."
+  (if (< (random 1.0) .9) 'heads 'tails))
+
+
+;; The Model
+;;;; Rules that return the choice as symbol heads or tails
+
+(defproc decide-tails ()
+  "Make a decision for tails."
+  :group choose-coin
+  'tails)
+
+(defproc decide-heads ()
+  "Make a decision for heads."
+  :group choose-coin
+  'heads)
+
+;;;; Executing choice functions and assigning rewards
+(defproc predict-and-flip-coin ()
+  "Choose heads or tails and learn from it."
+  (let ((response (choose-coin)))
+    (if (eq (toss-coin) response)
+	(assign-reward *positive-reward*)
+	(assign-reward 0.0))
+    response))
+
+
+
+
+;;; Experiment Code
+
+(defun run-block-of-trials (m)
    (let ((count 0))
      (dotimes (i m count)
-       (when (eq 'heads (do-trial-model))
+       (when (eq 'heads (predict-and-flip-coin))  ;; Run the trial model
+	 ;; increase counter if it returns `heads'
          (incf count)))))
 
-(defun do-n-blocks-of-m-trials (n m)
+(defun do-n-blocks-of-trials (n m)
   (let (result)
-    (dotimes (i n (reverse result))
-      (push (do-block-of-m-trials m) result))))
-
-(defun collect-data-choice (n)
-  (let (data)
     (dotimes (i n)
-      (reset-model)
-      (push (do-n-blocks-of-m-trials 4 12) data))
-    (print-results-choice (analyze-choice data))))
-
-(defun analyze-choice (data)
-  (let ((n (length data))
-	(result nil))
-    (dotimes (i (length (car data)) (reverse result))
-      (push (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12)) result))))
+      (push (run-block-of-trials m) result))
+    (reverse result)))
 
 (defun print-results-choice (results)
   (format t " Original     Current~%")
@@ -60,34 +89,24 @@
   (list (correlation results *choice-data*)
 	(mean-deviation results *choice-data*)))
 
+(defun analyze-choice (data)
+  (let ((n (length data))
+	(result nil))
+    (dotimes (i (length (car data)) (reverse result))
+      (push (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12)) result))))
+
+(defun collect-data-choice (n)
+  (let (data)
+    (dotimes (i n)
+      (reset-model)
+      (push (do-n-blocks-of-trials 4 12) data))
+    (print-results-choice (analyze-choice data))))
+
+
 ;;;; Test harness for the experiment
 
 (defun unit-test ()
   (collect-data-choice 100))
-
-;; Experimental environment
-(defun toss-coin ()
-  (if (< (random 1.0) .9) 'heads 'tails))
-
-;; The Model
-;;;; Rules that return the choice as symbol heads or tails
-
-(defproc decide-tails ()
-  :group choose-coin
-  'tails)
-
-(defproc decide-heads ()
-  :group choose-coin
-  'heads)
-
-;;;; Executing choice functions and assigning rewards
-(defproc do-trial-model ()
-  "Choose heads or tails and learn from it."
-  (let ((response (choose-coin)))
-    (if (eq (toss-coin) response)
-	(assign-reward *positive-reward*)
-	(assign-reward 0.0))
-    response))
 
 
 ;; -*-Mode: ACT-UP; fill-column: 75; comment-column: 50; -*-
