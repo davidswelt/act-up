@@ -277,6 +277,44 @@ In this implementation, only mean values are printed."
 (export '(clear-aggregates aggregate print-aggregates))
 
 
+;; Parameter optimization
+
+
+(defmacro optimize-parameters (variable-list &body body)
+  "Optimize parameters from VARIABLE-LIST, running BODY.
+Iterates through all combinations of values for variables in VARIABLE-LIST,
+executing BODY for each.  BODY is expected to return a list of form
+\(CORRELATION MEAN-DEV).
+VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
+
+  ;; build loop expression
+  (let* ((vlist (cons 'list (mapcar (lambda (s) `(cons ',(first s) ,(first s))) variable-list)))
+	 (expr `(let ((perf (progn ,@body)))
+		  (if (> (first perf) (first best-cor))
+		      (setq best-cor perf
+			    best-cor-par ,vlist))
+		  (if (< (second perf) (second best-meandev))
+		      (setq best-meandev perf
+			    best-meandev-par ,vlist)))))
+		 
+    (loop for (name min max step) in variable-list do
+	 (setq expr
+	       `(loop for ,name from ,min to ,max by ,step
+		   do ,expr)))
+    (setq expr `(let ((best-cor '(0.0 0.0))
+		      (best-cor-par nil)
+		      (best-meandev '(0.0 1000.0))
+		      (best-meandev-par nil))
+		  ,expr
+		  
+		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
+			  (first best-cor) (second best-cor) best-cor-par)
+		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
+			  (first best-meandev) (second best-meandev) best-meandev-par)))
+    expr))
+
+(export '(optimize-parameters))
+
 
 
 (provide "act-up-experiments")
