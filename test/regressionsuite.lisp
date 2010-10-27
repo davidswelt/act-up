@@ -11,6 +11,7 @@
 
 (defparameter *units*  ;; Unit files (to be tested), including bounds for correlation and mean deviation.
   '(("choice.lisp")
+    ("../tutorial/paired.lisp")
     ("../tutorial/siegler.lisp")
     ("../tutorial/paired.lisp")
     ("zbrodoff.lisp" 0.98 0.15)
