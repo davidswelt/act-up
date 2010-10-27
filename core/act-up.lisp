@@ -1925,7 +1925,7 @@ See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 
 ;; this is, as of now, independent of the model
-(def-actup-parameter *actup-procgroups* nil)
+(defparameter *actup-procgroups* nil)
 
 (def-actup-parameter *au-rpps* nil
   "Reward proportion per second elapsed.
