@@ -1,3 +1,4 @@
+;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
 ;;; Filename: zbrodoff.lisp
 
 ;;; To run use command: (collect-data 40)
