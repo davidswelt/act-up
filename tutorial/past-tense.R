@@ -1,0 +1,6 @@
+d = read.table("past-tense-results.txt", header=T)
+pdf("past-tense.pdf")
+plot(irreg ~ trial, data=d, type="l")
+plot(irreg.prop ~ trial, data=d, type="l")
+dev.off()
+quit("no")
