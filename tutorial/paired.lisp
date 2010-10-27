@@ -16,15 +16,6 @@
 (setf *rt* -2)
 (setf *ans* 0.5)
 (setf *bll* 0.4)
-(setf *lf* 0.3)
-
-;; Alternative parameters with procedure compilation enabled:
-;; (setf *procedure-compilation* t
-;;       *egs* 0.1
-;;       *lf* 0.3
-;;       *rt* -1.7
-;;       *alpha* 0.4)
-
 
 ;; Model parameters:
 
@@ -92,7 +83,6 @@
       (let ((score 0.0)
             (time 0.0))
          (dolist (x (subseq *pairs* (- 20 size))) 
-	   (flush-procedure-queue)
 	   (let* ((response nil)
 		  (duration
 		   (stop-actup-time
@@ -106,9 +96,9 @@
 		   (incf score 1.0)    
 		   (incf time duration))
 		 (progn
-		   ;(assign-reward 0)
 		   (learn-pair (first x) (second x))
 		   (pass-time 5.0)
+		   (assign-reward 0)
 		   )))) ; show number for 5 seconds
 	 (push (list (/ score size) (and (> score 0) (/ time score ))) result)))
     (reverse result)))
@@ -121,8 +111,7 @@
                                   (+ (or (second lis1) 0) (or (second lis2) 0))))
                   results (do-experiment 20 8))))
       ((equal count n) 
-       (output-data
--paired results n))))
+       (output-data-paired results n))))
 
 (defun output-data-paired (data n)
   (let ((probability (mapcar #'(lambda (x) (/ (first x) n)) data))
@@ -142,4 +131,12 @@
 
 
 ;; Parameter optimization:
-;;  (act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test))
+
+(defun test-procedure-compilation ()
+  ;; Alternative parameters with procedure compilation enabled:
+  (setf *procedure-compilation* t
+	*egs* 0.1
+	*lf* 0.3
+	*rt* -1.7
+	*alpha* 0.4)
+  (act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test)))
