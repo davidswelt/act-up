@@ -159,6 +159,14 @@ retrieved using this function."
       (close *debug-stream*)
       (setq *debug-stream* nil)))
 
+(defun debug-simplify (object)
+  (cond ((or (symbolp object) (numberp object) (stringp object))
+	 object)
+	((actup-chunk-p object)
+	 (actup-chunk-name object))
+	(t "<S>")))
+
+
 (defmacro debug-print (level format &rest args)
   `(when (and *debug*
 	      (<= ,level *debug*))
@@ -826,7 +834,7 @@ See also: ACT-R parameter :mas.")
 		(let ((decay-time  (- time pres)))
 		  ;; (format-t "~a: adding ~a s, ~a~%" (actup-chunk-name chunk) (- time pres) decay)
 		  (when (< decay-time *dat*)
-		      (debug-print *warning* "~a: Warning: retrieval (or: base-level activation) of chunk ~a measured too shortly (~a-~a<~asec) after its latest presentation (learn-chunk). Model-time: ~a.~%"
+		      (debug-print *warning* "~a: Warning: retrieval (or: base-level activation) of chunk ~a measured too shortly (~a-~a<~asec) after its latest presentation (learn-chunk). Model-time: ~2,2f.~%"
 				   (meta-process-name *current-actUP-meta-process*)
 				   (actup-chunk-name chunk)
 				   time pres *dat* (model-time *current-actUP-model*))
@@ -959,7 +967,7 @@ CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals."
   (when chunk-or-name
     (let ((chunk (get-chunk-object chunk-or-name)))
-    (format-nil "  time:~a  ~a base-level: ~a  (~a pres) pm: ~a ~a ~a"
+    (format-nil "  time: ~2,2f  ~a base-level: ~2,2f  (~a pres) pm: ~2,2f ~2,2f ~2,2f"
 	    (actUP-time)
 	    (actup-chunk-name chunk)
 	    (actup-chunk-get-base-level-activation chunk)
@@ -974,8 +982,8 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 			     collect
 			       (format-nil "~a: ~a" (get-chunk-name cue)
 				  (if  (and link (actup-link-sji link))
-				       (format-nil "Sji: ~a " (actup-link-sji link))
-				       (format-nil "Rji: ~a " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
+				       (format-nil "Sji: ~2,2f " (actup-link-sji link))
+				       (format-nil "Rji: ~2,2f " (let ((rji (chunk-get-rji cue chunk))) (log-safe rji))))))))
 		"")
 	    (if retr-spec 
 		(format-nil "partial match: ~a " (actup-chunk-get-partial-match-score chunk retr-spec))
@@ -1482,12 +1490,13 @@ Returns the added chunk."
 		      
     ;; (car (search-for-chunks model chunk-descr)) ;; use unifiable object 
     
-    (debug-print *informational* "Presentation of chunk ~a (MP: ~a t=~a.  M: ~a, t=~a.~%"
+    (debug-print *informational* "Presentation of chunk ~a.~%"  ;;  (MP: ~a t=~a.  M: ~a, t=~a
 		 (actup-chunk-name chunk) 
-		 (meta-process-name *current-actUP-meta-process*)
-		 (actup-time)
-		 (model-name model)
-		 (model-time model))
+		 ;; (meta-process-name *current-actUP-meta-process*)
+		 ;; (actup-time)
+		 ;; (model-name model)
+		 ;; (model-time model)
+		 )
 
     (incf (actup-chunk-total-presentations chunk))
     (push (actUP-time) (actup-chunk-presentations chunk))
@@ -2163,10 +2172,10 @@ of ACT-UP code.  Please use `defproc' instead."
 (defun make-compiled-proc-name (group args result)
   (intern (format-nil "~a/~a->~a"
 		  group (length args)
-		  (cond ((symbolp result) result)
+		  (cond ((or (symbolp result) (stringp result)) result)
 			((numberp (format-nil "~2f" result)))
 			((actup-chunk-p result) (get-chunk-name result))
-			(t "*")))))
+			(t "<S>")))))
 
 
 (def-actup-parameter *procedure-compilation* nil "If non-nil, procedure compilation is enabled.
@@ -2202,16 +2211,17 @@ The initial utility of a compiled procedure equals the initial utility of the so
 		 ;; update utility of this proc
 		 (assign-reward-to-proc (proc-utility this-proc) proc)
 		 (return t)))
-	  (setf (cdr (last leaf))
+	  (let ((proc-name (make-compiled-proc-name group args result)))
+	    (debug-print *informational* "Adding compiled procedure ~a, group ~a.~%" proc-name group)
+	    (setf (cdr (last leaf))
 		(list 
 		 (make-compiled-proc
-		  :name (make-compiled-proc-name group args result)
+		  :name proc-name
 		  :args args
 		  :result result
 		  :utility *nu* ; (proc-utility this-proc)
 		  :original-proc (proc-name this-proc)
-		  :firing-time (proc-firing-time this-proc)))))))
-
+		  :firing-time (proc-firing-time this-proc))))))))
   ;; (format-t "end: ~s ~s" name result)
   (pass-time (or (proc-firing-time this-proc) *dat*)) ;; to do: randomization (:vpft parameter)
 )
@@ -2272,7 +2282,11 @@ Returns NAME."
 	       (compiled-proc-original-proc proc)
 	       (compiled-proc-args proc)
 	       (compiled-proc-result proc))
-  (pass-time 0.05)
+  (when *ul* ; utility learning on
+    ;; add proc to queue
+    (push (list (actup-time) proc)
+	  (procedural-memory-proc-queue (model-pm (current-model)))))
+  (pass-time *dat*)
   (compiled-proc-result proc))
 
 (defun best-proc-of-group (group args)
@@ -2303,7 +2317,7 @@ Returns PROCEDURE."
 		      (return (cons utility (choice procs)))))
 	   (proc (cdr util-proc)))
       (debug-print *informational* 
-		   "Group ~a with ~a~a matching procedures, choosing procedure ~a (Utility ~a)~a~%"
+		   "Group ~a with ~a~a matching procedures, choosing procedure ~a (Utility ~2,4f)~a~%"
 		   group
 		   (length regular-procs)
 		   (if *procedure-compilation*
@@ -2443,24 +2457,24 @@ See also `flush-procedure-queue'."
     (loop for name in (sort rs (lambda (a b) (string-lessp (symbol-name a) (symbol-name b)))) do
        ;; look up proc object
 	 (let ((proc (gethash name regular-procs)))
-	   (print (cons name
+	   (format t "~a: ~2,2f~%" name
 			(if proc
 			    (proc-utility (lookup-proc name))
 			    (if (get name 'initial-utility)
 				(list (get name 'initial-utility) 'proc-iu)
-				(list  *iu* '*iu*)))))))
+				(list  *iu* '*iu*))))))
     (let ((num))
       (maptree (lambda (path v)
 		 (let ((big-group (cddr (assoc (car path) act-up::*actup-procgroups*))))  ;; more than one proc in group?
+		   (unless num
+		     (format t "~%Compiled procs:~%")
+		     (setq num t))
 		   (if (cdr v)
 		       (progn
-			 (unless num
-			   (format t "~%Compiled procs:~%")
-			   (setq num t))
 			 (format t "~a:~%" path)
 			 (loop for r in (sort v (lambda (a b) (> (proc-utility a) (proc-utility b)))) do  ;; WARNING: sort is destructive.  Should be OK though.
-			      (format t "   ~a --> ~a: ~a~%" (if big-group (format nil "[~a]" (compiled-proc-original-proc r)) "") (compiled-proc-result r) (proc-utility r))))
-		       (format t "~a ~a --> ~a: ~a~%" path (if big-group (format nil "[~a]" (compiled-proc-original-proc (car v))) "") (compiled-proc-result (car v)) (proc-utility (car v))))))
+			      (format t "   ~a --> ~a: ~2,2f~%" (if big-group (format nil "[~a]" (compiled-proc-original-proc r)) "") (compiled-proc-result r) (proc-utility r))))
+		       (format t "~a ~a --> ~a: ~2,2f~%" path (if big-group (format nil "[~a]" (compiled-proc-original-proc (car v))) "") (compiled-proc-result (car v)) (proc-utility (car v))))))
 	       compiled-procs)))
   nil)
 
