@@ -1,10 +1,9 @@
 ;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
 ;;; Filename: past-tense.lisp
 
-;;; To run use command: (do-it 5000)
+;;; To run use command: (do-it)
 
-;;; Author: Jasmeet Ajmani
-;;; Acknowledgements: Dan Bothell
+;;; Author: Jasmeet Ajmani, David Reitter, Dan Bothell
 
 
 (declaim (optimize (speed 0) (space 0) (debug 03)))
@@ -20,20 +19,15 @@
 (setq *ans* 0.1)
 (setq *lf* 0.5)
 (setq *blc* 0.0)
-(setq *ans* 0.1)
 (setq *egs* 0.2)
 (setq *mas*  3.5)
 (setq *rt* 0.5)
 (setq *procedure-compilation* t)
 (setq *alpha* 0.1)
 (setq *iu* 5)
-
-;;     :OL 6    
-     
+(setq *ol* 6)
 
 (defvar *report*)
-(defvar *repcount*)
-(defvar *trial*)
 
 (defun make-triples (l)
   (when l
@@ -81,12 +75,12 @@
         (return i)
         (setf num (- num (third i)))))))
 
-;;; Set the goal to do one past tense
+;;;  Run the model
 
-(defun make-one-goal ()
+(defun run-model-once ()
   (let* ((wordpair (random-word))
 	 (word (first wordpair)))
-    (list (past-tense-model word)
+    (list (past-tense-model word)  ;; run model
 	  word
 	  (second wordpair))))
 
@@ -105,7 +99,8 @@
                (t (setf none (1+ none)))))
        (if (> (+ irreg reg none) 0)
          (setf data (list (/ irreg (+ irreg reg none))
-                 (/ reg (+ irreg reg none))(/ none (+ irreg reg none))
+                 (/ reg (+ irreg reg none))
+		 (/ none (+ irreg reg none))
                  (if (> (+ irreg reg) 0) (/ irreg (+ irreg reg)) 0)))
          (setf data (list 0 0 0 0)))
        (format t "~{~6,3F~}~%" data)
@@ -129,22 +124,31 @@
 ;;;   repfreq - determines how often results are reported during a run.
 
 
-(defun do-it (n &optional (repfreq 100))
+(defun do-it (&optional (n 20000) (repfreq 1000))
     (init-model)
-    (format t "~%")
+    (format t "~%trial   irreg   reg  none  irreg.prop  ~%")
     (setf *report* nil)
-    (setf *trial* 0 *repcount* 0)
-    (dotimes (i n)
-      ;; add two random words to memory
-      (add-past-tense-to-memory)
-      (add-past-tense-to-memory)
-      (apply #'add-to-report (make-one-goal))
-    (incf *repcount*)
-    (when (>= *repcount* repfreq)
-      (format t "Trial ~6D : " (1+ *trial*))
-      (rep-f-i (subseq *report* 0 repfreq) repfreq)
-      (setf *repcount* 0))
-    (incf *trial*)))
+    (let ((trial 0) (repcount 0))
+      (dotimes (i n)
+	;; add two random words to memory
+	(add-past-tense-to-memory)
+	(add-past-tense-to-memory)
+	(apply #'add-to-report (run-model-once))
+	(incf repcount)
+	(when (>= repcount repfreq)
+	  (format t "~6D  " (1+ trial))
+	  (rep-f-i (subseq *report* 0 repfreq) repfreq)
+	  (setf repcount 0))
+	(incf trial))))
+
+(defun plot-it (n &optional (repfreq 100))
+
+  (with-open-file (*standard-output* "past-tense-results.txt" :direction :output
+			  :if-exists :supersede)
+    (do-it n repfreq))
+  (run-program "/usr/bin/R" '("CMD" "BATCH" "past-tense.R") :output t)
+  (run-program "/usr/bin/open" (list "past-tense.pdf")))
+	 
 
 ;;;; define chunk type
 (define-chunk-type pasttense verb stem suffix)
@@ -157,14 +161,15 @@
 (defun init-model ()
   (reset-model))
 
+;;  work      R                496 work
 
 (defun add-past-tense-to-memory ()
    (let*
      ((wordpair (random-word))
-      (word (first wordpair))
-      (stem (fourth wordpair))
-      (suffix (fifth wordpair)))
-     (learn-chunk (make-pasttense* :name word :verb word :stem stem :suffix suffix)))
+      (word (first wordpair))  ;; "work"
+      (stem (fourth wordpair))  ;; "work" 
+      (suffix (fifth wordpair)))  ;; blank / ed
+     (learn-chunk (make-pasttense* :verb word :stem stem :suffix suffix)))
    (pass-time 0.05))
 
 
@@ -188,45 +193,49 @@
 
 ;;;; The model
 
+
 (defproc ptmodel (word)
   "Form past-tense of WORD."
   :group past-tense-model
   (let ((q (form-past-tense word)))
+
+   ; (if q (print 'ok) (print 'fail))
+    (pass-time *model-time-parameter*)
     (if q
 	(if (eq (third q) 'blank)
 	    (assign-reward 5.0)
 	    (assign-reward 4.2))
 	(assign-reward 3.9))
+    (if q (learn-chunk (make-pasttense* 
+			    :verb (first q)
+			    :stem (second q)
+			    :suffix (third q)
+			    )))
     q))
 
 ;;; Strategies 
 ;;; All of them take a word as input and
 ;;; return a list with verb, stem, and suffix.
 
-(defparameter *model-time-parameter* 1.0)
+(defparameter *model-time-parameter* 1.5)
+
 (defproc strategy-by-retrieval (word)
   "Retrieve memorized past tense form for WORD."
   :group form-past-tense
   (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word :suffix 'non-nil))))
     (when dec  ;; retrieved?
-      (learn-chunk dec)
-      (pass-time *model-time-parameter*)
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
-(defproc strategy-without-analogy (word)
-  "Retrieve memorized past tense form for WORD."
+(defproc try-analogy-and-get-same-word (word)
+  "Retrieve some past tense and got lucky."
   :group form-past-tense
-  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :verb word))))
-    (when dec  ;; retrieved?
-      (learn-chunk dec)
-      (pass-time *model-time-parameter*)
+  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :suffix 'non-nil))))
+    (when (and dec (eq word (pasttense-verb dec))) ;; got the right word
       (list word (pasttense-stem dec) (pasttense-suffix dec)))))
 
 (defproc strategy-with-analogy (word)
   "Retrieve some past tense form, using analogy."
   :group form-past-tense
-  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense))))
-    (when dec  ;; retrieved?
-      (learn-chunk dec)
-      (pass-time *model-time-parameter*)
-      (list word (pasttense-stem dec) (pasttense-suffix dec)))))
+  (let ((dec (retrieve-chunk (list :chunk-type 'pasttense :suffix 'non-nil))))
+    (when (and dec (eq (pasttense-verb dec) (pasttense-stem dec))) ;; an analogy is possible
+      (list word word (pasttense-suffix dec)))))
