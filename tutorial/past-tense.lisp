@@ -141,7 +141,7 @@
 	  (setf repcount 0))
 	(incf trial))))
 
-(defun plot-it (n &optional (repfreq 100))
+(defun plot-it (&optional (n 20000) (repfreq 1000))
 
   (with-open-file (*standard-output* "past-tense-results.txt" :direction :output
 			  :if-exists :supersede)
