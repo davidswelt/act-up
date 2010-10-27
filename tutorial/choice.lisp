@@ -70,17 +70,16 @@
 ;;; Experiment Code
 
 (defun run-block-of-trials (m)
-   (let ((count 0))
-     (dotimes (i m count)
-       (when (eq 'heads (predict-and-flip-coin))  ;; Run the trial model
-	 ;; increase counter if it returns `heads'
-         (incf count)))))
-
+  "Runs `predict-and-flip-count' m times.
+Returns count of head predictions."
+  (loop for i from 0 below m count
+     ;; count how many times it returns `heads'
+       (eq 'heads (predict-and-flip-coin))))
+       
 (defun do-n-blocks-of-trials (n m)
-  (let (result)
-    (dotimes (i n)
-      (push (run-block-of-trials m) result))
-    (reverse result)))
+    (reset-model) 
+    (loop for i from 0 below n collect
+	 (run-block-of-trials m)))
 
 (defun print-results-choice (results)
   (format t " Original     Current~%")
@@ -90,17 +89,16 @@
 	(mean-deviation results *choice-data*)))
 
 (defun analyze-choice (data)
-  (let ((n (length data))
-	(result nil))
-    (dotimes (i (length (car data)) (reverse result))
-      (push (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12)) result))))
+  (loop with n = (length data)
+     for i from 0 below (length (car data)) collect
+       (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12))))
+
 
 (defun collect-data-choice (n)
-  (let (data)
-    (dotimes (i n)
-      (reset-model)
-      (push (do-n-blocks-of-trials 4 12) data))
-    (print-results-choice (analyze-choice data))))
+  (print-results-choice 
+   (analyze-choice 
+    (loop for i from 0 below n collect
+	 (do-n-blocks-of-trials 4 12)))))
 
 
 ;;;; Test harness for the experiment
