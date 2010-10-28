@@ -1,0 +1,42 @@
+ACT-UP
+
+An ACT-R toolkit library
+
+This library allows its users to experiment with the ACT-R theory (Anderson 2007) and prototype cognitive models.  
+It is based on Common Lisp, providing a Lisp API to functions of Declarative Memory, Procedural Memory and more.
+It is light-weight, scalable and fast.  
+
+http://act-up.psy.cmu.edu/
+
+(C) Copyright 2010, David Reitter
+(C) Copyright 2010, Carnegie Mellon University
+
+
+Beta distribution
+This version of ACT-UP is in the testing phase.   Please comment on its functionality by writing to reitter@cmu.edu.
+
+
+Requirements (technical)
+SBCL or OpenMCL/CCL Common Lisp systems on any operating system.
+
+Requirements (human)
+Some programming experience, ideally in Common Lisp
+Basic understanding of the ACT-R cognitive theory (optional - tutorials included)
+
+
+Documentation
+- Tutorials (units 1-4).  The tutorial gives an introduction to cognitive modeling in ACT-UP.  It is adapted from the widely successful ACT-R 6 tutorial.
+- API documentation
+- "How do I.." quick-start document.
+
+-  Reitter, D. & Lebiere, C. (2010). Accounting modeling in ACT-UP, a sclable, rapid-prototyping ACT-R implementation. In D. D. Salvucci & G. Gunzelmann (Eds.), Proceedings of the 10th International Conference on Cognitive Modeling (pp. 199-204). Philadelphia, PA: Drexel University.   http://act-r.psy.cmu.edu/papers/935/Reitter.pdf
+
+
+Supplemental
+- Emacs major mode (in util/act-up.el)
+- Statistics package (in util/actr-stats.lisp)
+- Experiment package (in util/act-up-experiments.lisp) - contains parameter optimization code
+
+
+Authors
+D. Reitter, C. Lebiere, J. Ajmani
