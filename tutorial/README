@@ -1,12 +1,19 @@
 ACT-UP variants of ACT-R tutorial models.
-All translated or written by Jasmeet Ajmani and David Reitter,  Carnegie Mellon University, 2010.
 -----------------------
 
-addition.lisp - unfinished
-bst-learn.lisp - untested; needs testing harness
-fan.lisp - should work
-paired.lisp - does not work
-choice.lisp - seems to work
-siegler.lisp - tested, works
+addition.lisp - should work
+sticks.lisp - works
+fan.lisp - works
+paired.lisp - works (rule compilation not faithful)
+choice.lisp - works
+siegler.lisp - works
+zbrodoff.lisp - works (better correlation/mean dev. than ACT-R)
+past-tense.lisp - learns. correlation unclear.
+semantic.lisp - works
 
-zbrodoff.lisp - works, but doesn't show exact same predictions as ACT-R (mean dev. is off)
+
+Tutorial units
+unit1, unit2, unit3, unit4
+
+(Numbering does not correspond to ACT-R tutorial units.
+The content does.)
