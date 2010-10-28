@@ -58,11 +58,12 @@
 
 (defun do-experiment ()
   (init-model)
-  (setf *trials* nil)
-  (dotimes (j 3)
-    (setf *block* (+ j 1))
-    (dotimes (i 8)
-      (setf *trials* (append *trials* (create-set)))))
+  (setf *trials* 
+	(loop for j from 0 below 3 append
+	     (progn
+	       (setf *block* (+ j 1))
+	       (loop for i from 0 below 8 append
+		    (create-set))))
   (collect-responses)
   (analyze-results))
 
