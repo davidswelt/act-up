@@ -118,13 +118,17 @@ instance of type `meta-process'." 'internal)
 
 
 (defmacro forward-declare (fun args)
-  (unless (or (fboundp fun)
-	      (member :lispworks *features*))
-  `(defun ,fun ,args
-     (declare (ignore ,@args))
-     (error "forward declaration called.")
-     ;; declare return type:
-     t)))
+  ;; The following helps prevent warnings when loading source code
+  ;; but it causes type errors when compiling, as we are not 
+  ;; correctly defining the return types.
+  ;; (unless (or (fboundp fun)
+  ;; 	      (member :lispworks *features*))
+  ;; `(defun ,fun ,args
+  ;;    (declare (ignore ,@args))
+  ;;    (error "forward declaration called.")
+  ;;    ;; declare return type:
+  ;;    t))
+  )
 
 
 ;; Debugging
@@ -2133,21 +2137,20 @@ Procedures and groupings of procedures are not specific to the model."
 	(setq groups (second groups)))
 
     `(progn
-    (defun-module procedural ,name ,args
-       ,doc-string
-;; to do: handle signals
-       (let (
-	     (actup---proc (actup-proc-start ',name ,(cons 'list args-filtered)))
-	     (actup---proc-result
-	      (progn
-		,@body)))
-	 (actup-proc-end actup---proc ',(or (unless (equal groups '(nil)) groups) (list name))
-			 ,(cons 'list args-filtered) actup---proc-result)
-	 actup---proc-result))
-    (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
-    (declare-proc ',groups
-		   ',name ',args ',args-filtered)
-)))
+       (defun-module procedural ,name ,args
+	 ,doc-string
+	 ;; to do: handle signals
+	 (let (
+	       (actup---proc (actup-proc-start ',name ,(cons 'list args-filtered)))
+	       (actup---proc-result
+		(progn
+		  ,@body)))
+	   (actup-proc-end actup---proc ',(or (unless (equal groups '(nil)) groups) (list name))
+			   ,(cons 'list args-filtered) actup---proc-result)
+	   actup---proc-result))
+       (setf (get ',name 'initial-utility) ,iu)  ; store initial utility
+       (declare-proc ',groups
+		     ',name ',args ',args-filtered))))
 
 (defmacro defrule (args)
   "Alias for `defproc'.
@@ -2242,6 +2245,8 @@ Returns NAME."
 
   (loop for g in groups when g do
      ;; (re)define lisp function with group name
+       ;; cannot unintern g here because it is already
+       ;; exported to the user's package
        (eval `(defun-module procedural ,g ,args 
 		,(format-nil "Choose a procedure out of group %s" g)
 		(actup-eval-proc ',g ,@args-filtered)))
