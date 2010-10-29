@@ -42,13 +42,13 @@ Anderson 2007, etc.).
 (defun format-t (form &rest args)
   (apply #'format t form args))
 
-(defun actup-load (file &optional (dir "core"))
+(defun actup-load-simple (file &optional (dir "core"))
   (format t "Loading ~s.~%" file)
-  (load (merge-pathnames file (translate-logical-pathname (format nil "ACT-UP1:~a;" dir)))))
+  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename* "./")) "../" dir "/" file)))
 
-(actup-load "actr6-compatibility.lisp")
-(actup-load "actr-aux.lisp")
-(actup-load "act-up-util.lisp")
+(actup-load-simple "actr6-compatibility.lisp")
+(actup-load-simple "actr-aux.lisp")
+(actup-load-simple "act-up-util.lisp")
 
 
 ;;; ACT-UP parameter system
@@ -65,13 +65,12 @@ the result of evaluating INIT-FORM.
 Internal parameters should be marked with MODULE `internal'.
 These are not shown by `show-parameters'." 
   `(progn
-     (defparameter ,name ,init-value ,doc-string)
+     (defparameter ,name ,init-value ,(or doc-string "Undocumented ACT-UP parameter."))
      (push (list ',name ',init-value ,name ,module) *actup-parameters*)))
 
 (defun reset-actup ()
   "Resets architectural ACT-UP parameters, meta-process and current model."
-  
-  (loop for (par init-form init-value) in *actup-parameters* do
+  (loop for (par init-form nil) in *actup-parameters* do
        (set par (eval init-form))))
 
 (defun show-parameters (&optional show-all)
@@ -79,7 +78,7 @@ These are not shown by `show-parameters'."
 If SHOW-ALL is non-nil, print even unchanged parameters."
   
   (format t ";; ACT-UP parameters:~%")
-  (loop for (par init-form init-value module) in *actup-parameters* 
+  (loop for (par nil init-value module) in *actup-parameters* 
        when (not (eq 'internal module))
      do
        (when (or show-all (not (equal init-value (eval par))))
@@ -114,6 +113,13 @@ May be read and manipulated by setting it to a different
 instance of type `meta-process'." 'internal)
 (export '(meta-process make-meta-process meta-process-name *current-actUP-meta-process*))
 
+
+(defmacro forward-declare (fun args)
+  (unless (or (fboundp fun)
+	      (member :lispworks *features*))
+  `(defun ,fun ,args
+     (declare (ignore ,@args))
+     (error "forward declaration called."))))
 
 
 ;; Debugging
@@ -172,7 +178,7 @@ retrieved using this function."
 	      (<= ,level *debug*))
      (debug-print-internal ',format ,@args)))
  
-(defun pc (c) c) ;; forward declaration
+(forward-declare pc (c)) ;; forward declaration
 (defun debug-print-internal (format &rest args)
   (if *debug-to-log*
     (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
@@ -233,12 +239,6 @@ The log output can be retrieved with `debug-log'."
   result
   busy-until
 )
-
-(defmacro forward-declare (fun args)
-  (unless (fboundp fun)
-  `(defun ,fun ,args
-     (declare (ignore ,@args))
-     (error "forward declaration called."))))
 
 (forward-declare current-model ())
 (forward-declare model-modules (module))
@@ -521,7 +521,8 @@ NAME, if given, specifies a name.")
 
 (def-actup-parameter *current-actUP-model* (make-model) "Current ACT-UP Model" 'internal)
 
-(defvar *dat* nil) ;; forward declaration
+(def-actup-parameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
+See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 (defun wait-for-model (&optional model)
   "Waits until meta-process and MODEL are synchronized.
@@ -532,7 +533,6 @@ This function waits (see `pass-time') until the model is ready, that
 is, it sets the meta process time to the model time if the model time
 is more advanced, plus the current value of `*dat*'.
 MODEL defaults to the current model."
-
   (let ((diff (- (model-time (or model *current-actUP-model*)) (actup-time))))
     (when (> diff 0.0)
       ;; (format t "~a: waiting for model ~a (t=~a): ~A~%" (meta-process-name *current-actUP-meta-process*) 
@@ -606,7 +606,6 @@ See also: ACT-R parameter :ol")
 	  ;;name 
 	  chunk-type))
 
-(defvar *pas* nil) ;; forward declaration
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
@@ -1008,7 +1007,7 @@ If chunk types are defined with `define-chunk-type', then use the
   (apply #'make-actup-chunk args))
 
 
-(defun make-match-chunk (&rest all) all) ; forward declaration
+(forward-declare make-match-chunk (&rest all)) ; forward declaration
 
 (defun make-chunk* (&rest args)
  "Like `make-chunk', but returns matching chunk from declarative memory if one exists.
@@ -1604,7 +1603,7 @@ the retrieval fails."
 	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec pm-soft-spec))))
     best-chunk))
  
-(def-actup-parameter *blend-temperature* 1.0)
+(def-actup-parameter *blend-temperature* 1.0 "Blend temperature.")
 
 (defun blend (chunks &optional cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
@@ -1918,10 +1917,6 @@ See the function `filter-chunks' for a description of possible constraints."
 ;   (setf (declarative-memory-chunks (model-dm (current-model))) chunks)
 
 ;; PROCEDURAL
-
-
-(def-actup-parameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
-See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 
 ;; this is, as of now, independent of the model
@@ -2507,9 +2502,9 @@ See also `flush-procedure-queue'."
     screen-x
   screen-y)
 
-(actup-load "au-visual.lisp" "modules")
+(actup-load-simple "au-visual.lisp" "modules")
 
-(actup-load "au-manual.lisp" "modules")
+(actup-load-simple "au-manual.lisp" "modules")
 
 (defparameter *act-up-version* 0.1 "Version of a loaded ACT-UP.
 ACT-UP has been correctly initialized if this is defined and non-nil.")
