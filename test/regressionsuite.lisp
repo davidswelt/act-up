@@ -11,12 +11,11 @@
 
 (defparameter *units*  ;; Unit files (to be tested), including bounds for correlation and mean deviation.
   '(("choice.lisp")
-    ("../tutorial/paired.lisp")
+    ("../tutorial/fan.lisp" 0.8 0.07)
+    ("../tutorial/paired.lisp" 0.95 0.2) ;; needs work
     ("../tutorial/siegler.lisp")
-    ("../tutorial/paired.lisp")
-    ("zbrodoff.lisp" 0.98 0.15)
     ("../tutorial/sticks.lisp" 0.75 25)
-    ("../tutorial/fan.lisp" 0.8 0.07)))
+    ("zbrodoff.lisp" 0.98 0.15)))
 
 (defparameter *base-location* (directory-namestring *load-truename*))
 
