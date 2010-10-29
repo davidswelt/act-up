@@ -213,22 +213,27 @@
 
 (defun actup-load (file &optional (dir "core"))
   (format t "Loading ~s.~%" file)
-  (load (merge-pathnames file (translate-logical-pathname (format nil "ACT-UP1:~a;" dir)))))
+  ;; (load (merge-pathnames file (translate-logical-pathname (format nil "ACT-UP1:~a;" dir))))
+  (smart-load (translate-logical-pathname (format nil "ACT-UP1:~a;" dir))
+	      file))
 
 (export '(actup-load))
 
-(when (or (not *act-up-avoid-multiple-loading*)
-	(not (find-symbol "*ACT-UP-VERSION*")))
-    (actup-load "act-up.lisp"))
+;; act-up.lisp may load this file in order to ensure definition of actup-load.
+;; in that case we don't execute the actual loading.
+(when (not (eq *act-up-avoid-multiple-loading* 'is-loading))
 
+  (when (or (not *act-up-avoid-multiple-loading*)
+	    (not (find-symbol "*ACT-UP-VERSION*")))
+    (actup-load "act-up.lisp"))
 
 ;;(require "act-up" "/act-up.lisp")
 
-(use-package :act-up)
+  (use-package :act-up)
 
 
 
-(format t "~%######### Loading of ACT-UP is complete #########~%")
+  (format t "~%######### Loading of ACT-UP is complete #########~%"))
 
 
 

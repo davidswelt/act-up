@@ -42,13 +42,15 @@ Anderson 2007, etc.).
 (defun format-t (form &rest args)
   (apply #'format t form args))
 
-(defun actup-load-simple (file &optional (dir "core"))
-  (format t "Loading ~s.~%" file)
-  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename* "./")) "../" dir "/" file)))
+;; `actup-load' command:
+(unless (fboundp 'actup-load)
+  (defvar *act-up-avoid-multiple-loading* nil)
+  (let ((*act-up-avoid-multiple-loading* 'is-loading))
+    (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))))
 
-(actup-load-simple "actr6-compatibility.lisp")
-(actup-load-simple "actr-aux.lisp")
-(actup-load-simple "act-up-util.lisp")
+(actup-load "actr6-compatibility")
+(actup-load "actr-aux")
+(actup-load "act-up-util")
 
 
 ;;; ACT-UP parameter system
@@ -365,8 +367,8 @@ request was sent via a function such as
   (request-handle-result handle))
 
 
-(defun filter-argument-list (args)
-  (loop for a in args 
+(defmacro filter-argument-list (args)
+  `(loop for a in ,args 
      when (or (consp a)
 	      (and (symbolp a)
 		   (not (eq a '&optional))
@@ -2502,9 +2504,9 @@ See also `flush-procedure-queue'."
     screen-x
   screen-y)
 
-(actup-load-simple "au-visual.lisp" "modules")
+(actup-load "au-visual" "modules")
 
-(actup-load-simple "au-manual.lisp" "modules")
+(actup-load "au-manual" "modules")
 
 (defparameter *act-up-version* 0.1 "Version of a loaded ACT-UP.
 ACT-UP has been correctly initialized if this is defined and non-nil.")
