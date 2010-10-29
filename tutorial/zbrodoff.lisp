@@ -33,6 +33,55 @@
 (defstruct trial block addend1 addend2 sum answer)
 (defstruct response block addend correct time)
 
+;;; Model
+
+;;;; committing chunks to memory
+
+(defun init-model ()
+  (reset-model)
+
+  ;; create seqfact chunks for (0 1), (3 4), (i j) etc:
+  (loop for (a b) on '(0 1 2 3 4 5 a b c d e f g h i j k) 
+       when b
+       do
+       (set-base-level-fct
+	(learn-chunk (make-seqfact :identity a :next b))
+	100000 -1000)))
+
+
+
+;;;; Define chunk types
+
+(define-chunk-type problem arg1 arg2 r)
+(define-chunk-type seqfact identity next)
+
+
+;;;; Defining Procedural Rule
+
+(defproc increase-letter (first-letter target-i &optional (letter first-letter) (i 0))
+  (if (= target-i i)
+      letter
+    (let* ((stored-solution (retrieve-chunk (list :chunk-type 'problem :arg1 first-letter :arg2 target-i))))
+      (if stored-solution   ; found
+	  (progn
+	    (pass-time *model-time-parameter-1*)
+	    ;(pass-time (* 4 *one-step-duration*))
+	    (learn-chunk stored-solution)
+	    (problem-r stored-solution))
+	;; not found:
+	(progn
+	  (pass-time *model-time-parameter-2*)
+	  ;(pass-time (* 11 *one-step-duration*))
+	(let (retrieved-seqfact next-i next-letter)
+	  (and  ; this ensures that we're successfully retrieving each chunk (r)
+	   (setq retrieved-seqfact (retrieve-chunk (list :chunk-type 'seqfact :identity i)))
+	   (setq next-i (seqfact-next retrieved-seqfact))
+	   (setq retrieved-seqfact (retrieve-chunk (list :chunk-type 'seqfact :identity letter)))
+	   (setq next-letter (seqfact-next retrieved-seqfact))
+	   (learn-chunk (make-problem* :arg1 first-letter :arg2 next-i :r next-letter))
+	   (increase-letter first-letter target-i next-letter next-i))))))))
+
+
 ;;;; Test harness for the experiment
 
 (defun collect-responses (trials)
@@ -80,18 +129,18 @@
       (list (correlation rts *zbrodoff-control-data*)
 	    (mean-deviation rts *zbrodoff-control-data*)))))
         
-(defun analyze-results (results)
+(defun analyze-results (results &optional (display nil))
   (let ((blocks (sort (remove-duplicates (mapcar #'response-block results)) #'<))
         (addends (sort (remove-duplicates (mapcar #'response-addend results) :test #'string-equal) #'string<))
         (counts nil)
         (rts nil)
-        (total-counts nil))
+	(total-counts nil))
     (setf total-counts (mapcar #'(lambda (x) 
                                    (/ (count x results 
                                              :key #'response-addend 
                                              :test #'string=)
                                       (length blocks)))
-                         addends))
+			       addends))
     
     (dolist (x blocks)
       (dolist (y addends)
@@ -104,6 +153,10 @@
           (push (length data) counts)
           (push (/ (apply #'+ data) (max 1 (length data))) rts))))
       
+
+    (when display
+      (print-analysis (reverse rts) (reverse counts) blocks addends total-counts))
+
     (list (reverse rts) (reverse counts))))
 
     
@@ -141,49 +194,6 @@
               :sum (third settings)
               :answer (fourth settings)))
 
-
-;;;; Define chunk types
-
-(define-chunk-type problem arg1 arg2 r)
-(define-chunk-type seqfact identity next)
-
-;;;; committing chunks to memory
-
-(defun init-model ()
-  (reset-model)
-
-  ;; create seqfact chunks for (0 1), (3 4), (i j) etc:
-  (loop for (a b) on '(0 1 2 3 4 5 a b c d e f g h i j k) 
-       when b
-       do
-       (set-base-level-fct
-	(learn-chunk (make-seqfact :identity a :next b))
-	100000 -1000)))
-
-;;;; Defining Procedural Rule
-
-(defproc increase-letter (first-letter target-i &optional (letter first-letter) (i 0))
-  (if (= target-i i)
-      letter
-    (let* ((stored-solution (retrieve-chunk (list :chunk-type 'problem :arg1 first-letter :arg2 target-i))))
-      (if stored-solution   ; found
-	  (progn
-	    (pass-time *model-time-parameter-1*)
-	    ;(pass-time (* 4 *one-step-duration*))
-	    (learn-chunk stored-solution)
-	    (problem-r stored-solution))
-	;; not found:
-	(progn
-	  (pass-time *model-time-parameter-2*)
-	  ;(pass-time (* 11 *one-step-duration*))
-	(let (retrieved-seqfact next-i next-letter)
-	  (and  ; this ensures that we're successfully retrieving each chunk (r)
-	   (setq retrieved-seqfact (retrieve-chunk (list :chunk-type 'seqfact :identity i)))
-	   (setq next-i (seqfact-next retrieved-seqfact))
-	   (setq retrieved-seqfact (retrieve-chunk (list :chunk-type 'seqfact :identity letter)))
-	   (setq next-letter (seqfact-next retrieved-seqfact))
-	   (learn-chunk (make-problem* :arg1 first-letter :arg2 next-i :r next-letter))
-	   (increase-letter first-letter target-i next-letter next-i))))))))
 
 (init-model)
 
