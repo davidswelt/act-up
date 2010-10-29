@@ -8,8 +8,8 @@
 
 ;; These load commands will find the ACT-UP files
 ;; relative to the location of the present file:
-(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
-(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
+(load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))
+(load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../util/actr-stats.lisp"))
 
 
 
@@ -26,9 +26,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-(defvar *trials*)
-(defvar *results*)
 (defvar *block*)
 
 (defvar *zbrodoff-control-data* '(1.84 2.46 2.82 1.21 1.45 1.42 1.14 1.21 1.17))
@@ -38,50 +35,43 @@
 
 ;;;; Test harness for the experiment
 
-(defun collect-responses ()
-  (setf trial (first *trials*))
-  (let* ((key nil)
-	 (duration 
-	  (stop-actup-time
-	    (setq key (if (eq (trial-sum trial)
-			      (increase-letter (trial-addend1 trial) (trial-addend2 trial)))
-			  'K 'D)))))
-    (let ((trial (pop *trials*)))
-      (push (make-response :block (trial-block trial)
-			   :addend (write-to-string (trial-addend2 trial))
-			   :time duration
-			   :correct (eq (trial-answer trial) key))
-	    *results*)))
-  (when *trials*
-    (collect-responses)))
-
+(defun collect-responses (trials)
+  (loop for trial in trials collect
+       (let* ((key nil)
+	      (duration 
+	       (stop-actup-time
+		 (setq key (if (eq (trial-sum trial)
+				   (increase-letter (trial-addend1 trial) (trial-addend2 trial)))
+			       'K 'D)))))
+	 (make-response :block (trial-block trial)
+			:addend (write-to-string (trial-addend2 trial))
+			:time duration
+			:correct (eq (trial-answer trial) key)))))
 
 (defun do-experiment ()
   (init-model)
-  (setf *trials* 
-	(loop for j from 0 below 3 append
-	     (progn
-	       (setf *block* (+ j 1))
-	       (loop for i from 0 below 8 append
-		    (create-set))))
-  (collect-responses)
-  (analyze-results))
+  (analyze-results
+   (collect-responses 
+    ;; collect responses for these trials:
+    (loop for j from 0 below 3 append
+	 (progn
+	   (setf *block* (+ j 1))
+	   (loop for i from 0 below 8 append
+		(create-set)))))))
 
 (defun collect-data-silently (n)
-  (setf *results* nil)
-  (let ((results nil))
-    (dotimes (i n)
-      (push (do-experiment) results))
+  (let ((results 
+	 (loop for i from 0 below n collect
+	      (do-experiment))))
     (let ((rts (mapcar #'(lambda (x) (/ x (length results)))
-                 (apply #'mapcar #'+ (mapcar #'first results)))))
+		       (apply #'mapcar #'+ (mapcar #'first results)))))
       (list (correlation rts *zbrodoff-control-data*)
 	    (mean-deviation rts *zbrodoff-control-data*)))))
 
 (defun collect-data (n)
-  (setf *results* nil)
-  (let ((results nil))
-    (dotimes (i n)
-      (push (do-experiment) results))
+  (let ((results 
+	 (loop for i from 0 below n collect
+	      (do-experiment))))
     (let ((rts (mapcar #'(lambda (x) (/ x (length results)))
                  (apply #'mapcar #'+ (mapcar #'first results))))
           (counts (mapcar #'(lambda (x) (truncate x (length results)))
@@ -90,14 +80,14 @@
       (list (correlation rts *zbrodoff-control-data*)
 	    (mean-deviation rts *zbrodoff-control-data*)))))
         
-(defun analyze-results ()
-  (let ((blocks (sort (remove-duplicates (mapcar #'response-block *results*)) #'<))
-        (addends (sort (remove-duplicates (mapcar #'response-addend *results*) :test #'string-equal) #'string<))
+(defun analyze-results (results)
+  (let ((blocks (sort (remove-duplicates (mapcar #'response-block results)) #'<))
+        (addends (sort (remove-duplicates (mapcar #'response-addend results) :test #'string-equal) #'string<))
         (counts nil)
         (rts nil)
         (total-counts nil))
     (setf total-counts (mapcar #'(lambda (x) 
-                                   (/ (count x *results* 
+                                   (/ (count x results 
                                              :key #'response-addend 
                                              :test #'string=)
                                       (length blocks)))
@@ -110,7 +100,7 @@
                                          (and (response-correct z)
                                               (string= y (response-addend z))
                                               (= x (response-block z))))
-                                     *results*))))
+                                     results))))
           (push (length data) counts)
           (push (/ (apply #'+ data) (max 1 (length data))) rts))))
       
@@ -246,3 +236,5 @@
 
 (defun unit-test ()
   (collect-data-silently 60))
+
+;; (unit-test)
