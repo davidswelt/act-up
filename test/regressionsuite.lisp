@@ -5,22 +5,23 @@
 ;;; Author: Jasmeet Ajmani
 
 
-(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp")))
 
 (defparameter *regression-hash* (make-hash-table :test 'equal))
 
 (defparameter *units*  ;; Unit files (to be tested), including bounds for correlation and mean deviation.
-  '(("choice.lisp")
-    ("../tutorial/fan.lisp" 0.8 0.07)
-    ("../tutorial/paired.lisp" 0.95 0.2) ;; needs work
-    ("../tutorial/siegler.lisp")
-    ("../tutorial/sticks.lisp" 0.75 25)
-    ("zbrodoff.lisp" 0.98 0.15)))
+  '(("choice")
+    ("../tutorial/fan" 0.8 0.07)
+    ("../tutorial/paired" 0.95 0.2) ;; needs work
+    ("../tutorial/siegler")
+    ("../tutorial/sticks" 0.75 25)
+    ("zbrodoff" 0.98 0.15)))
 
 (defparameter *base-location* (directory-namestring *load-truename*))
 
 (defvar *act-up-avoid-multiple-loading* nil)  ; forward declaration
-(defun unit-test ()) ; forward declaration
+(defun unit-test () '(1.0 1.0)) ; forward declaration
 
 
 (defun print-hash () 
@@ -37,7 +38,8 @@ Uses `*units*' to determine tested units."
      for files in (or test-units *units*)
 	do
        (reset-actup)
-       (load (concatenate 'string *base-location* (first files)))
+       (actup-load (first files) "test")
+       (format t "running ~a...~%" (first files))
        (let ((perf
 	      (let ((*standard-output* (make-string-output-stream)))
 		(unit-test))))
