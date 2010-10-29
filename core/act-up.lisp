@@ -18,14 +18,15 @@
 (declaim (optimize (speed 0) (space 0) (debug 03)))
 
 ;; avoid some error messages 
-(let ((*error-output* (MAKE-STRING-OUTPUT-STREAM)))
+;;(let ((*error-output* (MAKE-STRING-OUTPUT-STREAM)))
 
-  (defpackage :act-up
-    (:documentation "The ACT-UP library.  Defines a number of functions
+;; must be top-level to avoid compile-time errors in ccl.
+(defpackage :act-up
+  (:documentation "The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson 1993, Anderson et al. 1998,
 Anderson 2007, etc.).
  (C) 2010, David Reitter, Carnegie Mellon University.")
-    (:use :common-lisp)))
+  (:use :common-lisp))
 
 
 (in-package :act-up)
@@ -43,8 +44,8 @@ Anderson 2007, etc.).
   (apply #'format t form args))
 
 ;; `actup-load' command:
-(unless (fboundp 'actup-load)
-  (defvar *act-up-avoid-multiple-loading* nil)
+(defvar *act-up-avoid-multiple-loading* nil)  ;; must be top-level to avoid compile-time errors in ccl.
+(unless (find-symbol "actup-load")
   (let ((*act-up-avoid-multiple-loading* 'is-loading))
     (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))))
 
@@ -121,7 +122,9 @@ instance of type `meta-process'." 'internal)
 	      (member :lispworks *features*))
   `(defun ,fun ,args
      (declare (ignore ,@args))
-     (error "forward declaration called."))))
+     (error "forward declaration called.")
+     ;; declare return type:
+     t)))
 
 
 ;; Debugging
@@ -242,7 +245,7 @@ The log output can be retrieved with `debug-log'."
   busy-until
 )
 
-(forward-declare current-model ())
+;;(forward-declare current-model ())  ; causes problems in sbcl
 (forward-declare model-modules (module))
 
 (defun get-actup-module (symbol)
