@@ -5,7 +5,13 @@
 
 ;; These load commands will find the ACT-UP files
 ;; relative to the location of the present file:
-(load (concatenate 'string (directory-namestring *load-truename*) "../tutorial/zbrodoff.lisp"))
+;; `actup-load' command:
+(defvar *act-up-avoid-multiple-loading* nil)  ;; must be top-level to avoid compile-time errors in ccl.
+(unless (find-symbol "actup-load")
+  (let ((*act-up-avoid-multiple-loading* 'is-loading))
+    (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))))
+
+(actup-load "zbrodoff" "tutorial")
 
 ;; Architectural parameters - not set in tutorial version
 (setq *ans* 0.5)

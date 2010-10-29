@@ -1,4 +1,4 @@
-(declaim (optimize (speed 0) (space 0) (debug 3)))
+(declaim (optimize (speed 03) (space 0) (debug 0)))
  
 
 (defun mean (&rest list)

@@ -44,14 +44,27 @@ Anderson 2007, etc.).
   (apply #'format t form args))
 
 ;; `actup-load' command:
-(defvar *act-up-avoid-multiple-loading* nil)  ;; must be top-level to avoid compile-time errors in ccl.
-(unless (find-symbol "actup-load")
-  (let ((*act-up-avoid-multiple-loading* 'is-loading))
-    (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
-(actup-load "actr6-compatibility")
-(actup-load "actr-aux")
-(actup-load "act-up-util")
+  (defvar *act-up-avoid-multiple-loading* nil)  ;; must be top-level to avoid compile-time errors in ccl.
+  (unless (find-symbol "actup-load")
+    (let* ((*act-up-avoid-multiple-loading* 'is-loading)
+	   (file (directory-namestring (or *load-truename* *compile-file-truename*)))
+	   (file-1 (concatenate 'string file "load-act-up.lisp"))
+	   (file-2 (concatenate 'string file "../load-act-up.lisp")))
+      ;; LW sets *compile-file-truename* to the name of the file being compiled, which
+      ;; does not have to be this one.
+      (load (if (probe-file file-1) file-1 file-2)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+
+  (actup-load "actr6-compatibility")
+  (actup-load "actr-aux")
+  (actup-load "act-up-util"))
+
+;; declarations
+
+(DECLAIM (FTYPE (FUNCTION (number) number) act-r-noise))
 
 
 ;;; ACT-UP parameter system
@@ -116,8 +129,11 @@ May be read and manipulated by setting it to a different
 instance of type `meta-process'." 'internal)
 (export '(meta-process make-meta-process meta-process-name *current-actUP-meta-process*))
 
-
 (defmacro forward-declare (fun args)
+  `(DECLAIM (FTYPE (FUNCTION ,(loop for nil in args collect t)
+			     t) ,fun)))
+
+
   ;; The following helps prevent warnings when loading source code
   ;; but it causes type errors when compiling, as we are not 
   ;; correctly defining the return types.
@@ -128,7 +144,7 @@ instance of type `meta-process'." 'internal)
   ;;    (error "forward declaration called.")
   ;;    ;; declare return type:
   ;;    t))
-  )
+  
 
 
 ;; Debugging
@@ -187,7 +203,9 @@ retrieved using this function."
 	      (<= ,level *debug*))
      (debug-print-internal ',format ,@args)))
  
-(forward-declare pc (c)) ;; forward declaration
+
+(DECLAIM (FTYPE (FUNCTION (stream t) t) pc))
+
 (defun debug-print-internal (format &rest args)
   (if *debug-to-log*
     (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
@@ -250,7 +268,7 @@ The log output can be retrieved with `debug-log'."
 )
 
 ;;(forward-declare current-model ())  ; causes problems in sbcl
-(forward-declare model-modules (module))
+(DECLAIM (FTYPE (FUNCTION (model) (VALUES LIST &OPTIONAL)) model-modules))
 
 (defun get-actup-module (symbol)
   (if (request-handle-p symbol)
@@ -274,8 +292,9 @@ The log output can be retrieved with `debug-log'."
 	  (progn ,@body)
        (setf (module-lock module) nil))))
 
-(forward-declare actup-time ())
-(forward-declare pass-time (time))
+(DECLAIM (FTYPE (FUNCTION (&optional meta-process) double-float) actup-time))
+(DECLAIM (FTYPE (FUNCTION (number &optional meta-process) t) pass-time))
+
 
 (defun wait-for-response (handle &optional timeout)
     (if (and handle (request-handle-busy-until handle))
@@ -615,6 +634,8 @@ See also: ACT-R parameter :ol")
 	  ;;name 
 	  chunk-type))
 
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  ;; structure should be available at compile time
 (defstruct actup-chunk
   "Type defining an ACT-UP chunk.
 Derive your own chunks using this as a base structure
@@ -652,7 +673,7 @@ by using `define-chunk'."
   (similar-chunks nil :type list)
   (fan nil) ; internal)
   (model nil)  ; pointer to the chunk's model  (to ensure it's unique)
-)
+))
 
 (defstruct actup-link
   "Link between two chunks.
@@ -1016,7 +1037,7 @@ If chunk types are defined with `define-chunk-type', then use the
   (apply #'make-actup-chunk args))
 
 
-(forward-declare make-match-chunk (&rest all)) ; forward declaration
+(DECLAIM (FTYPE (FUNCTION (t &rest t) actup-chunk) make-match-chunk))
 
 (defun make-chunk* (&rest args)
  "Like `make-chunk', but returns matching chunk from declarative memory if one exists.
@@ -1406,7 +1427,8 @@ which calls this function."
 	  template))))
 
 
-(forward-declare learn-chunk (chunk))
+(DECLAIM (FTYPE (FUNCTION (t &optional t) t) learn-chunk))
+
 (defun get-chunk-object-add-to-dm (chunk-or-name)
   "Returns chunk object for CHUNK-OR-NAME.
 Retrieves or creates chunk by name from current model DM
