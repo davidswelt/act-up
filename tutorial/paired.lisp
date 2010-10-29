@@ -14,12 +14,13 @@
 ;; Architectural (ACT-R) parameters:
 
 (setf *rt* -2)
+(setq *lf* 0.4)
 (setf *ans* 0.5)
-(setf *bll* 0.4)
+(setf *bll* 0.5)
 
 ;; Model parameters:
 
-(defparameter *model-time-parameter* 0.9)
+(defparameter *model-time-parameter* 0.05)
 
 ;; The Model
 
@@ -96,9 +97,12 @@
 		   (incf score 1.0)    
 		   (incf time duration))
 		 (progn
-		   (learn-pair (first x) (second x))
-		   (pass-time 5.0)
-		   (assign-reward 0)
+		   (let ((learn-time 
+			  (stop-actup-time
+			    (learn-pair (first x) (second x)))))
+		     (assign-reward 0)
+		     (pass-time (- 5.0 learn-time)))
+
 		   )))) ; show number for 5 seconds
 	 (push (list (/ score size) (and (> score 0) (/ time score ))) result)))
     (reverse result)))
