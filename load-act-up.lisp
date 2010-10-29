@@ -217,7 +217,6 @@
   (smart-load (translate-logical-pathname (format nil "ACT-UP1:~a;" dir))
 	      file))
 
-(export '(actup-load))
 
 ;; act-up.lisp may load this file in order to ensure definition of actup-load.
 ;; in that case we don't execute the actual loading.
