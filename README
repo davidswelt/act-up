@@ -17,7 +17,7 @@ This version of ACT-UP is in the testing phase.   Please comment on its function
 
 
 Requirements (technical)
-SBCL or OpenMCL/CCL Common Lisp systems on any operating system.
+SBCL or OpenMCL/CCL Common Lisp systems on any operating system.  Limited testing has also been done with LispWorks.
 
 Requirements (human)
 Some programming experience, ideally in Common Lisp
