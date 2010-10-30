@@ -246,6 +246,13 @@ The log output can be retrieved with `debug-log'."
      ,@body))
 
 
+;;; BASIC MODELS
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro current-model ()
+    "Evaluates to the currently active ACT-UP model." 
+    '*current-actUP-model*))
 
 ;;; PARALEL API
 
@@ -1175,12 +1182,6 @@ Set stream to t to output to standard output."
 
 (export '(retrieve-chunk blend-retrieve-chunk
 	  filter-chunks learn-chunk best-chunk blend))
-
-
-(defun current-model ()
-  "Evaluates to the currently active ACT-UP model."
-  (or *current-actUP-model*
-      (error "No model active.")))
 
 (defun current-actUP-model ()
   "Evaluates to the currently active ACT-UP model."
