@@ -392,20 +392,19 @@ request was sent via a function such as
   (wait-for-response handle)
   (request-handle-result handle))
 
-
-(defmacro filter-argument-list (args)
-  `(loop for a in ,args 
-     when (or (consp a)
-	      (and (symbolp a)
-		   (not (eq a '&optional))
-		   ))
-     collect
-       (progn
-	 (if (eq a '&key)
-	     (error "Argument list: &key specifier not supported."))
-	 (if (consp a)
-	     (car a)
-	   a))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun filter-argument-list (args)
+    (loop for a in args 
+       when (or (consp a)
+		(and (symbolp a)
+		     (not (eq a '&optional))))
+       collect
+	 (progn
+	   (if (eq a '&key)
+	       (error "Argument list: &key specifier not supported."))
+	   (if (consp a)
+	       (car a)
+	       a)))))
 
 (defmacro defun-module (module fun-name arglist &body body)
   "Define module function.
