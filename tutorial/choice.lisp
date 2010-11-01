@@ -88,11 +88,13 @@ Returns count of head predictions."
   (list (correlation results *choice-data*)
 	(mean-deviation results *choice-data*)))
 
+(defun sum (numbers)
+  (loop for s in numbers sum s))
+
 (defun analyze-choice (data)
   (loop with n = (length data)
      for i from 0 below (length (car data)) collect
-       (/ (apply #'+ (mapcar #'(lambda (x) (nth i x)) data)) (* n 12))))
-
+       (/ (sum (mapcar #'(lambda (x) (nth i x)) data)) (* n 12))))
 
 (defun collect-data-choice (n)
   (print-results-choice 
