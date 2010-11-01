@@ -9,11 +9,13 @@
 ;;;             : Pittsburgh, PA 15213-3890
 ;;;             : db30@andrew.cmu.edu
 ;;; 
+;;; This file corresponds to misc-utils.lisp from the ACT-R 6 distribution,
+;;; with a few minor changes for ACT-UP.
 ;;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Filename    : random.lisp
-;;; Version     : 1.0
+;;; Version     : 1.0/ACT-UP
 ;;; 
 ;;; Description : Module that contains a pseudo-random number generator.
 ;;; 
@@ -60,6 +62,14 @@
 ;;;             :   the plusp already rejects that case.
 ;;; 2009.09.10 Dan
 ;;;             : * Moved permute-list here from the act-gui-interface.lisp file.
+;;; 2010.11.01 David R
+;;;             : * *byte-32-0* declared as special var. rather than constant
+;;;                 to work around some Lisps asking about re-assigning upon
+;;;                 reload.
+;;;             : * mersenne-twister: use bignums for "mt" array
+;;;             : * Use *...* symbol naming syntax for some constants
+;;;             : * Moe init-random-state-from-seed to prevent warning
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; General Docs:

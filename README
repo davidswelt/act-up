@@ -40,3 +40,8 @@ Supplemental
 
 Authors
 D. Reitter, C. Lebiere, J. Ajmani
+Contains misc-utils.lisp and random.lisp by D. Bothell
+
+
+Copyright
+Licensed under the GNU Lesser General Public License (LGPL), Version 2.1 or later.

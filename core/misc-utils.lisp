@@ -9,11 +9,13 @@
 ;;;             : Pittsburgh, PA 15213-3890
 ;;;             : db30@andrew.cmu.edu
 ;;; 
+;;; This file corresponds to misc-utils.lisp from the ACT-R 6 distribution,
+;;; with a few minor changes for ACT-UP.
 ;;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 
 ;;; Filename    : misc-utils.lisp
-;;; Version     : 1.0
+;;; Version     : 1.0/ACT-UP
 ;;; 
 ;;; Description : Various useful functions that don't seem to belong anywhere
 ;;;               else (many of which come directly from the old RPM code).
@@ -121,6 +123,11 @@
 ;;; 2008.10.09 Dan
 ;;;             : * Neq and dovector are already defined in the newest OpenMcl 
 ;;;             :   (Clozure Common Lisp) so adding a switch for those.
+;;; 2010.11.01 David R
+;;;             : * Move splice-into-list to prevent Lisp interpreter warnings
+;;;             : * Proclaim act-r-random, string-to-lines functions
+;;;             : * string-to-lines: make regular functino to prevent warning
+;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; General Docs:
