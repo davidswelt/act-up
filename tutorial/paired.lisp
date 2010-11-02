@@ -8,8 +8,9 @@
 
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
-(load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up"))
-(load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../util/actr-stats"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
+(load (concatenate 'string (directory-namestring *load-truename*) "../util/act-up-experiments.lisp"))
 ;; Architectural (ACT-R) parameters:
 
 (setf *rt* -2)
@@ -135,12 +136,11 @@
 
 ;; Parameter optimization:
 
-;; (defun test-procedure-compilation ()
-;;   ;; Alternative parameters with procedure compilation enabled:
-;; (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../util/act-up-experiments"))
-;;   (setf *procedure-compilation* t
-;; 	*egs* 0.1
-;; 	*lf* 0.3
-;; 	*rt* -1.7
-;; 	*alpha* 0.4)
-;;   (act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test)))
+(defun test-procedure-compilation ()
+  ;; Alternative parameters with procedure compilation enabled:
+  (setf *procedure-compilation* t
+	*egs* 0.1
+	*lf* 0.3
+	*rt* -1.7
+	*alpha* 0.4)
+  (act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test)))
