@@ -3,6 +3,36 @@
 
 ;; VARIOUS
 
+;; anaphoric lisp macros
+;; taken from "On Lisp" by Paul Graham.
+(defmacro aif (test-form then-form &optional else-form)
+  `(let ((it ,test-form))
+     (if it ,then-form ,else-form)))
+
+(defmacro awhen (test-form &body body)
+  `(aif ,test-form
+	(progn ,@body)))
+
+(defmacro awhile (expr &body body)
+  `(do ((it ,expr ,expr))
+       ((not it))
+     ,@body))
+
+(defmacro aand (&rest args)
+  (cond ((null args) t)
+	((null (cdr args)) (car args))
+	(t `(aif ,(car args) (aand ,@(cdr args))))))
+
+(defmacro acond (&rest clauses)
+  (if (null clauses)
+      nil
+    (let ((cl1 (car clauses))
+	  (sym (gensym)))
+      `(let ((,sym ,(car cl1)))
+	 (if ,sym
+	     (let ((it ,sym)) ,@(cdr cl1))
+	   (acond ,@(cdr clauses)))))))
+
 
 (defun log-safe (val &optional (default 0.0))
   (if (and val (> val 0))
@@ -12,13 +42,32 @@
 ;; TREE STRUCTURE
 ;; this implements an unsorted tree
 
-;; (setq tree (act-up::make-tree))
-;; (act-up::add-tree-value tree '(one bad day) 55)
-;; (act-up::add-tree-value tree '(one bad day in hell) 'ohyeah)
-;; (act-up::add-tree-value tree '(one fine day) 'rare)
+(defun tree-test ()
+  (let ((tree (act-up::make-tree)))
+    (act-up::add-tree-value tree '(one bad day) 55)
+    (act-up::add-tree-value tree '(one bad day in hell) 'ohyeah)
 
-;; (act-up::get-tree-value tree '(one bad day in hell))
-;; (act-up::maptree (lambda (p v) (format t "~a: ~a~%" p v)) tree)
+    (act-up::add-tree-value tree '(one bad day in heaven) 'boring)
+    (act-up::add-tree-value tree '(one bad day without hell) 'ohyeah-w)
+    (act-up::add-tree-value tree '(one fine day) 'rare)
+    (act-up::add-tree-value tree '(one * day) 'standard)
+    (act-up::add-tree-value tree '(one * day * hell) 'standard-22)
+    (act-up::add-tree-value tree '(one * day in hell) 'standard-24)
+    (act-up::get-tree-value tree '(one bad day in hell))
+    (act-up::maptree (lambda (p v) (format t "~a: ~a~%" p v)) tree)
+    (format t "one superb day:  ~a~%" (equal '(STANDARD) (get-tree-value-with-wildcards tree '(one superb day))))
+    (format t "one superb day on earth:  ~a~%" (eq nil (get-tree-value-with-wildcards tree '(one superb day on earth))))
+    
+    (format t "(with wildcard)  one fine day:  ~a~%" (equal '(RARE STANDARD) (get-tree-value-with-wildcards tree '(one fine day))))
+    (format t "(without wildcard)  one fine day:  ~a~%" (eq 'rare (get-tree-value tree '(one fine day))))
+
+    (format t "one bad day in hell:  ~a~%" (equal '(OHYEAH
+						    STANDARD-24
+						    STANDARD-22)
+						  (get-tree-value-with-wildcards tree '(one  bad day in hell))))))
+
+;;;;;;;;
+;; prefix trees
 
 (defun make-tree (&optional value)
   (list (cons :tree-structure value)))
@@ -75,6 +124,7 @@ The tree leaf is a list that can be changed freely (setf (cdr ..) ...)."
 
 
 (defun get-tree-value (tree path)
+  "Get value in TREE, path PATH."
   (loop for pe in path
      for elt = (assoc pe tree :test #'equal)
      do
@@ -83,6 +133,30 @@ The tree leaf is a list that can be changed freely (setf (cdr ..) ...)."
      finally ;; found
        (return (cdar tree))))
 
+(defun get-tree-values-with-wildcards (tree path)
+  "Get values in TREE, path PATH.
+Tree may contain `wildcard' symbols, which match
+any choice in path.  Where a wildcard `*' and a symbol
+in the tree both match, this function will
+recurse into each branch."
+  (let ((agenda (list (cons path tree))))
+    (loop while agenda append   ;; collect all solutions
+	 (let* ((item (pop agenda))
+		(path (car item))
+		(tree (cdr item)))
+	   (loop
+	      for pe-rest on path
+	      for elt = (assoc (car pe-rest) tree :test #'equal)
+	      for elt-w = (assoc '* tree :test #'eq)
+	      do
+		(if elt-w
+		    (push (cons (cdr pe-rest) (cdr elt-w)) agenda))
+		;; follow specific entry immediately,
+		;; follow wildcard entry laster
+		(unless elt (return nil))
+		(setq tree (cdr elt))
+	      finally ;; found at end of path
+		(return (list (cdar tree))))))))
 
 (defun maptree (function tree &optional path)
   "Call FUNCTION for each leaf in TREE.
