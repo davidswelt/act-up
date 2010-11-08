@@ -570,9 +570,9 @@ MODEL defaults to the current model."
       (setf (meta-process-actUP-time *current-actup-meta-process*)
 	    (+ (meta-process-actUP-time *current-actup-meta-process*) (+ *dat* diff))))))
 
-(defmacro model-chunks (model)
+(defmacro model-chunks (&optional model)
   "Evaluates to the list of chunks in the given model MODEL."
-  `(declarative-memory-chunks (model-dm ,model)))
+  `(declarative-memory-chunks (model-dm (or ,model *current-actup-model*))))
 
 
 (defun reset-mp ()
@@ -1369,9 +1369,9 @@ See also the higher-level function `retrieve-chunk'."
 		    (setf (cdr it) nil)))
 		best)))))
 
-(defun-module declarative filter-chunks (chunk-set args &key (recently-retrieved 'ignore))
-  "Filter chunks according to ARGS.
-ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
+(defun-module declarative filter-chunks (chunk-set spec &key (recently-retrieved 'ignore))
+  "Filter chunks according to SPEC.
+SPEC is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
@@ -1393,7 +1393,7 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 				(not (assoc (actup-chunk-name c) rr)))))
 		  
 		(handler-case
-		    (if (loop for argval on args by #'cddr finally (return t) do
+		    (if (loop for argval on spec by #'cddr finally (return t) do
 			     (let* ((slot ;(setq csn  
 				     (normalize-slotname (first argval))) ;)
 				    (vv (second argval))
