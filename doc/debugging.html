@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Debugging cognitive models in ACT-UP</title>
+ <style type="text/css">
+    <!--
+     pre {
+        font-family: Monaco, sans-serif;
+        font-size: 10pt;
+        color: #000000;
+        color: #000000;
+        background-color: #ffffff;
+      }
+      .builtin {
+        /* font-lock-builtin-face */
+        color: #79368a;
+        color: #79368a;
+      }
+      .keyword {
+        /* font-lock-keyword-face */
+        color: #7f007f;
+        color: #7f007f;
+      }
+      .string {
+        /* font-lock-string-face */
+        color: #8a2151;
+        color: #8a2151;
+      }
+      a {
+        color: inherit;
+        background-color: inherit;
+        font: inherit;
+        text-decoration: inherit;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    -->
+    </style>
+</head>
+
+<body>
+<h1>Debugging cognitive models in ACT-UP</h1>
+
+<p>
+
+ACT-UP comes with a range of functions designed to make debugging
+easy.
+<p>
+To boot, you can use the debugging mechanisms of your Lisp compiler.
+This may include very useful function to step through your model
+procedures and inspect variables.
+<p>
+ACT-UP provides functions to inspect the symbolic and subsymbolic
+properties of chunks and procedures (1), macros and functions to
+enable logging and selective logging of what happens during the
+execution of the model (2).
+
+
+
+<h2>1. Inspecting a model</h2>
+
+<h3>Declarative memory</h3>
+Often, subsymbolic activation and the symbolic contents of chunks
+during model execution give valuable cues to the problems with a
+model.
+<p>
+To print a list of the chunks in the current model, write
+
+<pre>(<span class="keyword">show-chunks</span> '(:<span class="keyword">chunk-type</span> person)</pre>
+
+This will print all chunks of type `person'.  Of course, you may use
+any other slot-value combinations to reduce the number of chunks
+output (see `retrieve-chunk' for further examples).
+<p>
+A single chunk may be printed with the `pc' and `pc*' functions.  You
+may sometimes want to combine it with an expression to identify a
+specific chunk:
+
+<pre>(<span class="keyword">pc</span>* 'john-13)
+(<span class="keyword">pc</span>* (<span
+class="keyword">best-chunk</span> (<span
+class="keyword">model-chunks</span> (<span
+class="keyword">current-model</span>))))
+
+</pre>
+
+
+The first expression will print the chunk named `john-13', while the
+second one will identify the chunk with the highest (base-level)
+activation (plus noise) in the current model and print it.
+<p>
+Activation calculation is sometimes complicated.  The following
+expressions will describe the activation of a chunk in terms of its
+base-level activation, partial matching, spreading activation and
+noise terms:
+
+<pre>(<span class="keyword">explain-activation</span> 'john-13)<br>
+(<span class="keyword">explain-activation</span>
+&nbsp;&nbsp; (<span class="keyword">best-chunk</span> (<span class="keyword">filter-chunks</span> (<span class="keyword">model-chunks</span> (<span class="keyword">current-model</span>))
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'(<span
+class="builtin">:location</span> park)))
+&nbsp;&nbsp;&nbsp;&nbsp;'(lawyer park))<br></pre>
+
+The first expression will explain the activation of a chunk named
+`john-13', while the second one will identify all of the chunks in the
+current model with a `location' slot set to `park', select the one
+with the highest activation, and print its activation.  The activation
+includes spreading activation from two sources: the chunks `lawyer',
+and `park'.
+<p>
+
+<h3>Procedural memory</h3>
+
+Use the `show-utilities' function to print a list of all procedures
+(manually defined and compiled) and their respective utilities:
+<pre>(show-utilities)</pre>
+
+<h3>Models</h3>
+
+<p>
+To print a list of architectural parameters, use this expression:
+
+<pre>(show-parameters)</pre>
+
+<p>
+When working with multiple models in parallel, it may be useful to
+give them meaningful names when creating them:
+
+<pre>(<span class="keyword">make-model</span> <span class="builtin">:name</span> 'player-A)</pre>
+
+The function `set-current-model' will permanently switch the current
+model to a different one.
+
+
+<h2>2. Logging</h2>
+
+
+<h3>Log output for all or part of your model</h3>
+<tt>(debug-detail &body body)</tt> is the most important macro for
+logging.
+It executes all the forms in BODY, while printing detailed information
+about the goings-on inside the cognitive architecture.
+<p>
+You may use this macro when calling your model, such as
+
+<pre>(<span class="keyword">debug-detail</span> (run-experiment))<br></pre>
+or also inside the model in particularly interesting situations:
+
+<tt>(debug-detail (retrieve-chunk '(:chunk-type person)))</tt>
+
+
+<h3>Logging: warnings only</h3>
+<p>
+In order to to enable general logging of important messages, you can
+set the <tt>*debug*</tt> variable:
+
+<pre>(setq <span class="keyword">*debug*</span> *warning*)<br></pre>
+
+Possible values for this option are <tt>*critical*, *warning*,
+*informational*, *all*</tt>.
+
+
+<h3>Selective logging</h3>
+<p>
+ACT-UP allows you to keep a log without printing all of it.  This can
+be a time-saver.
+<p>
+You may use `debug-grep' to extract only those messages with
+certain content:
+
+<pre>(<span class="keyword">debug-grep</span> <span class="string">"retrieval"</span>)<br>
+(<span class="keyword">debug-grep</span> <span class="string">"person"</span>)</pre>
+<p>
+As you can see, you may select for any text in the output, for
+example in order to watch specfic chunks or procedures.
+
+<p>Sometimes it is useful to inspect the log output only in cases when
+the model fails what it is supposed to do.  For example, the model may
+fail to execute an experimental task only in one out of 1000 cases.
+In such situations, you may have ACT-UP keep its log output for each
+model run, but not print it:
+<p>
+Execute your model or parts thereof with an expression like
+<pre>(<span class="keyword">debug-detail*</span> (run-experiment)</pre>
+
+This will save the log
+output into an internal buffer.
+<p>
+Once you decide to print the log output, evaluate
+<pre>(debug-log)</pre>
+If you'd like to discard the previous log output (and you should do
+that), evaluate <pre>(debug-clear)</pre>
+
+
+
+</body> </html>
