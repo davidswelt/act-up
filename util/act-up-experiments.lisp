@@ -13,11 +13,33 @@
        (format t "~a ~a: ~a~%" (meta-process-name *current-actUP-meta-process*) (actup-time) (apply 'format nil form args))))
 
 (defun mean (&rest list)
-  (/ (apply 'sum list) (length list)))
+  (if (cdr list)
+      (/ (sum list) (length list))
+      (/ (sum (car list)) (length (car list)))))
 
 (defun sum (&rest list)
-  (loop for x in list sum x))
+      (loop for x in (if (cdr list) list (car list))
+	 sum x))
+      
+(defun stdev (list &optional mean)
+  "sample standard deviation of elements of list."
+  (let ((mean (or mean (mean list))))
+    (sqrt (/ (loop for x in list sum (expt (- x mean) 2)) (1- (length list))))))
  
+(defun cor (list-1 list-2)
+  "Pearson's correlation between elements of list-1 and list-2"
+  (let ((n (length list-1))
+	(mean-a (mean list-1))
+	(mean-b (mean list-2)))
+    (unless (= n (length list-2))
+      (error "cor: lists must be of same length."))
+    (/
+     (loop for a in list-1 for b in list-2 sum
+	  (* (- a mean-a) (- b mean-b)))
+     (* (1- n) (stdev list-1) (stdev list-2)))))
+
+(export '(mean sum stdev cor))
+
 (defun repeat-seq (n sequence)
   (if (> n 0)
       (append sequence (repeat-seq (1- n) sequence))
@@ -210,6 +232,16 @@ Aggregation will occur over all VALUEs in this combination of conditions."
  
 
 
+
+(defun get-aggregates ()
+  "Return aggregation set as list of (conditions . means) conses."
+ 
+    (loop for s in (reverse *aggregate-sum*)
+       collect
+	 (when (> (length (cdr s)) 0)
+	   (cons (car s) 
+		   (aggregate-mean-2 (cdr s))))))
+
 (defun print-aggregates (&optional file)
   "Print aggregation set as a table.
 Output is printed to FILE if given, standard out otherwise.
@@ -274,7 +306,7 @@ In this implementation, only mean values are printed."
 
 
 
-(export '(clear-aggregates aggregate print-aggregates))
+(export '(clear-aggregates aggregate print-aggregates get-aggregates))
 
 
 ;; Parameter optimization
