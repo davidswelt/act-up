@@ -31,5 +31,9 @@ find . -name \*.dx64fsl -delete
 
 zip ACT-UP.zip -r ACT-UP
 
+
+echo "$REVID " >current-version.txt
+date >>current-version.txt
+
 echo "done."
 echo `ls ACT-UP.zip`
