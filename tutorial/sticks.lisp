@@ -105,11 +105,11 @@
 	  ((< b-over (- c-under 25)) 
 	   ;; if long is much better than medium
 	   (prefer-over))
-	  ((not (eq strategy 'over))
-	   (either-strategy))
 	  ((< c-under (- b-over 25))  
 	   ;; if medium is much better than long
 	   (prefer-under))
+	  ((not (eq strategy 'over))
+	   (either-strategy))
 	  (t (either-strategy)))
       (assign-reward
        (if (= *current* goal) *model-reward* 0)))))
