@@ -206,6 +206,10 @@ retrieved using this function."
 
 (DECLAIM (FTYPE (FUNCTION (stream t) t) pc))
 
+(defun pprint-pc (stream obj)
+  (let ((*standard-output* (if (eq stream t) *standard-output* stream)))
+    (pc obj)))
+
 (defun debug-print-internal (format &rest args)
   (if *debug-to-log*
     (if (and (not *debug-stream*) (not (streamp *debug-to-log*)))
@@ -214,7 +218,7 @@ retrieved using this function."
   (when format
       (let ((*print-circle* t) (*print-pretty* t)
 	    (*print-pprint-dispatch* *print-pprint-dispatch*))
-	(set-pprint-dispatch 'actup-chunk #'pc)	    
+	(set-pprint-dispatch 'actup-chunk #'pprint-pc)	    
 	(if *debug-grep*
 	    (let ((str (apply #'format nil format args)))
 	      (if (loop for g in *debug-grep* do
@@ -2012,12 +2016,13 @@ possible."
 
 (forward-declare search-for-chunks (model constraints))
 
-(defun show-chunks (model &optional constraints)
+(defun show-chunks (&optional constraints)
   "Prints all chunks in model MODEL subject to CONSTRAINTS.
 See the function `filter-chunks' for a description of possible constraints."
   (print (mapcar 'chunk-name (if constraints
 				 (search-for-chunks model constraints)
-				 (declarative-memory-chunks (model-dm model))))))
+				 (declarative-memory-chunks (model-dm (current-model))))))
+  nil)
 
 
 

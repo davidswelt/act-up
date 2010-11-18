@@ -72,6 +72,25 @@ If t, ACT-UP logs all debug messages not to standard output,
 but to a buffer that can be read with <a href="#debug-log">debug-log</a> and cleared with <a href="#debug-clear">debug-clear</a>.
 If a stream, ACT-UP logs to the stream.</blockquote>
 <blockquote>Initial value: <tt>NIL</tt></blockquote>
+<a name="*declarative-finst-span*" /><p><b>*declarative-finst-span*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Declarative Finst time span
+
+The maximum time period during whichg a finst marks a chunk as recently retrieved.
+Chunks retrieved longer ago are not considered 'recently retrieved'.
+
+Time in seconds, defaults to 3.0.
+
+See ACT-R parameter :declarative-finst-span</blockquote>
+<blockquote>Initial value: <tt>3.0</tt></blockquote>
+<a name="*declarative-num-finsts*" /><p><b>*declarative-num-finsts*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
+<blockquote>Number of Declarative Finsts
+
+The maximum number of chunks considered recently retrieved.
+
+Defaults to 4.
+
+See ACT-R parameter :declarative-num-finsts</blockquote>
+<blockquote>Initial value: <tt>4</tt></blockquote>
 <a name="*detailed*" /><p><b>*detailed*</b>&nbsp;&nbsp;&nbsp;<i>variable</i></p>
 <blockquote>Constant for <a href="#*debug*">*debug*</a>: Show detailed log output .</blockquote>
 <blockquote>Initial value: <tt>300</tt></blockquote>
@@ -198,7 +217,11 @@ Derive your own chunks using this as a base structure
 by using <a href="#define-chunk">define-chunk</a>.</blockquote><a name="actup-time" /><p>(<b>actup-time</b> &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns the current runtime.
 An optional parameter META-PROCESS specifies the meta-process to use.
-It defaults to the current meta-process.</blockquote><a name="add-sji-fct" /><p>(<b>add-sji-fct</b> list)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+It defaults to the current meta-process.</blockquote><a name="add-chunk-to-dm" /><p>(<b>add-chunk-to-dm</b> chunk first-presentation-time recent-presentation-times number-of-presentations)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Add CHUNK to declarative memory of current model.
+FIRST-PRESENTATION-TIME indicates the time of first presentation of the chunk (see also <a href="#actup-time">actup-time</a>).
+RECENT-PRESENTATION-TIMES is a list of the <a href="#*ol*">*ol*</a> or less most recent presentation times.
+NUMBER-OF-PRESENTATIONS indicates the total number of presentation, including the first one.</blockquote><a name="add-sji-fct" /><p>(<b>add-sji-fct</b> list)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Set Sji link weights between chunks.
 LIST is a list with elements of form (CJ NI S), where CJ und NI are
 chunks or chunk names, and S is the new link weight, regulating
@@ -223,16 +246,22 @@ procedures.</blockquote><a name="assign-reward*" /><p>(<b>assign-reward*</b> rew
 Only reward portions >0 are assigned to procedures, i.e., if
 <a href="#*au-rfr*">*au-rfr*</a> or <a href="#*au-rpps*">*au-rpps*</a> are nil (ACT-R 6 reward propagation),
 rewards are only assigned to procedures up to <a href="#reward">reward</a> seconds back in time.
-See also <a href="#flush-procedure-queue">flush-procedure-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set cues &optional request-spec timeout &rest options)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also <a href="#flush-procedure-queue">flush-procedure-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set &key cues pm-soft-spec timeout inhibit-cues)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.  CUES may contain
 chunk objects or names of chunks.
-OPTIONS: do not use (yet).
+PM-SOFT-SPEC: request specification for partial matching (see also <a href="#retrieve-chunk">retrieve-chunk</a>).
+INHIBIT-CUES: do not use (yet).
 
-Simulates timing behavior.
+Simulates timing behavior with <a href="#pass-time">pass-time</a>.
 
-See also the higher-level function <a href="#retrieve-chunk">retrieve-chunk</a>.</blockquote><a name="blend" /><p>(<b>blend</b> chunks &optional cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+Marks the chunk as recently retrieved (declarative finst).
+
+Note that this function extends beyond the power of ACT-R's
+declarative module.
+
+See also the higher-level function <a href="#retrieve-chunk">retrieve-chunk</a>.</blockquote><a name="blend" /><p>(<b>blend</b> chunks &keys cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Return a blended variant of chunks.
 Activation is calculated using spreading activation from CUES.  CUES
 may contain chunk objects or names of chunks.  The returned chunk is
@@ -243,7 +272,7 @@ RETRIEVAL-SPEC should contain the retrieval filter used to obtain
 CHUNKS; attribute-value pairs in it will be included in the returned
 chunk as-is and not be blended from the CHUNKS.
 
-See also the higher-level function <a href="#blend-retrieve-chunk">blend-retrieve-chunk</a>.</blockquote><a name="blend-retrieve-chunk" /><p>(<b>blend-retrieve-chunk</b> spec &optional cues pm-soft-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also the higher-level function <a href="#blend-retrieve-chunk">blend-retrieve-chunk</a>.</blockquote><a name="blend-retrieve-chunk" /><p>(<b>blend-retrieve-chunk</b> spec &key cues pm-soft-spec recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a blended chunk from declarative memory.
 The blended chunk is a new chunk represeting the chunks
 retrievable from declarative memory under specification SPEC.
@@ -260,7 +289,10 @@ constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
 SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
-value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><a name="chunk-type" /><a name="current-model" /><p>(<b>current-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><p>(<b>chunk-name</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>The unique name of CHUNK.
+The returned value is a symbol assigned as unique name of CHUNK
+in the current model.</blockquote><a name="chunk-type" /><a name="current-model" /><p>(<b>current-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates to the currently active ACT-UP model.</blockquote><a name="debug-clear" /><p>(<b>debug-clear</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Clear the ACT-UP debug log buffer.</blockquote><a name="debug-detail" /><p>(<b>debug-detail</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates BODY while outputting ACT-UP debug information.</blockquote><a name="debug-detail*" /><p>(<b>debug-detail*</b> &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
@@ -355,9 +387,9 @@ This is provided for compatibility with some early published examples
 of ACT-UP code.  Please use <a href="#defproc">defproc</a> instead.</blockquote><a name="explain-activation" /><p>(<b>explain-activation</b> chunk-or-name &optional cues retr-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Returns a string with an explanation of the evaluation of CHUNK.
 CUES contains retrieval cues spreading activation.
-RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Filter chunks according to ARGS.
-ARGS is a list of the form (:slot1 value1 :slot2 value2 ...),
+RETR-SPEC describes the retrieval specification for partial matching retrievals.</blockquote><a name="filter-chunks" /><p>(<b>filter-chunks</b> chunk-set spec &key recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Filter chunks according to SPEC.
+SPEC is a list of the form (:slot1 value1 :slot2 value2 ...),
 or (slot1 value1 slot2 value2).
 CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
@@ -367,12 +399,13 @@ This resets the list of procedures to which rewards can be distributed (see
 <a href="#assign-reward">assign-reward</a> and <a href="#assign-reward*">assign-reward*</a>).</blockquote><a name="learn-chunk" /><p>(<b>learn-chunk</b> chunk &optional co-presentations)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Learn chunk CHUNK.
 
-This will note a presentation of an existing chunk in the model's DM, if
-the existing chunk is unifiable with CHUNK.  If no such chunk exists in DM,
-the CHUNK will be added.  If more than one such chunk exists, one of the existing
-chunks is noted as 'presented'.
+This will note a presentation of a chunk in the model's DM.
+If the chunk does not already exist in DM, it is added.
 
-CHUNK may be altered by side-effect.
+To create or obtain the chunk from a attribute-value specification,
+use <a href="#make-chunk">make-chunk</a> and <a href="#make-chunk*">make-chunk*</a> (or their corresponding constructor 
+functions for a specific chunk type - see <a href="#define-chunk-type">define-chunk-type</a>), then
+apply <a href="#learn-chunk">learn-chunk</a> on the result.
 
 Returns the added chunk.</blockquote><a name="make-chunk" /><p>(<b>make-chunk</b> &rest args)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Create an ACT-UP chunk.
@@ -415,20 +448,24 @@ If chunk types are defined with <a href="#define-chunk-type">define-chunk-type</
 <blockquote>Create a new ACT-UP meta-process.
 NAME, if given, specifies a name.
 The meta process keeps track of simulation time.
-See also <a href="#meta-process">meta-process</a> and <a href="#*current-actUP-meta-process*">*current-actUP-meta-process*</a>.</blockquote><a name="make-model" /><p>(<b>make-model</b> &key name parms pm dm modules time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also <a href="#meta-process">meta-process</a> and <a href="#*current-actup-meta-process*">*current-actup-meta-process*</a>.</blockquote><a name="make-model" /><p>(<b>make-model</b> &key name parms pm dm modules time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Create a new ACT-UP model.
 NAME, if given, specifies a name.</blockquote><a name="meta-process" /><p><b>meta-process</b>&nbsp;&nbsp;&nbsp;<i>structure</i></p>
 <blockquote>An ACT-UP meta process.
 A meta process keeps track of time for one or more models.</blockquote><a name="meta-process-name" /><p>(<b>meta-process-name</b> x)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Return the name of an ACT-UP meta-process.
-See also <a href="#meta-process">meta-process</a> and <a href="#*current-actUP-meta-process*">*current-actUP-meta-process*</a>.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also <a href="#meta-process">meta-process</a> and <a href="#*current-actup-meta-process*">*current-actup-meta-process*</a>.</blockquote><a name="model-chunks" /><p>(<b>model-chunks</b> &optional model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Evaluates to the list of chunks in the given model MODEL.</blockquote><a name="model-name" /><p>(<b>model-name</b> x)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Return the name of an ACT-UP model.</blockquote><a name="non-nil" /><a name="pass-time" /><p>(<b>pass-time</b> seconds &optional meta-process)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Simulates the passing of time.
 An optional parameter META-PROCESS specifies the meta-process to use.
-It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> stream obj)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Print a human-readable representation of chunk OBJ to STREAM.
-Set stream to t to output to standard output.</blockquote><a name="reset-actup" /><p>(<b>reset-actup</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+It defaults to the current meta-process.</blockquote><a name="pc" /><p>(<b>pc</b> obj &key stream internals)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Print a human-readable representation of chunk OBJ.
+STREAM, if given, indicates the stream to which output is sent.
+INTERNALS, if given and t, causes <a href="#pc">pc</a> to print architectural
+internals (see also <a href="#pc*">pc*</a> for a shortcut).</blockquote><a name="pc*" /><p>(<b>pc*</b> obj &key stream)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Print a human-readable representation of chunk OBJ, including architectural internals.
+STREAM, if given, indicates the stream to which output is sent.</blockquote><a name="reset-actup" /><p>(<b>reset-actup</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets architectural ACT-UP parameters, meta-process and current model.</blockquote><a name="reset-model" /><p>(<b>reset-model</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets the current ACT-UP model. 
 All declarative memory and all subsymbolic knowledge is deleted.
@@ -436,7 +473,7 @@ Global parameters (dynamic, global Lisp variables) are retained, as are
 functions and model-independent procedures.</blockquote><a name="reset-mp" /><p>(<b>reset-mp</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets the current Meta process. 
 Resets the time in the meta process.</blockquote><a name="reset-sji-fct" /><p>(<b>reset-sji-fct</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec timeout)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec timeout &key recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -454,7 +491,12 @@ SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2).
 
 TIMEOUT, if given, specifies the maximum time allowed before
-the retrieval fails.</blockquote><a name="set-base-level-fct" /><p>(<b>set-base-level-fct</b> chunk value &optional creation-time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+the retrieval fails.
+
+RECENTLY-RETRIEVED, if given, may be either <a href="#t">t</a>, in which case
+the retrieved chunk must have a declarative finst (i.e., has been
+recently retrieved), or <a href="#nil">nil</a>, in which is must not have a finst.
+See also <a href="#*declarative-num-finsts*">*declarative-num-finsts*</a> and <a href="#*declarative-finst-span*">*declarative-finst-span*</a>.</blockquote><a name="set-base-level-fct" /><p>(<b>set-base-level-fct</b> chunk value &optional creation-time)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Set base levels of CHUNK.
 If CREATION-TIME is specified, it contains the time at which the chunk
 was created in declarative memory, and VALUE contains the number of
@@ -474,7 +516,7 @@ and ACT the chunk's absolute activation.
 For plausibility reasons, models should not use the ACT form when
 possible.</blockquote><a name="set-current-model" /><p>(<b>set-current-model</b> new-model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Switches the currently active ACT-UP model.
-This may set a range of model parameters.</blockquote><a name="set-dm-total-presentations" /><p>(<b>set-dm-total-presentations</b> npres)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also <a href="#current-model">current-model</a> and <a href="#with-current-model">with-current-model</a>.</blockquote><a name="set-dm-total-presentations" /><p>(<b>set-dm-total-presentations</b> npres)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Set the count of total presentations of all chunks in DM.
 This value is relevant for associative learning (Sji/Rji).</blockquote><a name="set-similarities-fct" /><p>(<b>set-similarities-fct</b> list)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Set similarities between chunks.
@@ -485,7 +527,7 @@ For example:
 <pre>
  (set-similarities-fct &#39;((dave david -0.05) 
                          (steve hank -0.1)  
-                         (mary john -0.9)))</pre></blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> model &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+                         (mary john -0.9)))</pre></blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Prints all chunks in model MODEL subject to CONSTRAINTS.
 See the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><a name="show-parameters" /><p>(<b>show-parameters</b> &optional show-all)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Print architectural ACT-UP parameters different from their defaults.
@@ -494,11 +536,15 @@ If SHOW-ALL is non-nil, print even unchanged parameters.</blockquote><a name="sh
 <blockquote>Returns execution time of BODY in current ACT-UP model.
 Evaluates BODY.  See also <a href="#actup-time">actup-time</a>.</blockquote><a name="wait-for-model" /><p>(<b>wait-for-model</b> &optional model)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Waits until meta-process and MODEL are synchronized.
-When a model is assigned a new meta-process, it can happen that
+When a model is run with a new meta-process, it can happen that
 the meta-process time is behind the model's time (since the model
 was operated with a different meta-process before).
+
+This will generate warnings or errors.
+
 This function waits (see <a href="#pass-time">pass-time</a>) until the model is ready, that
 is, it sets the meta process time to the model time if the model time
 is more advanced, plus the current value of <a href="#*dat*">*dat*</a>.
 MODEL defaults to the current model.</blockquote><a name="with-current-model" /><p>(<b>with-current-model</b> model &body body)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Execute forms in BODY with the ACT-UP model MODEL being current.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
+<blockquote>Execute forms in BODY with the ACT-UP model MODEL being current.
+See also <a href="#current-model">current-model</a> and <a href="#set-current-model">set-current-model</a>.</blockquote><font size=-1><p>Documentation generated by <a href="http://homepage.mac.com/svc/lispdoc/">lispdoc</a> running on Clozure Common Lisp</p></font></body></html>
