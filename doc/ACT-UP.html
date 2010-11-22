@@ -246,12 +246,12 @@ procedures.</blockquote><a name="assign-reward*" /><p>(<b>assign-reward*</b> rew
 Only reward portions >0 are assigned to procedures, i.e., if
 <a href="#*au-rfr*">*au-rfr*</a> or <a href="#*au-rpps*">*au-rpps*</a> are nil (ACT-R 6 reward propagation),
 rewards are only assigned to procedures up to <a href="#reward">reward</a> seconds back in time.
-See also <a href="#flush-procedure-queue">flush-procedure-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set &key cues pm-soft-spec timeout inhibit-cues)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also <a href="#flush-procedure-queue">flush-procedure-queue</a>.</blockquote><a name="best-chunk" /><p>(<b>best-chunk</b> confusion-set &key cues soft-spec timeout inhibit-cues)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.  CUES may contain
 chunk objects or names of chunks.
-PM-SOFT-SPEC: request specification for partial matching (see also <a href="#retrieve-chunk">retrieve-chunk</a>).
+SOFT-SPEC: request specification for partial matching (see also <a href="#retrieve-chunk">retrieve-chunk</a>).
 INHIBIT-CUES: do not use (yet).
 
 Simulates timing behavior with <a href="#pass-time">pass-time</a>.
@@ -261,7 +261,7 @@ Marks the chunk as recently retrieved (declarative finst).
 Note that this function extends beyond the power of ACT-R's
 declarative module.
 
-See also the higher-level function <a href="#retrieve-chunk">retrieve-chunk</a>.</blockquote><a name="blend" /><p>(<b>blend</b> chunks &keys cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also the higher-level function <a href="#retrieve-chunk">retrieve-chunk</a>.</blockquote><a name="blend" /><p>(<b>blend</b> chunks &key cues chunk-type retrieval-spec)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Return a blended variant of chunks.
 Activation is calculated using spreading activation from CUES.  CUES
 may contain chunk objects or names of chunks.  The returned chunk is
@@ -272,7 +272,7 @@ RETRIEVAL-SPEC should contain the retrieval filter used to obtain
 CHUNKS; attribute-value pairs in it will be included in the returned
 chunk as-is and not be blended from the CHUNKS.
 
-See also the higher-level function <a href="#blend-retrieve-chunk">blend-retrieve-chunk</a>.</blockquote><a name="blend-retrieve-chunk" /><p>(<b>blend-retrieve-chunk</b> spec &key cues pm-soft-spec recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+See also the higher-level function <a href="#blend-retrieve-chunk">blend-retrieve-chunk</a>.</blockquote><a name="blend-retrieve-chunk" /><p>(<b>blend-retrieve-chunk</b> spec &key cues soft-spec recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a blended chunk from declarative memory.
 The blended chunk is a new chunk represeting the chunks
 retrievable from declarative memory under specification SPEC.
@@ -284,11 +284,11 @@ CUES is, if given, a list of chunks that spread activation
 to facilitate the retrieval of target chunks. CUES may contain
 chunk objects or names of chunks.
 
-PM-SOFT-SPEC is, if given, a retrieval specification whose 
+SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
-SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+SPEC and SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2).</blockquote><a name="chunk-name" /><p>(<b>chunk-name</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>The unique name of CHUNK.
 The returned value is a symbol assigned as unique name of CHUNK
@@ -396,7 +396,7 @@ of the form ((X . chunk1) (Y . chunk2) ...).
 returns a list of chunks in case (1) and a list of conses in case (2).</blockquote><a name="flush-procedure-queue" /><p>(<b>flush-procedure-queue</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Empties the queue of procedures in the current model.
 This resets the list of procedures to which rewards can be distributed (see
-<a href="#assign-reward">assign-reward</a> and <a href="#assign-reward*">assign-reward*</a>).</blockquote><a name="learn-chunk" /><p>(<b>learn-chunk</b> chunk &optional co-presentations)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<a href="#assign-reward">assign-reward</a> and <a href="#assign-reward*">assign-reward*</a>).</blockquote><a name="learn-chunk" /><p>(<b>learn-chunk</b> chunk &key co-presentations)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Learn chunk CHUNK.
 
 This will note a presentation of a chunk in the model's DM.
@@ -473,7 +473,7 @@ Global parameters (dynamic, global Lisp variables) are retained, as are
 functions and model-independent procedures.</blockquote><a name="reset-mp" /><p>(<b>reset-mp</b>)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Resets the current Meta process. 
 Resets the time in the meta process.</blockquote><a name="reset-sji-fct" /><p>(<b>reset-sji-fct</b> chunk)&nbsp;&nbsp;&nbsp;<i>function</i></p>
-<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &optional cues pm-soft-spec timeout &key recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Removes all references to CHUNK from all other chunks in the current model.</blockquote><a name="retrieve-chunk" /><p>(<b>retrieve-chunk</b> spec &key cues soft-spec timeout recently-retrieved)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -483,11 +483,11 @@ CUES is, if given, a list of chunks that spread activation
 to facilitate the retrieval of a target chunk.  CUES may contain
 chunk objects or names of chunks.
 
-PM-SOFT-SPEC is, if given, a retrieval specification whose 
+SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
-SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+SPEC and SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2).
 
 TIMEOUT, if given, specifies the maximum time allowed before

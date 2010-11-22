@@ -1309,12 +1309,12 @@ See ACT-R parameter :declarative-finst-span")
 (export '(*declarative-num-finsts* *declarative-finst-span*))
 
 
-(defun-module declarative best-chunk (confusion-set &key cues pm-soft-spec timeout inhibit-cues)
+(defun-module declarative best-chunk (confusion-set &key cues soft-spec timeout inhibit-cues)
 "Retrieves the best chunk in confusion set.
 CONFUSION-SET is a list of chunks, out of which the chunk is returned.
 CUES is a list of cues that spread activation.  CUES may contain
 chunk objects or names of chunks.
-PM-SOFT-SPEC: request specification for partial matching (see also `retrieve-chunk').
+SOFT-SPEC: request specification for partial matching (see also `retrieve-chunk').
 INHIBIT-CUES: do not use (yet).
 
 Simulates timing behavior with `pass-time'.
@@ -1337,7 +1337,7 @@ See also the higher-level function `retrieve-chunk'."
 		       when (or (not inhibit-cues) (not (member c cues)))
 		       when c ;; allow nil chunks
 		       do
-			 (let ((s (actup-chunk-get-activation c cues pm-soft-spec)))
+			 (let ((s (actup-chunk-get-activation c cues soft-spec)))
 			   (if (or (not *rt*) 
 				   (if (consp *rt*)
 				       (> (actup-chunk-total-presentations c) (cdr *rt*))
@@ -1420,7 +1420,7 @@ returns a list of chunks in case (1) and a list of conses in case (2)."
 		    )))))))
     (debug-print  *informational* "filtered ~a matching chunks.~%" (length matching-chunks))
     matching-chunks))
-; (macroexpand '(defun-module declarative retrieve-chunk (spec &optional cues pm-soft-spec timeout)))
+; (macroexpand '(defun-module declarative retrieve-chunk (spec &optional cues soft-spec timeout)))
 
 
 
@@ -1568,7 +1568,7 @@ NUMBER-OF-PRESENTATIONS indicates the total number of presentation, including th
 
 ;; (defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
 ;;   "Internal to ACT-UP.")
-(defun learn-chunk (chunk &optional co-presentations)
+(defun learn-chunk (chunk &key co-presentations)
   "Learn chunk CHUNK.
 
 This will note a presentation of a chunk in the model's DM.
@@ -1663,12 +1663,12 @@ Returns nil if name is nil."
 	  num))))
        
 
-(defun best-n-chunks (n confusion-set &key cues pm-soft-spec)
+(defun best-n-chunks (n confusion-set &key cues soft-spec)
   "Retrieves the best chunks in confusion set.
 CONFUSION-SET is a list of chunks, out of which the best N chunks will
 be returned. CUES is a list of cues that spread activation.  CUES may
 contain chunk objects or names of chunks.
-PM-SOFT-SPEC: request specification for partial matching (see also `retrieve-chunk').
+SOFT-SPEC: request specification for partial matching (see also `retrieve-chunk').
 
 Does not simulate timing behavior, and does not mark the chunk as
 recently retrieved.  Note that this function extends beyond the power
@@ -1682,7 +1682,7 @@ See also the higher-level functions `retrieve-chunk' and
       (let* ((cues (get-chunk-objects cues))
 	     (all  (loop for c in confusion-set 
 		  append
-		    (let ((s (actup-chunk-get-activation c cues pm-soft-spec)))
+		    (let ((s (actup-chunk-get-activation c cues soft-spec)))
 		     
 		      (if (or (not *rt*) 
 			      (if (consp *rt*)
@@ -1693,7 +1693,7 @@ See also the higher-level functions `retrieve-chunk' and
 	(mapcar 'cdr (subseq (stable-sort all #'> :key #'car) 0 (min n (length all) ))))))
 
  
-(defun-module declarative retrieve-chunk (spec &optional cues pm-soft-spec timeout &key (recently-retrieved 'ignore))
+(defun-module declarative retrieve-chunk (spec &key cues soft-spec timeout (recently-retrieved 'ignore))
   "Retrieve a chunk from declarative memory.
 The retrieved chunk is the most highly active chunk among those in
 declarative memory that are retrievable and that conform to
@@ -1703,11 +1703,11 @@ CUES is, if given, a list of chunks that spread activation
 to facilitate the retrieval of a target chunk.  CUES may contain
 chunk objects or names of chunks.
 
-PM-SOFT-SPEC is, if given, a retrieval specification whose 
+SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
-SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+SPEC and SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2).
 
 TIMEOUT, if given, specifies the maximum time allowed before
@@ -1717,23 +1717,23 @@ RECENTLY-RETRIEVED, if given, may be either `t', in which case
 the retrieved chunk must have a declarative finst (i.e., has been
 recently retrieved), or `nil', in which is must not have a finst.
 See also `*declarative-num-finsts*' and `*declarative-finst-span*'."
-  (debug-print *informational* "retrieve-chunk:~%   spec: ~a~%  cues: ~a~%  pmat: ~a~%" spec cues pm-soft-spec)
+  (debug-print *informational* "retrieve-chunk:~%   spec: ~a~%  cues: ~a~%  pmat: ~a~%" spec cues soft-spec)
   (let* ((matching-chunks (let ((*debug* (max *debug* *warning*)))
 			    (filter-chunks (model-chunks *current-actUP-model*)
 					   spec :recently-retrieved recently-retrieved)))
 	 (best-chunk  (let ((*debug* (max *debug* *warning*)))
 			(best-chunk matching-chunks
-				    :cues cues :pm-soft-spec pm-soft-spec :timeout timeout))))
+				    :cues cues :soft-spec soft-spec :timeout timeout))))
     (debug-print  *informational* "retrieved ~a out of ~a matching chunks.~%" (if best-chunk (or (actup-chunk-name best-chunk) "one") "none") (length matching-chunks))
-    (debug-print *informational* "~a~%" (explain-activation best-chunk cues pm-soft-spec))
+    (debug-print *informational* "~a~%" (explain-activation best-chunk cues soft-spec))
     ;; to do: add if to make fast
     (loop for c in matching-chunks do 
-	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec pm-soft-spec))))
+	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec soft-spec))))
     best-chunk))
  
 (def-actup-parameter *blend-temperature* 1.0 "Blend temperature.")
 
-(defun blend (chunks &keys cues chunk-type retrieval-spec)
+(defun blend (chunks &key cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
 Activation is calculated using spreading activation from CUES.  CUES
 may contain chunk objects or names of chunks.  The returned chunk is
@@ -1841,7 +1841,7 @@ See also the higher-level function `blend-retrieve-chunk'."
 
 
 
-(defun blend-retrieve-chunk (spec &key cues pm-soft-spec (recently-retrieved 'ignore))
+(defun blend-retrieve-chunk (spec &key cues soft-spec (recently-retrieved 'ignore))
   "Retrieve a blended chunk from declarative memory.
 The blended chunk is a new chunk represeting the chunks
 retrievable from declarative memory under specification SPEC.
@@ -1853,16 +1853,16 @@ CUES is, if given, a list of chunks that spread activation
 to facilitate the retrieval of target chunks. CUES may contain
 chunk objects or names of chunks.
 
-PM-SOFT-SPEC is, if given, a retrieval specification whose 
+SOFT-SPEC is, if given, a retrieval specification whose 
 constraints are soft; partial matching is used for this portion
 of the retrieval specification. 
 
-SPEC and PM-SOFT-SPEC are lists of the form (:slot1 value1 :slot2
+SPEC and SOFT-SPEC are lists of the form (:slot1 value1 :slot2
 value2 ...), or (slot1 value1 slot2 value2)."
   (let ((cs (filter-chunks (model-chunks *current-actUP-model*)
 			     spec :recently-retrieved recently-retrieved)))
     (if cs
-	(blend cs cues nil (append spec pm-soft-spec)))))
+	(blend cs cues nil (append spec soft-spec)))))
 
 
 ;; ACT-R 6.0 compatibility functions

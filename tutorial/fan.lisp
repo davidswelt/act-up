@@ -95,8 +95,7 @@
 		  (if (eq term 'person)
 		      (list :arg1 person)
 		      (list :arg2 location)))
-	  ;; cues:
-	  (list person location))))
+	  :cues (list person location))))
     (pass-time *model-time-parameter*)
     (if (and cfd ; if not retrieved, answer would be NO
 	     (equal person (comprehendfact-arg1 cfd))

@@ -161,8 +161,7 @@
   ;; encoding /aural is deterministic in ACT-R
   (pass-time 1.0)
   (let ((cfd  (retrieve-chunk (list :chunk-type 'plus-fact)
-			      nil
-			      (list
-			       :addend1 arg1 :addend2 arg2))))
+			      :soft-spec (list
+					  :addend1 arg1 :addend2 arg2))))
     (pass-time 0.4)
     (if cfd (plus-fact-sum cfd))))
