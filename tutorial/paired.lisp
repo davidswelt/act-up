@@ -8,9 +8,12 @@
 
 ;; we use a more complex notation to find the ACT-UP file
 ;; relative to the location of the tutorial file.
-(load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
-(load (concatenate 'string (directory-namestring *load-truename*) "../util/actr-stats.lisp"))
-(load (concatenate 'string (directory-namestring *load-truename*) "../util/act-up-experiments.lisp"))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../load-act-up.lisp"))
+  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../util/actr-stats.lisp"))
+  (load (concatenate 'string (directory-namestring (or *load-truename* *compile-file-truename*)) "../util/act-up-experiments.lisp")))
+
 ;; Architectural (ACT-R) parameters:
 
 (setf *rt* -2)
