@@ -106,7 +106,7 @@ current model with a `location' slot set to `park', select the one
 with the highest activation, and print its activation.  The activation
 includes spreading activation from two sources: the chunks `lawyer',
 and `park'.
-<p>
+
 
 <h3>Procedural memory</h3>
 
@@ -191,5 +191,98 @@ If you'd like to discard the previous log output (and you should do
 that), evaluate <pre>(debug-clear)</pre>
 
 
+<h2>Some more examples...</h2>
 
-</body> </html>
+<p>
+Of course, all of these functions may be combined with any of the ACT-UP
+functions to determine what is going wrong.  For instance, many models
+require subsymbolic parameters to be in certain ranges to work.
+<p>
+Let's assume that our model depends on the cue-based retrieval of some
+chunks.  Some of these chunks are created at run-time, others exist as
+"knowledge" before the model is run.  In this case (taken from a
+real-world debugging situation), only the "knowledge" chunks are being
+retrieved.  We have found out about this problem through careful
+analysis of the model at run time.
+<p>
+To figure out why this retrieval fails, we first print a list of chunks:
+
+<pre>(show-chunks)
+(CHUNK-44181 CHUNK-44173 CHUNK-44165 CHUNK-44157 CHUNK-44141 CHUNK-44125
+ CHUNK-44117 CHUNK-44109 CHUNK-44093 CHUNK-44069 CHUNK-44061 CHUNK-44053
+ CHUNK-44037 CHUNK-44021 CHUNK-44005 CHUNK-43973 CHUNK-43957 CHUNK-43949
+ CHUNK-43941 CHUNK-43933 CHUNK-43917 CHUNK-43901 CHUNK-43893 CHUNK-43869
+ CHUNK-43861 ... CHUNK-42981 CONCEPT45 CONCEPT44 CONCEPT43
+ CONCEPT42 CONCEPT41 CONCEPT40 CONCEPT39 CONCEPT38 CONCEPT37 CONCEPT36
+ CONCEPT35 ... CONCEPT5 CONCEPT4 CONCEPT3 CONCEPT2 CONCEPT1)</pre>
+
+The CONCEPT... chunks represent existing knowledge (which is
+successfully retrieved), while the CHUNK-... chunks are generated
+during the model run.  Let's inspect one of these:
+
+<pre>
+(pc 'CHUNK-43861)
+CHUNK-43861
+             CHUNK-TYPE: DRAWING 
+             COMPONENT1: CONCEPT22 
+             COMPONENT2: CONCEPT30 
+             COMPONENT3: CONCEPT41 
+                CONCEPT: CONCEPT32 
+
+</pre>
+
+The model attempts to retrieve this chunk using the three components
+(concepts 22,30,41) as cues.  As we know that this retrieval yields
+the wrong result, let's print a log for it.
+The following command will run a retrieval for a `drawing' chunk, with
+just the right set of cues.  It will pretty-print the resulting chunk,
+and most importantly, it will also print some detailed debug output
+during the retrieval:
+
+<pre>(pc (debug-detail (retrieve-chunk '(:chunk-type drawing) '(CONCEPT22 CONCEPT30 CONCEPT41))))
+
+Retrieval duration: 7.395787650346699d-4
+retrieved CONCEPT4 out of 130 matching chunks.
+  time: 27391.07  CONCEPT4 base-level: -.44  (8000 pres) pm:   spreading: 7.8729196
+     (CONCEPT22: Sji: 5.65  CONCEPT30: Sji: 7.35  CONCEPT41: Sji: 10.62 ) -  tr.noise: -0.2207639 
+  time: 27391.07  CHUNK-44181 base-level: -2.85  (1 pres) pm:   spreading: 2.302986
+     (CONCEPT22: Rji: 6.91  CONCEPT30: Rji: .00  CONCEPT41: Rji: .00 ) partial match: 0.0  tr.noise: -0.08859934 
+  time: 27391.07  CHUNK-44173 base-level: -3.09  (1 pres) pm:   spreading: 0.0
+     (CONCEPT22: Rji: .00  CONCEPT30: Rji: .00  CONCEPT41: Rji: .00 ) partial match: 0.0  tr.noise: -0.7761554 
+  ...
+  time: 27391.07  CHUNK-43861 base-level: -4.46  (1 pres) pm:   spreading: 7.5304894
+     (CONCEPT22: Rji: 6.91  CONCEPT30: Rji: 7.29  CONCEPT41: Rji: 8.39 ) partial match: 0.0  tr.noise: 0.47288537 
+  ...
+</pre>
+
+Interesting - CONCEPT4 beats out our target concept because of
+spreading activation.  The output here is ordered by total chunk
+activation; our targeted chunk comes after a number of other chunks.
+<p>
+It seems that spreading activation
+from chunks established during the model isn't strong enough compared
+to the Sji values set initially for the "prior knowledge".  Let's try
+to increase the `*maximum-associative-strength*' parameter, and run
+the retrieval again.
+
+<PRE>
+(setq *maximum-associative-strength* 20)
+(pc (debug-detail (retrieve-chunk '(:chunk-type drawing) '(CONCEPT22 CONCEPT30 CONCEPT41))))
+
+Retrieval duration: 1.6177249734895294d-6
+retrieved CHUNK-43861 out of 130 matching chunks.
+  time: 27391.07  CHUNK-43861 base-level: -4.46  (1 pres) pm:   spreading: 17.530489
+     (CONCEPT22: Rji: 16.91  CONCEPT30: Rji: 17.29  CONCEPT41: Rji: 18.39 ) -  tr.noise: 0.26590148 
+  time: 27391.07  CHUNK-44181 base-level: -2.85  (1 pres) pm:   spreading: 5.6363196
+     (CONCEPT22: Rji: 16.91  CONCEPT30: Rji: .00  CONCEPT41: Rji: .00 ) partial match: 0.0  tr.noise: -0.17124294 
+  ...
+</pre>
+
+Voil&aacute;: This did the trick.  Of course, we may have to consider a range
+of other issues, such as cognitive plausibility, when setting certain
+parameters.  Still, this is a good start.
+
+
+
+
+</BODy> </html>
