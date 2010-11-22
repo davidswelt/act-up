@@ -27,18 +27,29 @@
     (sqrt (/ (loop for x in list sum (expt (- x mean) 2)) (1- (length list))))))
  
 (defun cor (list-1 list-2)
-  "Pearson's correlation between elements of list-1 and list-2"
-  (let ((n (length list-1))
-	(mean-a (mean list-1))
-	(mean-b (mean list-2)))
-    (unless (= n (length list-2))
-      (error "cor: lists must be of same length."))
-    (/
-     (loop for a in list-1 for b in list-2 sum
-	  (* (- a mean-a) (- b mean-b)))
-     (* (1- n) (stdev list-1) (stdev list-2)))))
+  "Pearson's correlation between elements of list-1 and list-2
+The elements of LIST-1 and LIST-2 may be lists themselves, in which
+case COR returns a list of correlation coefficients."
+  (if (listp (car list-1))
+      (loop for a in list-1 for b in list-2 collect (cor a b))
+      (let ((n (length list-1))
+	    (mean-a (mean list-1))
+	    (mean-b (mean list-2)))
+	(unless (= n (length list-2))
+	  (error "cor: lists must be of same length."))
+	(/
+	 (loop for a in list-1 for b in list-2 sum
+	      (* (- a mean-a) (- b mean-b)))
+	 (* (1- n) (stdev list-1 mean-a) (stdev list-2 mean-b))))))
 
-(export '(mean sum stdev cor))
+(defun rmse (list-1 list-2)
+  (let ((n (length list-1)))
+    (unless (= n (length list-2))
+      (error "rmse: lists must be of same length."))
+    (sqrt (/ (loop for a in list-1 for b in list-2 sum
+		  (expt (- a b) 2)) n))))
+
+(export '(mean sum stdev cor rmse))
 
 (defun repeat-seq (n sequence)
   (if (> n 0)
@@ -167,7 +178,7 @@ however, if chunks were presented at t-380 and t-200, the decay would be 2.1036.
 (defparameter *aggregate-colnames* nil)
 (defun clear-aggregates (colnames)
   "Clear aggregation dataset.
-COLNAMES is a sequence of strings indicating the
+COLNAMES is a list of symbols indicating the
 names of variables that will be given as value(s)
 and as conditions."
   (setq *aggregate-sum* nil 
@@ -207,7 +218,7 @@ Aggregation will occur over all VALUEs in this combination of conditions."
    (assoc condition-list *aggregate-sum*  :test 'equal)))
 
 (defun aggregate-mean-2 (values)
-  (let ((sum (car values)))
+  (let ((sum (car values)))  ;; add up all vectors in values
     (loop for v in (cdr values) do
 	 (setq sum (vec-op '+ v sum)))
     (vec-op '/ sum (length values))))
@@ -233,34 +244,78 @@ Aggregation will occur over all VALUEs in this combination of conditions."
 
 
 
-(defun get-aggregates ()
+(defun agg-var-bucket-bindings (colnames variables bindings)
+  (loop for c in colnames
+     for b in bindings
+     collect
+       (if (member c variables)
+	   b
+	   nil)))
+
+;; to interpret VARIABLES, we need to collect them first
+;; the result looks like *aggregate-sum* structurally
+(defun agg-aggregate-data (variables)
+  (loop with buckets = nil
+     for s in  (reverse *aggregate-sum*)
+     for bucket-name = (agg-var-bucket-bindings *aggregate-colnames* variables (car s))
+     do
+       (if (assoc bucket-name buckets  :test 'equal)
+	   (setf (cdr (last (assoc bucket-name buckets  :test 'equal)))
+       		 (copy-list (cdr s)))
+       	   (push (cons bucket-name  (copy-list (cdr s)))
+       		 buckets))
+     finally (return buckets)))
+
+;; (defun aggtest (vars)
+;;   (print (mapcar 'car  (agg-aggregate-data vars)))
+;;   (equal  (agg-aggregate-data *aggregate-colnames*)  *aggregate-sum*))
+;; (export '(aggtest))
+
+(defun get-aggregates (&optional variables)
   "Return aggregation set as list of (conditions . means) conses."
  
-    (loop for s in (reverse *aggregate-sum*)
+  (when variables
+    (loop for v in variables 
+	 when (not (member v *aggregate-colnames*)) do
+	 (error (format nil "print-aggregates: variable ~a was not declared with `clear-aggregates'" v))))
+
+    (loop for s in (if variables (agg-aggregate-data variables) (reverse *aggregate-sum*))
        collect
 	 (when (> (length (cdr s)) 0)
 	   (cons (car s) 
 		   (aggregate-mean-2 (cdr s))))))
 
-(defun print-aggregates (&optional file)
+(defun print-aggregates (&optional file variables)
   "Print aggregation set as a table.
 Output is printed to FILE if given, standard out otherwise.
-In this implementation, only mean values are printed."
+In this implementation, only mean values are printed.
+
+If VARIABLES is given, aggregate for combinations of
+bindings for VARIABLES, and over all remaining variables.
+Each variable must have been defined when `clear-aggregates' was
+called."
+
+  (when variables
+    (loop for v in variables 
+	 when (not (member v *aggregate-colnames*)) do
+	 (error (format nil "print-aggregates: variable ~a was not declared with `clear-aggregates'" v))))
+
   (let ((str (if file 
 		 (open file 
 		       :direction :output :if-exists :supersede :if-does-not-exist :create)
 		 t)))
-    (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*)
-    (loop for s in (reverse *aggregate-sum*)
-       do
-	     (when (> (length (cdr s)) 0)
-		 (format str "~{~A~#[~:;~t~]~}" (car s) )
-		 (let ((mean (aggregate-mean-2 (cdr s))))
-		   (if (numberp mean)
-		       (format str " ~A" (if mean (float mean) "NA"))
-		       (loop for i in mean do
-			    (format str " ~A" (if i (float i) "NA") ))))
-		 (format str "~%")))
+      (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*)
+
+      (loop for s in (if variables (agg-aggregate-data variables) (reverse *aggregate-sum*))
+	 do
+	   (when (> (length (cdr s)) 0)
+	     (format str "~{~A~#[~:;~t~]~}" (car s) )
+	     (let ((mean (aggregate-mean-2 (cdr s))))
+	       (if (numberp mean)
+		   (format str " ~A" (if mean (float mean) "NA"))
+		   (loop for i in mean do
+			(format str " ~A" (if i (float i) "NA") ))))
+	     (format str "~%")))
 
     (if file (close str))))
 
@@ -311,12 +366,16 @@ In this implementation, only mean values are printed."
 
 ;; Parameter optimization
 
+(defparameter *optimize-parameters-verbose* t
+  "If non-nil, `optimize-parameters' will print output.")
 
 (defmacro optimize-parameters (variable-list &body body)
   "Optimize parameters from VARIABLE-LIST, running BODY.
 Iterates through all combinations of values for variables in VARIABLE-LIST,
 executing BODY for each.  BODY is expected to return a list of form
-\(CORRELATION MEAN-DEV).
+\(PARMS CORRELATION MEAN-DEV).  CORRELATION is the correlation coefficient,
+MEAN-DEV is the Root Mean Squared Error of the parameter settings PARM
+with the highest correlation.
 VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
 
   ;; build loop expression
@@ -338,11 +397,12 @@ VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
 		      (best-meandev '(0.0 1000.0))
 		      (best-meandev-par nil))
 		  ,expr
-		  
-		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
-			  (first best-cor) (second best-cor) best-cor-par)
-		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
-			  (first best-meandev) (second best-meandev) best-meandev-par)))
+		  (when *optimize-parameters-verbose*
+		    (format t "Corr:~,4F  RMSE:~,4F  at ~a~%"
+			    (first best-cor) (second best-cor) best-cor-par)
+		    (format t "Corr:~,4F  RMSE:~,4F  at ~a~%"
+			    (first best-meandev) (second best-meandev) best-meandev-par))
+		  (list best-cor-par (first best-cor) (second best-cor))))
     expr))
 
 (export '(optimize-parameters))
