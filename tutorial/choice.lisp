@@ -108,5 +108,3 @@ Returns count of head predictions."
 (defun unit-test ()
   (collect-data-choice 100))
 
-
-;; -*-Mode: ACT-UP; fill-column: 75; comment-column: 50; -*-

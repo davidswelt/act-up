@@ -311,12 +311,16 @@ In this implementation, only mean values are printed."
 
 ;; Parameter optimization
 
+(defparameter *optimize-parameters-verbose* nil
+  "If non-nil, `optimize-parameters' will print output.")
 
 (defmacro optimize-parameters (variable-list &body body)
   "Optimize parameters from VARIABLE-LIST, running BODY.
 Iterates through all combinations of values for variables in VARIABLE-LIST,
 executing BODY for each.  BODY is expected to return a list of form
-\(CORRELATION MEAN-DEV).
+\(PARMS CORRELATION MEAN-DEV).  CORRELATION is the correlation coefficient,
+MEAN-DEV is the Root Mean Squared Error of the parameter settings PARM
+with the highest correlation.
 VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
 
   ;; build loop expression
@@ -338,15 +342,12 @@ VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
 		      (best-meandev '(0.0 1000.0))
 		      (best-meandev-par nil))
 		  ,expr
-		  
-		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
-			  (first best-cor) (second best-cor) best-cor-par)
-		  (format t "Corr:~,4F  Dev:~,4F  at ~a~%"
-			  (first best-meandev) (second best-meandev) best-meandev-par)))
+		  (when *optimize-parameters-verbose*
+		    (format t "Corr:~,4F  RMSE:~,4F  at ~a~%"
+			    (first best-cor) (second best-cor) best-cor-par)
+		    (format t "Corr:~,4F  RMSE:~,4F  at ~a~%"
+			    (first best-meandev) (second best-meandev) best-meandev-par))
+		  (list best-cor-par (first best-cor) (second best-cor))))
     expr))
-
-(export '(optimize-parameters))
-
-
 
 (provide "act-up-experiments")
