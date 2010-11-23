@@ -225,9 +225,9 @@ NUMBER-OF-PRESENTATIONS indicates the total number of presentation, including th
 <blockquote>Set Sji link weights between chunks.
 LIST is a list with elements of form (CJ NI S), where CJ und NI are
 chunks or chunk names, and S is the new link weight, regulating
-spreading activation when CI is in context as a cue and NI is
+spreading activation when CJ is in context as a cue and NI is
 retrieved.  S may also be a list of form (FCN TIME), with FCN
-indicating frequency of C and N occurring together, and TIME
+indicating frequency of CJ and NI occurring together, and TIME
 indicating the point in time of their last joint occurrence (TIME is
 unused currently, but must be given.)</blockquote><a name="assign-reward" /><p>(<b>assign-reward</b> reward)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Assign reward to recently invoked procedures.
@@ -527,7 +527,19 @@ For example:
 <pre>
  (set-similarities-fct &#39;((dave david -0.05) 
                          (steve hank -0.1)  
-                         (mary john -0.9)))</pre></blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+                         (mary john -0.9)))</pre></blockquote><a name="set-similarity" /><p>(<b>set-similarity</b> chunk-1 chunk-2 similarity)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Set similarity between chunks.
+CHUNK-1 and CHUNK-2 are chunks or chunk names. 
+SIMILARITY is the new similarity of CHUNK-1 and CHUNK-2.
+
+See also <a href="#set-similarities-fct">set-similarities-fct</a> for an ACT-R compatibility function.</blockquote><a name="set-sji" /><p>(<b>set-sji</b> chunk-j chunk-i s)&nbsp;&nbsp;&nbsp;<i>function</i></p>
+<blockquote>Set Sji link weight between two chunks.
+CHUNK-J und CHUNK-I are chunks or chunk names, and S is the new link
+weight, regulating spreading activation when CHUNK-J is in context as
+a cue and CHUNK-I is retrieved.  S may also be a list of form (FCN
+TIME), with FCN indicating frequency of CHUNK-J and CHUNK-I occurring
+together, and TIME indicating the point in time of their last joint
+occurrence (TIME is unused currently, but must be given.)</blockquote><a name="show-chunks" /><p>(<b>show-chunks</b> &optional constraints)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Prints all chunks in model MODEL subject to CONSTRAINTS.
 See the function <a href="#filter-chunks">filter-chunks</a> for a description of possible constraints.</blockquote><a name="show-parameters" /><p>(<b>show-parameters</b> &optional show-all)&nbsp;&nbsp;&nbsp;<i>function</i></p>
 <blockquote>Print architectural ACT-UP parameters different from their defaults.

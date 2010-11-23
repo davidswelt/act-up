@@ -1217,7 +1217,7 @@ STREAM, if given, indicates the stream to which output is sent."
 	  show-chunks chunk-name explain-activation
 	  non-nil
 	  reset-mp reset-model
-	  reset-sji-fct set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
+	  reset-sji-fct set-similarity set-sji set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
 (export '(retrieve-chunk blend-retrieve-chunk
 	  filter-chunks add-chunk-to-dm learn-chunk best-chunk blend))
@@ -1924,6 +1924,25 @@ key-value pair is returned."
 ;; value
 ;; or (Fjoint time)  ; time unused in the ACTR5 style calculation
 
+(defun set-similarity (chunk-1 chunk-2 similarity)
+  "Set similarity between chunks.
+CHUNK-1 and CHUNK-2 are chunks or chunk names. 
+SIMILARITY is the new similarity of CHUNK-1 and CHUNK-2.
+
+See also `set-similarities-fct' for an ACT-R compatibility function."
+  (let* ((c1  (get-chunk-object-add-to-dm chunk-1))
+	 (c2  (get-chunk-object-add-to-dm chunk-2))
+	 (c1n  (get-chunk-name c1))
+	 (c2n  (get-chunk-name c2)))
+    (unless (eq c1 c2)
+      (setf (actup-chunk-similar-chunks c1)
+	    (dict-set (actup-chunk-similar-chunks c1) 
+		      c2n similarity))
+      (setf (actup-chunk-similar-chunks c2)
+	    (dict-set (actup-chunk-similar-chunks c2) 
+		      c1n similarity)))))
+
+
 (defun set-similarities-fct (list)
   "Set similarities between chunks.
 LIST is a list with elements of form (A B S), where A und B are
@@ -1933,45 +1952,44 @@ For example:
  (set-similarities-fct '((dave david -0.05) 
                          (steve hank -0.1)  
                          (mary john -0.9)))"
-  (loop for (c1a c2a s) in list 
-     for c1 = (get-chunk-object-add-to-dm c1a)
-     for c2 = (get-chunk-object-add-to-dm c2a)
-     for c1n = (get-chunk-name c1)
-     for c2n = (get-chunk-name c2)
-     do
-       (unless (eq c1 c2)
-	 (setf (actup-chunk-similar-chunks c1)
-	       (dict-set (actup-chunk-similar-chunks c1) 
-			 c2n s))
-	 (setf (actup-chunk-similar-chunks c2)
-	       (dict-set (actup-chunk-similar-chunks c2) 
-			 c1n s)))))
+  (loop for (c1a c2a s) in list do
+       (set-similarity c1a c2a s)))
+
+(defun set-sji (chunk-j chunk-i s)
+"Set Sji link weight between two chunks.
+CHUNK-J und CHUNK-I are chunks or chunk names, and S is the new link
+weight, regulating spreading activation when CHUNK-J is in context as
+a cue and CHUNK-I is retrieved.  S may also be a list of form (FCN
+TIME), with FCN indicating frequency of CHUNK-J and CHUNK-I occurring
+together, and TIME indicating the point in time of their last joint
+occurrence (TIME is unused currently, but must be given.)"
+  (let* ((c1 (get-chunk-object-add-to-dm chunk-j))
+	 (c2 (get-chunk-object-add-to-dm chunk-i))
+	 (c1n (get-chunk-name c1))
+	 (c2n (get-chunk-name c2)))
+    (unless (eq c1 c2)
+      (let ((link (if (and (listp s) (= (length s) 2))
+		      (make-actup-link :fcn (first s))
+		      (make-actup-link :sji s))))
+	(setf (actup-chunk-related-chunks c1)
+	      (alist-replace c2n link (actup-chunk-related-chunks c1)))
+	;; and the reciprocal references
+	(setf (actup-chunk-references c2)
+	      (alist-replace c1n link (actup-chunk-references c2)))
+	))))
 
 (defun add-sji-fct (list)
   "Set Sji link weights between chunks.
 LIST is a list with elements of form (CJ NI S), where CJ und NI are
 chunks or chunk names, and S is the new link weight, regulating
-spreading activation when CI is in context as a cue and NI is
+spreading activation when CJ is in context as a cue and NI is
 retrieved.  S may also be a list of form (FCN TIME), with FCN
-indicating frequency of C and N occurring together, and TIME
+indicating frequency of CJ and NI occurring together, and TIME
 indicating the point in time of their last joint occurrence (TIME is
 unused currently, but must be given.)"
   (loop for (c1a c2a s) in list 
-     for c1 = (get-chunk-object-add-to-dm c1a)
-     for c2 = (get-chunk-object-add-to-dm c2a)
-     for c1n = (get-chunk-name c1)
-     for c2n = (get-chunk-name c2)
      do
-       (unless (eq c1 c2)
-	 (let ((link (if (and (listp s) (= (length s) 2))
-			 (make-actup-link :fcn (first s))
-			 (make-actup-link :sji s))))
-	   (setf (actup-chunk-related-chunks c1)
-		 (alist-replace c2n link (actup-chunk-related-chunks c1)))
-	   ;; and the reciprocal references
-	   (setf (actup-chunk-references c2)
-		 (alist-replace c1n link (actup-chunk-references c2)))
-	   ))))
+       (set-sji c1a c2a s)))
 
 (defun set-dm-total-presentations (npres)
   "Set the count of total presentations of all chunks in DM.
