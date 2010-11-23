@@ -204,7 +204,7 @@ retrieved using this function."
      (debug-print-internal ',format ,@args)))
  
 
-(DECLAIM (FTYPE (FUNCTION (stream t) t) pc))
+;; (DECLAIM (FTYPE (FUNCTION (t) t) pc))
 
 (defun pprint-pc (stream obj)
   (let ((*standard-output* (if (eq stream t) *standard-output* stream)))
@@ -679,7 +679,7 @@ by using `define-chunk'."
   ;; other chunks that mention this chunk in one of their values
   (occurs-in nil :type list) 
   ;; similarities
-  (similar-chunks nil :type list)
+  (similar-chunks (make-dictionary) :type (or list hash-table))
   (fan nil) ; internal)
   (model nil)  ; pointer to the chunk's model  (to ensure it's unique)
 ))
@@ -959,7 +959,7 @@ Value in activation (log) space.")
   (or 
    (let ((v1o (get-chunk-object v1 'noerror)))
      (if v1o
-	 (cdr (assoc (get-chunk-name v2) (actup-chunk-similar-chunks v1o)))))
+	 (dict-get (get-chunk-name v2) (actup-chunk-similar-chunks v1o))))
    (if (eq (get-chunk-name v1) (get-chunk-name v2)) *ms*)
       ;; (if (and (numberp v1) (numberp v2))
       ;; 	  (if (= v1 v2)
@@ -1164,7 +1164,7 @@ internals (see also `pc*' for a shortcut)."
      (progn
        (format stream "~a~%" (actup-chunk-name obj))
        (loop for slot in (append  '(chunk-type) (if (actup-chunk-comment obj) '(comment)) (actup-chunk-attrs obj)
-				 (if internals '(total-presentations first-presentation recent-resentations related-chunks references similiar-chunks model)))
+				 (if internals '(total-presentations first-presentation recent-resentations related-chunks references similar-chunks model)))
 	  for val = (safe-slot-value obj slot)
 
 	  do
@@ -1180,6 +1180,13 @@ internals (see also `pc*' for a shortcut)."
 	       (format nil "~2,4f" val))
 	      ((model-p val)
 	       (format nil "~2,4f" (model-name val)))
+	      ((hash-table-p val)
+	       (loop for key being the hash-keys of val
+		  using (hash-value value)
+		  for i from 1 to 6
+		  do (if (= i 6)
+			'+...+
+			(format nil "~S=~S " key value))))
 	      (t (get-chunk-name val)))))
        (format stream "~%")
 
@@ -1892,6 +1899,8 @@ value2 ...), or (slot1 value1 slot2 value2)."
 ;; 	       (insert-by-weight (list c2 s 0 0) (actup-chunk-related-chunks c1) #'second)))
 ;;        ))
 
+
+
 (defun alist-replace (key value alist)
   "Replace key-value pair in alist, or add it.
 Alist is changed by side-effect and returned,
@@ -1924,7 +1933,6 @@ For example:
  (set-similarities-fct '((dave david -0.05) 
                          (steve hank -0.1)  
                          (mary john -0.9)))"
-
   (loop for (c1a c2a s) in list 
      for c1 = (get-chunk-object-add-to-dm c1a)
      for c2 = (get-chunk-object-add-to-dm c2a)
@@ -1932,12 +1940,12 @@ For example:
      for c2n = (get-chunk-name c2)
      do
        (unless (eq c1 c2)
-
-	   (setf (actup-chunk-similar-chunks c1)
-		 (alist-replace c2n s (actup-chunk-similar-chunks c1)))
-	   (setf (actup-chunk-similar-chunks c2)
-		 (alist-replace c1n s (actup-chunk-similar-chunks c2)))
-	   )))
+	 (setf (actup-chunk-similar-chunks c1)
+	       (dict-set (actup-chunk-similar-chunks c1) 
+			 c2n s))
+	 (setf (actup-chunk-similar-chunks c2)
+	       (dict-set (actup-chunk-similar-chunks c2) 
+			 c1n s)))))
 
 (defun add-sji-fct (list)
   "Set Sji link weights between chunks.

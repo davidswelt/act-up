@@ -1,5 +1,7 @@
+(declaim (optimize (speed 0) (space 0) (debug 03)))
 
 (in-package :act-up)
+
 
 ;; VARIOUS
 
@@ -176,3 +178,52 @@ and the value of the leaf."
 
 
 
+
+;; Dictionary class
+;; hybrid between association list and hash table
+;; This collection uses an assoc list internally for small sets
+;; and a hash table for large ones.
+;; This is optimized for reading speed.
+
+(defparameter *dict-threshold* 10)
+#+:sbcl (setq *dict-threshold* 27)
+#+:allegro (setq *dict-threshold* 9)
+#+:openmcl (setq *dict-threshold* 6)
+#+:lispworks (setq *dict-threshold* 12)
+
+(defun make-dictionary (&optional (size 1))
+  (if (> size *dict-threshold*)
+      (make-hash-table :size size)
+      (list '(assoc-list-len . 0))))
+
+(defun dict-get (item dict)
+  (if (hash-table-p dict)
+      (gethash item dict)
+      (cdr (assoc item dict))))
+
+(defun dict-set (dict item value)
+  (declare (type (or hash-table list) dict))  ;
+    (if (hash-table-p dict)
+	  (setf (gethash item dict) value)
+	;; check length
+	(let ((found (assoc item dict)))
+	  (if found
+	      (setf (cdr found) value)
+	      ;; we're adding.  check length
+	      (progn
+		(setf (cdr (last dict)) (list (cons item value)))
+		(if (and (eq (caar dict) 'assoc-list-len)
+			 (>= (cdar dict) *dict-threshold*))
+		    (let ((new-d (make-dictionary (* 2 (cdar dict)))))
+		      (loop for (k . v) in (cdr dict) do
+			   (setf (gethash k new-d) v))
+		      (setq dict new-d))
+		    ;; increase list length
+		    (incf (cdar dict)))))))
+    dict)
+
+;; (defun dict-test ()
+;;   (let ((d (make-dictionary 3)))
+;;     (loop for i from 1 to 30 do
+;; 	(setq d (dict-set d i (- 1000 i))))
+;;     d))
