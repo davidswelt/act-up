@@ -146,4 +146,11 @@
 	*lf* 0.3
 	*rt* -1.7
 	*alpha* 0.4)
-  (act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test)))
+  (setq perf (act-up-experiments::optimize-parameters ((*egs* 0.4 0.5 0.1)) (unit-test)))
+  (setq len (list-length perf))
+  (loop for l from 1 to (- len 2)	   
+	do (format t "~a: ~a~%" (first (first (nth (- l 1) perf))) (rest (first (nth (- l 1) perf)))))
+  (print (car (last perf)))
+  (print (nth (- len 2) perf)))
+  ;(act-up-experiments::optimize-parameters ((*alpha* 0 0.8 0.1) (*model-time-parameter* 0 1.0 0.1)) (unit-test)))
+;(setq perf (act-up-experiments::optimize-parameters ((*egs* 1.0 5.0 2.0 ) (*ans* 1.0 1.5 0.5) (*lf* 0.0 1.0 0.5) (*mas* 1.0 3.0 1.0) (*bll* 0.0 1.0 0.5))  (unit-test)))

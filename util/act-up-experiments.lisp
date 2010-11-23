@@ -405,8 +405,4 @@ VARIABLE-LIST is a list containing elements of form (NAME MIN MAX STEP)."
 		  (list best-cor-par (first best-cor) (second best-cor))))
     expr))
 
-(export '(optimize-parameters))
-
-
-
 (provide "act-up-experiments")

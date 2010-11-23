@@ -25,7 +25,7 @@
 
 
 (defun print-hash () 
-  (loop for value being the hash-values of *regression-hash*
+  (loop for value being the hash-values of *regression-hash1*
         using (hash-key key)
         do (format t "~&~A ~30T-> ~A" key value)))
 
