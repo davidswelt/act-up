@@ -191,16 +191,17 @@ and the value of the leaf."
 #+:openmcl (setq *dict-threshold* 6)
 #+:lispworks (setq *dict-threshold* 12)
 
+#+nil
 (defun make-dictionary (&optional (size 1))
   (if (> size *dict-threshold*)
       (make-hash-table :size size)
       (list '(assoc-list-len . 0))))
-
+#+nil
 (defun dict-get (item dict)
   (if (hash-table-p dict)
       (gethash item dict)
       (cdr (assoc item dict))))
-
+#+nil
 (defun dict-set (dict item value)
   (declare (type (or hash-table list) dict))  ;
     (if (hash-table-p dict)
@@ -221,6 +222,57 @@ and the value of the leaf."
 		    ;; increase list length
 		    (incf (cdar dict)))))))
     dict)
+
+#+nil
+(defun mapdict (function dict)
+  "Call FUNCTION for each key-value pair of DICT.
+FUNCTION must be a function taking two arguments (key value).
+Returns DICT."
+   (if (hash-table-p dict)
+       (maphash function dict)
+       (mapc (lambda (kv) (funcall function (car kv) (cdr kv))) dict))
+   dict)
+
+#+nil
+(defun dict-remove (key dict)
+   (if (hash-table-p dict)
+       (remhash key dict)
+       (setq dict (delete-if (lambda (x) (eq (car x) key)) dict)))
+   dict)
+
+
+;; The following, alternative implementation just uses nil
+;; and creates a hash table when the first element is added.
+;; This is more efficient with our test suite (in SBCL),
+;; presumably because writing is not much less frequent
+;; than reading.
+
+(defun make-dictionary (&optional (size 1))
+  (cons 'dict nil)) ; always start out as nil to save space
+
+(defun dict-get (item dict)
+  (if (cdr dict)
+      (gethash item (cdr dict))))
+
+(defun dict-set (dict item value)
+  (unless (cdr dict)
+    (setf (cdr dict) (make-hash-table)))
+  (setf (gethash item (cdr dict)) value)
+  dict)
+
+(defun mapdict (function dict)
+  "Call FUNCTION for each key-value pair of DICT.
+FUNCTION must be a function taking two arguments (key value).
+Returns DICT."
+  (when (cdr dict)
+    (maphash function dict))
+  dict)
+
+(defun dict-remove (key dict)
+  (when (cdr dict)
+    (remhash key (cdr dict)))
+  dict)
+
 
 ;; (defun dict-test ()
 ;;   (let ((d (make-dictionary 3)))

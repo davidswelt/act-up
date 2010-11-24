@@ -669,10 +669,10 @@ by using `define-chunk'."
   (last-noise-time nil)
   (permanent-noise (actup-noise *pas*) :type float)
   (id (gensym "actupchunk") :type atom)
-  (related-chunks nil :type list)  ;; references to other chunks
+  (related-chunks (make-dictionary) :type (or list hash-table))  ;; references to other chunks
   ;; this chunk may serve as cue for the chunks listed here.
   ;; assoc list with entries of form (chunk-name . <actup-link>)
-  (references nil :type list) ;; other chunks referring to this one
+  (references (make-dictionary) :type (or list hash-table)) ;; other chunks referring to this one
   ;; this chunk will receive spreading activation if any of the cues listed here are in the context
   ;; assoc list with entries of form (chunk-name . <actup-link>)
   
@@ -761,20 +761,16 @@ Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be 
 
 (defun inc-rji-copres-count (c n)
   "increase co-presentation count for chunks C,N"
-  (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
+  (let ((target (dict-get (get-chunk-name n) (actup-chunk-related-chunks c))))
     (if target
 	(incf (actup-link-fcn target)) ;; f(C&N) count
 	(let ((link (make-actup-link :fcn 1)))
 	  ;; add new link:
-	  (setf (actup-chunk-related-chunks c)
-		(cons
-		 (cons (get-chunk-name n) link)
-		 (actup-chunk-related-chunks c)))
+	  (dict-set (actup-chunk-related-chunks c)
+		    (get-chunk-name n) link)
 	  ;; same link in the reciprocal references
-	  (setf (actup-chunk-references n)
-		(cons
-		 (cons (get-chunk-name c) link)
-		 (actup-chunk-references n)))))))
+	  (dict-set (actup-chunk-references n)
+		    (get-chunk-name c) link)))))
 
 (def-actup-parameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory.
 `*mas*' is defined as alias for `maximum-associative-strength'.
@@ -829,7 +825,7 @@ See also: ACT-R parameter :mas.")
 (defun chunk-get-rji (c n)
   "Get Rji (in linear space)"
   (if *associative-learning*
-      (let ((target (cdr (assoc (get-chunk-name n) (actup-chunk-related-chunks c)))))
+      (let ((target (dict-get (get-chunk-name n) (actup-chunk-related-chunks c))))
 	(if target
 	    (let ((no (get-chunk-object n)))
 	      (let ((f-nc (or (actup-link-fcn target) 0))
@@ -922,7 +918,7 @@ See also: ACT-R parameter :mas.")
       (* 1
 	 (/ (loop 
 	       for cue in cues
-	       for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
+	       for link = (dict-get (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue)))
 	       sum
 		 (+ (or 
 		     (if *associative-learning*
@@ -1023,7 +1019,7 @@ RETR-SPEC describes the retrieval specification for partial matching retrievals.
 			;; explain
 			(when (>= *debug* *all*)
 			  (loop for cue in (get-chunk-objects cues) 
-			     for link = (cdr (assoc (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue))))
+			     for link = (dict-get (get-chunk-name chunk) (actup-chunk-related-chunks (get-chunk-object cue)))
 			     
 			     collect
 			       (format-nil "~a: ~a" (get-chunk-name cue)
@@ -1188,10 +1184,6 @@ internals (see also `pc*' for a shortcut)."
 			'+...+
 			(format nil "~S=~S " key value))))
 	      (t (get-chunk-name val)))))
-       (format stream "~%")
-
-       ;; (if (actup-chunk-related-chunks obj)
-       ;; 	   (format stream "related chunks: ~a~%" (mapcar (lambda (x) (if (actup-chunk-p x) (actup-chunk-name x) x)) (actup-chunk-related-chunks obj))))
        (format stream "~%"))
      (error (v) (progn (format stream "ERR~a" v) nil))))))
 
@@ -1877,13 +1869,13 @@ value2 ...), or (slot1 value1 slot2 value2)."
   "Removes all references to CHUNK from all other chunks in the current model."
  
   ;;; remove chunk from reciprocal references 
-  (loop with chunk-name = (get-chunk-name chunk)
-     for (c . _l) in (actup-chunk-related-chunks chunk) do
-       (progn
-	 _l
-	 (setf (actup-chunk-references c)
-	       (delete-if (lambda (x) (eq (car x) chunk-name)) (actup-chunk-references c)))))
-  (setf (actup-chunk-related-chunks chunk) nil))
+  (let* ((chunk (get-chunk-object chunk))
+	 (chunk-name (get-chunk-name chunk)))
+    (mapdict (lambda (c nil)
+	       (let ((referring-chunk (get-chunk-object c)))
+		 (dict-remove chunk-name (actup-chunk-references referring-chunk))))
+	     (actup-chunk-related-chunks chunk))
+    (setf (actup-chunk-related-chunks chunk) (make-dictionary))))
 
 
 ;; (defun add-sji-fct (list)
@@ -1971,11 +1963,11 @@ occurrence (TIME is unused currently, but must be given.)"
       (let ((link (if (and (listp s) (= (length s) 2))
 		      (make-actup-link :fcn (first s))
 		      (make-actup-link :sji s))))
-	(setf (actup-chunk-related-chunks c1)
-	      (alist-replace c2n link (actup-chunk-related-chunks c1)))
+	(dict-set (actup-chunk-related-chunks c1)
+		  c2n link)
 	;; and the reciprocal references
-	(setf (actup-chunk-references c2)
-	      (alist-replace c1n link (actup-chunk-references c2)))
+	(dict-set (actup-chunk-references c2)
+		  c1n link)
 	))))
 
 (defun add-sji-fct (list)
