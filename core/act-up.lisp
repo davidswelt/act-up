@@ -110,7 +110,7 @@ If SHOW-ALL is non-nil, print even unchanged parameters."
 (defstruct meta-process
   "An ACT-UP meta process.
 A meta process keeps track of time for one or more models."
-  (actUP-time 0.0d0 :type  long-float)
+  (actUP-time 0.0d0 :type long-float)
   name
 )
 
@@ -286,7 +286,7 @@ The log output can be retrieved with `debug-log'."
       (setq symbol (request-handle-module symbol)))
   (let ((module (if (module-p symbol) 
 		    symbol
-		    (cdr (assoc symbol (model-modules (current-model)))))))
+		    (cdr (assoc (the symbol symbol) (model-modules (current-model)))))))
     (unless module
       (error (format nil "get-actup-module: called with unknown module name ~a." symbol)))
     module))
@@ -310,7 +310,7 @@ The log output can be retrieved with `debug-log'."
 (defun wait-for-response (handle &optional timeout)
     (if (and handle (request-handle-busy-until handle))
 	(let ((remaining (- (request-handle-busy-until handle) (actup-time))))
-	  (when (> remaining 0)
+	  (when (> remaining 0.0)
 	    (if (and timeout (< timeout remaining))
 		(pass-time timeout)
 		(pass-time remaining))))))
@@ -520,7 +520,7 @@ See also `receive'." fun-name fun-name module)
   (chunks nil :type list)
   (indexes `((name . ,(make-hash-table))) :type list)  ; These are indexes.  Currently an alist with one entry:  (name . hash-table)
   (recently-retrieved nil :type list)
-  (total-presentations 0 :type integer))
+  (total-presentations 0 :type fixnum))
 
 (defstruct procedural-memory
   (regular-procs (make-hash-table))
@@ -542,7 +542,7 @@ See also `receive'." fun-name fun-name module)
 		   module-name-list)
 	   :type list)  ; alist of module objects
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
-  (time 0))
+  (time 0.0d0 :type long-float))
 
    
 (def-actup-parameter *current-actUP-model* (make-model) "Current ACT-UP Model" 'internal)
@@ -551,7 +551,7 @@ See also `receive'." fun-name fun-name module)
 NAME, if given, specifies a name.")
 (setf (documentation 'model-name 'function) "Return the name of an ACT-UP model.")
  
-(def-actup-parameter *dat* 0.05 "Default time that it takes to execut an ACT-UP procedure in seconds.
+(def-actup-parameter *dat* 0.05d0 "Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 (defun wait-for-model (&optional model)
@@ -567,7 +567,7 @@ is, it sets the meta process time to the model time if the model time
 is more advanced, plus the current value of `*dat*'.
 MODEL defaults to the current model."
   (let ((diff (- (model-time (or model *current-actUP-model*)) (actup-time))))
-    (when (> diff 0.0)
+    (when (> diff 0.0d0)
       ;; (format t "~a: waiting for model ~a (t=~a): ~A~%" (meta-process-name *current-actup-meta-process*) 
       ;; 	      (model-name (or model *current-actUP-model*)) (model-time (or model *current-actUP-model*))
       ;; 	      diff)
@@ -639,7 +639,7 @@ See also: ACT-R parameter :ol")
 	  ;;name 
 	  chunk-type))
 
-(defvar *actup-chunk-count* 0)
+(defvar *actup-chunk-count* (the fixnum 0))
 
 (defun gensym-chunk ()
   (intern (format nil "CHUNK-~a" (incf *actup-chunk-count*))))
@@ -657,7 +657,7 @@ by using `define-chunk'."
   (attrs nil)  ;; list of user-defined slots
 
   ;; internal ACT-UP structures
-  (total-presentations 0 :type integer)
+  (total-presentations 0 :type fixnum)
   (first-presentation (actup-time))
   (recent-presentations nil :type list) ; with the most recent one in car!
   (last-bl-activation 0)
@@ -689,7 +689,7 @@ by using `define-chunk'."
 Includes Sji/Rji weights and cooccurrence data."
   (sji nil) ; if not set, rji (learning) is used.
   (rji 0.0)
-  (fcn 0 :type integer))
+  (fcn 0 :type fixnum))
   
 (defun safe-slot-value (obj slot)
   (handler-case
@@ -792,11 +792,12 @@ See also: ACT-R parameter :mas.")
 
 (defun count-occurrences (chunk)
   "Count occurrences of CHUNK as value in all other chunks"
-  (loop with name = (actup-chunk-name chunk)
-     for cn in (actup-chunk-occurs-in chunk) 
-     for c = (get-chunk-object cn)
-     sum
-       (count-occ-ji name c)))
+  (the fixnum
+    (loop with name = (actup-chunk-name chunk)
+       for cn in (actup-chunk-occurs-in chunk) 
+       for c = (get-chunk-object cn)
+       sum
+       (count-occ-ji name c))))
 
 (defun fan-ji (c n)
   (let ((occ (count-occ-ji (get-chunk-name c) n)))
@@ -1517,6 +1518,7 @@ If the object is not in the DM, add it."
 	    (learn-chunk chunk-or-name))
 	;;(push chunk-or-name (model-chunks (current-model)))
 	chunk-or-name)
+      ;; symbolp:
       (or (get-chunk-by-name chunk-or-name)
 	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
 	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
@@ -1538,7 +1540,8 @@ NUMBER-OF-PRESENTATIONS indicates the total number of presentation, including th
 	      ;; make sure the chunk isn't assigned to a different model
 	      (if (actup-chunk-model chunk)
 		  (if (not (eq (actup-chunk-model chunk) (model-name model)))
-		      (error (format-nil "learn-chunk: chunk belonging to model ~a being added to model ~a." (model-name (actup-chunk-model chunk)) (model-name model))))
+		      (error (format-nil "learn-chunk: chunk belonging to model ~a being added to model ~a." 
+					 (actup-chunk-model chunk) (model-name model))))
 		  ;; else: not set
 		  (setf (actup-chunk-model chunk) (model-name model)))
 	      ;; make sure we don't have a chunk of the same name already present
