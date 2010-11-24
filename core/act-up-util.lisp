@@ -1,4 +1,4 @@
-(declaim (optimize (speed 0) (space 0) (debug 03)))
+(declaim (optimize (speed 03) (space 0) (debug 0)))
 
 (in-package :act-up)
 

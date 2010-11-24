@@ -15,7 +15,7 @@
 
 
 
-(declaim (optimize (speed 0) (space 0) (debug 03)))
+(declaim (optimize (speed 03) (space 0) (debug 03)))
 
 ;; avoid some error messages 
 ;;(let ((*error-output* (MAKE-STRING-OUTPUT-STREAM)))
