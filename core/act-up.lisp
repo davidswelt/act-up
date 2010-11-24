@@ -1861,7 +1861,7 @@ value2 ...), or (slot1 value1 slot2 value2)."
   (let ((cs (filter-chunks (model-chunks *current-actUP-model*)
 			     spec :recently-retrieved recently-retrieved)))
     (if cs
-	(blend cs cues nil (append spec soft-spec)))))
+	(blend cs :cues cues :retrieval-spec (append spec soft-spec)))))
 
 
 ;; ACT-R 6.0 compatibility functions
@@ -1871,7 +1871,8 @@ value2 ...), or (slot1 value1 slot2 value2)."
   ;;; remove chunk from reciprocal references 
   (let* ((chunk (get-chunk-object chunk))
 	 (chunk-name (get-chunk-name chunk)))
-    (mapdict (lambda (c nil)
+    (mapdict (lambda (c v)
+	       (declare (ignore v))
 	       (let ((referring-chunk (get-chunk-object c)))
 		 (dict-remove chunk-name (actup-chunk-references referring-chunk))))
 	     (actup-chunk-related-chunks chunk))
