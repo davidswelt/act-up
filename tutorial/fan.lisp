@@ -83,8 +83,6 @@
 
   (pass-time *model-initial-delay*))
 
-
-
 ;; The Model
 ;;;; define a production
 (defproc check-factual-sentence (person location target term)
