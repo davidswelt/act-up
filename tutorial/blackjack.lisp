@@ -25,6 +25,7 @@
 ;;; test harness for the experiment
 
 (defun play-hands (hands &optional (print-game nil))
+  (number-sims)
   (let ((scores (list 0 0 0 0)))
    (dotimes (i hands)
       (let* ((mcards (deal *deck1*))
@@ -174,10 +175,13 @@
       "h" 
     "s"))
 
-(defun number-sims (a b)
-  (when (and (numberp a) (numberp b))
-    (- (/ (abs (- a b)) (max a b)))))
-    
+(defun number-sims ()
+  (set-similarities-fct 
+   (loop for a from 1 to 30 append 
+	 (loop for b from 1 to 30 
+	       collect
+	       (list a b (- (/ (abs (- a b)) (max a b))))))))
+
 ;;; defining chunk-types
 
 (define-chunk-type game mtotal maction ocard result)
