@@ -21,10 +21,8 @@
 (defparameter *deck2* 'regular-deck)
 (defparameter *opponent-rule* 'fixed-threshold)
 
-
 ;; declared special variables (for easy of inspection / debugging)
 
-(defvar *model-action* nil)
 (defvar *card-list* nil)
 (defvar *card* nil)
 
@@ -39,8 +37,8 @@
              (mchoice (show-model-cards (butlast mcards) (first ocards)))  ;;; make show-model-cards return mchoice
              (ochoice (show-opponent-cards (butlast ocards) (first mcards))))
         
-        (unless (string-equal "h" mchoice) (setf mcards (butlast mcards)))
-        (unless (string-equal "h" ochoice) (setf ocards (butlast ocards)))
+        (unless (eq 'hit mchoice) (setf mcards (butlast mcards)))
+        (unless (eq 'hit ochoice) (setf ocards (butlast ocards)))
           
         (let* ((mtot (score-cards mcards))
                (otot (score-cards ocards))
@@ -97,7 +95,7 @@
   (funcall *opponent-rule* cards mc1))
 
 (defun fixed-threshold (cards mc1)
-  (if (< (score-cards cards) *opponent-threshold*) "h" "s")) 
+  (if (< (score-cards cards) *opponent-threshold*) 'hit 'stay)) 
 
 (defun game0 ()
   (setf *deck1* 'regular-deck)
@@ -126,7 +124,7 @@
            (pop *card-list*))))
 
 (defun always-hit (cards mc1) 
-  "h")
+  'hit)
 
 (defun game2 ()
   (setf *deck1* 'sevens)
@@ -146,7 +144,7 @@
   (+ 8 (random 3)))
 
 (defun always-stay (cards mc1) 
-  "s")
+  'stay)
 
 (defun game4 ()
   (setf *card* 0)
@@ -178,8 +176,8 @@
 
 (defun random-hit (cards mc1) 
   (if (> (random 1.0) .5) 
-      "h" 
-    "s"))
+      'hit 
+    'stay))
 
 (defun number-sims ()
   (set-similarities-fct 
@@ -192,7 +190,6 @@
 
 (define-chunk-type game mtotal maction ocard result)
 
-
 ;;; defining procedures
 
 (defproc show-model-cards (mcards ocard)
@@ -203,18 +200,19 @@
 	 (ostart (score-cards (list ocard)))
 	 (mresult nil)
 	 (oresult nil)
+	 (model-action nil)
 	 (g (retrieve-chunk (list :chunk-type 'game
 				  :result 'win)
 			    :soft-spec (list :mtotal mstart
 					     :ocard oc1))))
     (if (eq g nil)
 	(if (< 17 mstart)
-	    (setf *model-action* "s")
-	  (setf *model-action* "h"))
-      (setf *model-action* (game-maction g))))
-  (pass-time 10)
-  *model-action*)
-					       
+	    (setf model-action 'stay)
+	  (setf model-action 'hit))
+      (setf model-action (game-maction g)))
+    (pass-time 10)
+    model-action))
+
 (defproc show-model-results (mcards ocards mres ores)
   (let* ((mc1 (first mcards))
 	 (mc2 (second mcards))
@@ -228,8 +226,8 @@
 	 (ostart (score-cards (list (first ocards))))
 	 (oresult ores))
     (if (eq mc3 nil)
-	(learn-chunk (make-game :mtotal mtot :maction "s" :ocard oc1 :result mres))
-      (learn-chunk (make-game :mtotal mtot :maction "h" :ocard oc1 :result mres))))
+	(learn-chunk (make-game :mtotal mtot :maction 'stay :ocard oc1 :result mres))
+      (learn-chunk (make-game :mtotal mtot :maction 'hit :ocard oc1 :result mres))))
   (pass-time 10))
       
 
