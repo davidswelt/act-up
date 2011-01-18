@@ -1,7 +1,7 @@
 ;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
 ;;; Filename: grouped.lisp
 
-;; To use: (recall)
+;; To use: (run-recall)
 
 ;;; Author: Jasmeet Ajmani
 
@@ -21,34 +21,35 @@
 ;;;; Committing chunks to memory
 
 (defun init-model ()
-  ;(reset-model)
-  (loop for x in '(1 2 3)
-	for y in '(first second third)
-	collect (learn-chunk (make-item :number x :parent 'group1 :position y)))
-  (loop for x in '(4 5 6)
-	for y in '(first second third)
-	collect (learn-chunk (make-item :number x :parent 'group2 :position y)))
-  (loop for x in '(7 8 9)
-	for y in '(first second third)
-	collect (learn-chunk (make-item :number x :parent 'group3 :position y))))
-
-;;;; Setting similarities between chunks
-(set-similarities-fct '((first second -0.5)
-			(second third -0.5)
-			(first third -1)
-			(group1 group2 -1)
-			(group2 group3 -1)
-			(group1 group3 -1)))
+  (reset-model)
+  (loop for x from 1 to 9
+     for g in '(group1 group1 group1 group2 group2 group2 group3 group3 group3)
+     for p in '(first second third first second third first second third)
+     do 
+       (learn-chunk (make-item :number x :parent g :position p)))
+  ;; Setting similarities between chunks
+  (set-similarities-fct '((first second -0.5)
+			  (second third -0.5)
+			  (first third -1)
+			  (group1 group2 -1)
+			  (group2 group3 -1)
+			  (group1 group3 -1))))
 
 ;;;; Test harness for the experiment
 
-;;;; Defining Procedural Rules
-
-(defproc recall () 
+(defun run-recall ()
   (init-model)
+  (recall))
+
+;;;; Defining Procedures
+
+(defproc recall ()
   (loop for g in '(group1 group2 group3)
 	collect (loop for p in '(first second third)
 		      collect (item-number (retrieve-chunk (list :chunk-type 'item)
 							   :soft-spec (list :position p
-									    :parent g))))))
+									    :parent g)
+							   :recently-retrieved nil)))))
 
+;;  Initialize
+(init-model)
