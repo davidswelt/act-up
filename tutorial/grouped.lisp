@@ -21,7 +21,7 @@
 ;;;; Committing chunks to memory
 
 (defun init-model ()
-  (reset-model)
+  ;(reset-model)
   (loop for x in '(1 2 3)
 	for y in '(first second third)
 	collect (learn-chunk (make-item :number x :parent 'group1 :position y)))
@@ -49,9 +49,6 @@
   (loop for g in '(group1 group2 group3)
 	collect (loop for p in '(first second third)
 		      collect (item-number (retrieve-chunk (list :chunk-type 'item)
-							  nil
-							  (list :position p
-								:parent g)
-							  nil
-							  :recently-retrieved nil)))))
-							       
+							   :soft-spec (list :position p
+									    :parent g))))))
+
