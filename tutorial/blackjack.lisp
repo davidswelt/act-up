@@ -1,7 +1,7 @@
 ;; -*-Mode: Act-up; fill-column: 75; comment-column: 50; -*-
 ;;; Filename: blackjack.lisp
 
-;; To use: play-hands/run-blocks
+;; To use: play-hands or run-blocks
 
 ;;; Author: Jasmeet Ajmani
 
@@ -9,16 +9,22 @@
 
 (load (concatenate 'string (directory-namestring *load-truename*) "../load-act-up.lisp"))
 
+;; Architectural parameters
 (setq *bll* 0.5
       *rt* -60
       *lf* 0.0
       *mp* 10.0)
 
+;; Model parameters (set by `game0' and `game1')
+(defparameter *opponent-threshold* 15)
+(defparameter *deck1* 'regular-deck)
+(defparameter *deck2* 'regular-deck)
+(defparameter *opponent-rule* 'fixed-threshold)
+
+
+;; declared special variables (for easy of inspection / debugging)
+
 (defvar *model-action* nil)
-(defvar *opponent-threshold* 15)
-(defvar *deck1* 'regular-deck)
-(defvar *deck2* 'regular-deck)
-(defvar *opponent-rule* 'fixed-threshold)
 (defvar *card-list* nil)
 (defvar *card* nil)
 
@@ -186,7 +192,8 @@
 
 (define-chunk-type game mtotal maction ocard result)
 
-;;; defining procedural rule
+
+;;; defining procedures
 
 (defproc show-model-cards (mcards ocard)
   (let* ((mc1 (first mcards))
