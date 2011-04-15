@@ -290,6 +290,9 @@ Aggregation will occur over all VALUEs in this combination of conditions."
 Output is printed to FILE if given, standard out otherwise.
 In this implementation, only mean values are printed.
 
+If FILE is of the form (cond :append FILE2), then the output
+will be appended to FILE2.
+
 If VARIABLES is given, aggregate for combinations of
 bindings for VARIABLES, and over all remaining variables.
 Each variable must have been defined when `clear-aggregates' was
@@ -300,9 +303,12 @@ called."
 	 when (not (member v *aggregate-colnames*)) do
 	 (error (format nil "print-aggregates: variable ~a was not declared with `clear-aggregates'" v))))
 
-  (let ((str (if file 
-		 (open file 
-		       :direction :output :if-exists :supersede :if-does-not-exist :create)
+  (let* ((append (if (and (consp file) (eq :append (car file))) 
+		     (progn (setq file (cdr file)) :append)
+		     :supersede))
+	 (str (if file 
+		 (open 
+		       :direction :output :if-exists append :if-does-not-exist :create)
 		 t)))
       (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*)
 
