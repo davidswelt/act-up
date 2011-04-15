@@ -304,10 +304,10 @@ called."
 	 (error (format nil "print-aggregates: variable ~a was not declared with `clear-aggregates'" v))))
 
   (let* ((append (if (and (consp file) (eq :append (car file))) 
-		     (progn (setq file (cdr file)) :append)
+		     (progn (setq file (cadr file)) :append)
 		     :supersede))
 	 (str (if file 
-		 (open 
+		 (open file
 		       :direction :output :if-exists append :if-does-not-exist :create)
 		 t)))
       (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*)
