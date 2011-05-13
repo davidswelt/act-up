@@ -301,28 +301,30 @@ called."
 	 when (not (member v *aggregate-colnames*)) do
 	 (error (format nil "print-aggregates: variable ~a was not declared with `clear-aggregates'" v))))
 
-  (let* ((append (if (and (consp file) (eq :append (car file))) 
-		     (progn (setq file (cadr file)) :append)
-		     :supersede))
-	 (str (if file 
-		 (open file
-		       :direction :output :if-exists append :if-does-not-exist :create)
-		 t)))
-    (if (eq :supersede append)
-	(format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*))
-
-    (loop for s in (if variables (agg-aggregate-data variables) (reverse *aggregate-sum*))
-       do
-	 (when (> (length (cdr s)) 0)
-	   (format str "~{~A~#[~:;~t~]~}" (car s) )
-	   (let ((mean (aggregate-mean-2 (cdr s))))
-	     (if (numberp mean)
+  (let ((append (if (and (consp file) (eq :append (car file))) 
+		    :append
+		    :supersede)))
+    
+    (if (consp file) (setq file (cadr file)))
+    
+    (let ((str (if file 
+		   (open file
+			 :direction :output :if-exists append :if-does-not-exist :create)
+		   t)))
+      (if (eq :supersede append)
+	  (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*))
+      
+      (loop for s in (if variables (agg-aggregate-data variables) (reverse *aggregate-sum*))
+	 do
+	   (when (> (length (cdr s)) 0)
+	     (format str "~{~A~#[~:;~t~]~}" (car s) )
+	     (let ((mean (aggregate-mean-2 (cdr s))))
+	       (if (numberp mean)
 		   (format str " ~A" (if mean (float mean) "NA"))
 		   (loop for i in mean do
 			(format str " ~A" (if i (float i) "NA") ))))
-	   (format str "~%")))
-    
-    (if file (close str))))
+	     (format str "~%")))
+    (if file (close str)))))
 
 
 ;; (defun aggregate-test ()
