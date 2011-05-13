@@ -307,11 +307,12 @@ called."
     
     (if (consp file) (setq file (cadr file)))
     
-    (let ((str (if file 
+    (let ((file-is-new (or (not file) (eq :supersede append) (not (probe-file file))))
+	  (str (if file 
 		   (open file
 			 :direction :output :if-exists append :if-does-not-exist :create)
 		   t)))
-      (if (eq :supersede append)
+      (if file-is-new
 	  (format str "~{~A~#[~:;~t~]~}~%" *aggregate-colnames*))
       
       (loop for s in (if variables (agg-aggregate-data variables) (reverse *aggregate-sum*))
