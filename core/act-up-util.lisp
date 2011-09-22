@@ -248,6 +248,7 @@ Returns DICT."
 ;; than reading.
 
 (defun make-dictionary (&optional (size 1))
+  (declare (ignore size))
   (cons 'dict nil)) ; always start out as nil to save space
 
 (defun dict-get (item dict)
@@ -265,7 +266,7 @@ Returns DICT."
 FUNCTION must be a function taking two arguments (key value).
 Returns DICT."
   (when (cdr dict)
-    (maphash function dict))
+    (maphash function (cdr dict)))
   dict)
 
 (defun dict-remove (key dict)
