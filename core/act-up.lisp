@@ -527,9 +527,11 @@ See also `receive'." fun-name fun-name module)
   (compiled-procs (make-tree))
   (proc-queue nil :type list))
 
+(defvar +model-slots+ '(name parms pm dm modules time))
 
+(defvar *actup-model-count* (the fixnum -0))
 (defstruct model
-  (name (gensym "MODEL")) ;; may be used for debugging purposes
+  (name (decf *actup-model-count*)) ;; may be used for debugging purposes
   (parms nil :type list)
   ;; overriding model-specific parameters. association list
   ;; of form (PARM . VALUE).
@@ -549,8 +551,8 @@ See also `receive'." fun-name fun-name module)
 
 (setf (documentation 'make-model 'function) "Create a new ACT-UP model.
 NAME, if given, specifies a name.")
-(setf (documentation 'model-name 'function) "Return the name of an ACT-UP model.")
- 
+
+
 (def-actup-parameter *dat* 0.05d0 "Default time that it takes to execut an ACT-UP procedure in seconds.
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
@@ -589,7 +591,16 @@ Resets the time in the meta process."
 All declarative memory and all subsymbolic knowledge is deleted.
 Global parameters (dynamic, global Lisp variables) are retained, as are
 functions and model-independent procedures."
-  (setq *current-actUP-model* (make-model)))
+  ;; the following is simpler, but doesn't quite do what we want
+  ;; (setq *current-actUP-model* (make-model))
+  ;; if the calling code retains the current model (or
+  ;; uses `with-current-model' to set it), then
+  ;; the model won't change.
+  (let ((empty-model (make-model)))
+    (loop for s in +model-slots+ do
+	 (setf (slot-value *current-actUP-model* s)
+	       (slot-value empty-model s)))))
+
 
 
 
@@ -639,10 +650,7 @@ See also: ACT-R parameter :ol")
 	  ;;name 
 	  chunk-type))
 
-(defvar *actup-chunk-count* (the fixnum 0))
-
-(defun gensym-chunk ()
-  (intern (format nil "CHUNK-~a" (incf *actup-chunk-count*))))
+(defvar *actup-chunk-count* (the fixnum -0))
 
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   ;; structure should be available at compile time
@@ -651,7 +659,7 @@ See also: ACT-R parameter :ol")
 Derive your own chunks using this as a base structure
 by using `define-chunk'."
   ;; helpful for debugging
-  (name (gensym-chunk) :read-only t)
+  (name (decf *actup-chunk-count*) :read-only t)
   (comment) ;; documentation / comments
   (chunk-type nil)
   (attrs nil)  ;; list of user-defined slots
@@ -660,7 +668,7 @@ by using `define-chunk'."
   (total-presentations 0 :type fixnum)
   (first-presentation (actup-time))
   (recent-presentations nil :type list) ; with the most recent one in car!
-  (last-bl-activation 0)
+  (last-bl-activation nil)  ; nil means: not set
   (activation-time nil)
 
   ;; we guarantee that the noise is constant
@@ -668,7 +676,6 @@ by using `define-chunk'."
   (last-noise nil)
   (last-noise-time nil)
   (permanent-noise (actup-noise *pas*) :type float)
-  (id (gensym "actupchunk") :type atom)
   (related-chunks (make-dictionary) :type (or list hash-table))  ;; references to other chunks
   ;; this chunk may serve as cue for the chunks listed here.
   ;; assoc list with entries of form (chunk-name . <actup-link>)
@@ -704,7 +711,7 @@ Includes Sji/Rji weights and cooccurrence data."
 
 (defun chunk-name (chunk)
   "The unique name of CHUNK.
-The returned value is a symbol assigned as unique name of CHUNK
+The returned value is a symbol or number assigned as unique name of CHUNK
 in the current model."
   (actup-chunk-name chunk))
 
@@ -723,7 +730,7 @@ in the current model."
 	;; no index available, for whatever reason
 	(loop for c in (model-chunks *current-actUP-model*)
 	  do
-	     (if (equal name (actup-chunk-name c))
+	     (if (eq name (actup-chunk-name c))
 		 (return c))))))
        
 (defun get-chunk-object (chunk-or-name &optional noerror)
@@ -1010,9 +1017,10 @@ CUES contains retrieval cues spreading activation.
 RETR-SPEC describes the retrieval specification for partial matching retrievals."
   (when chunk-or-name
     (let ((chunk (get-chunk-object chunk-or-name)))
-    (format-nil "  time: ~2,2f  ~a base-level: ~2,2f  (~a pres) pm: ~2,2f ~2,2f ~2,2f"
+    (format-nil "  time: ~2,2f  ~a  total:~2,2f   base-level: ~2,2f  (~a pres) pm: ~2,2f ~2,2f ~2,2f"
 	    (actUP-time)
 	    (actup-chunk-name chunk)
+	    (actup-chunk-get-activation chunk cues retr-spec)
 	    (actup-chunk-get-base-level-activation chunk)
 	    (actup-chunk-total-presentations chunk) ;; (actup-chunk-recent-presentations chunk)
 	    (if cues
@@ -1147,16 +1155,17 @@ Overrides any slot set defined earlier."
   `(define-chunk-type chunk ,@slot-names))
 
 (export '(pc pc*))
-(defun pc (obj &key (stream t) (internals nil)) 
-  "Print a human-readable representation of chunk OBJ.
+(defun pc (chunk &key (stream t) (internals nil)) 
+  "Print a human-readable representation of chunk CHUNK.
 STREAM, if given, indicates the stream to which output is sent.
 INTERNALS, if given and t, causes `pc' to print architectural
 internals (see also `pc*' for a shortcut)."
-  (loop for obj in (if (listp obj) obj (list obj)) do
-  (let ((obj (get-chunk-object obj))
+  (loop for chunk in (if (listp chunk) chunk (list chunk)) do
+  (let ((obj (get-chunk-object chunk 'noerror))
 	(*print-circle* t)
 	(*print-level* 3)
 	(stream (or stream t)))
+    (if obj
     (handler-case
      (progn
        (format stream "~a~%" (actup-chunk-name obj))
@@ -1186,7 +1195,9 @@ internals (see also `pc*' for a shortcut)."
 			(format nil "~S=~S " key value))))
 	      (t (get-chunk-name val)))))
        (format stream "~%"))
-     (error (v) (progn (format stream "ERR~a" v) nil))))))
+     (error (v) (progn (format stream "ERR~a" v) nil)))
+    (format stream "`~a' (not a chunk)" chunk))
+    m)))
 
 (defun pc* (obj &key (stream t))
   "Print a human-readable representation of chunk OBJ, including architectural internals.
@@ -1207,8 +1218,8 @@ STREAM, if given, indicates the stream to which output is sent."
 	  define-slots define-chunk-type
 	  make-chunk ; for untyped chunks
 	  make-chunk* ; for untyped chunks
-	  show-chunks chunk-name explain-activation
-	  non-nil
+	  show-chunks chunk-id explain-activation
+	  non-nil ignore
 	  reset-mp reset-model
 	  reset-sji-fct set-similarity set-sji set-similarities-fct add-sji-fct set-dm-total-presentations set-base-level-fct set-base-levels-fct))
 
@@ -1268,6 +1279,8 @@ It defaults to the current meta-process."
   ;; (format t "~a: ~a ~a ~%"
   ;; 	  (meta-process-name *current-actup-meta-process*) 
   ;; 	  (model-time *current-actUP-model*) (meta-process-actUP-time (or meta-process *current-actup-meta-process*)))
+  (debug-print *informational* "Pass-time: ~2,2f sec~%" seconds)
+
   (and *actup-timeout*
        (> (model-time *current-actUP-model*)
 	  *actup-timeout*)
@@ -1381,7 +1394,7 @@ CHUNK-SET is the list of chunks to be filtered (1), or an associative array (2)
 of the form ((X . chunk1) (Y . chunk2) ...).
 returns a list of chunks in case (1) and a list of conses in case (2)."
 
-  ;(let ((csn nil))
+  ;(let ((csn nil)) 
   (let* ((rr (declarative-memory-recently-retrieved (model-dm (current-model))))
 	 (matching-chunks 
 	 (loop for chunk-or-cons in chunk-set append
@@ -1521,7 +1534,7 @@ If the object is not in the DM, add it."
       ;; symbolp:
       (or (get-chunk-by-name chunk-or-name)
 	  (let ((chunk (make-actup-chunk :name chunk-or-name)))
-	    (debug-print *informational* "Implicitly creating chunk of name ~a.~%" chunk-or-name)
+	    (debug-print *informational* "Implicitly creating chunk of ~a.~%" chunk-or-name)
 	    (learn-chunk chunk)
 	    ;(push chunk (model-chunks (current-model)))
 	    chunk
@@ -2357,7 +2370,7 @@ The initial utility of a compiled procedure equals the initial utility of the so
     ;; (format t "args-varnames: ~a ~%" args-varnames)
     ;; (format t "args: ~a ~%" args)
 
-    ;; generalization step for args and results
+    ;; geeralization step for args and results
     (let* ((variables-used nil)
 	   (args2 (copy-list args))
 	   (closure 
