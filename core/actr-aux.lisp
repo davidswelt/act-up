@@ -27,17 +27,17 @@
 
 
 
-(defparameter my-random-state (make-random-state))
+(defparameter *act-up-random-state* (make-random-state))
 
 
 
-(defun choice (sequence)
+(defun choice (sequence &optional (random-state *act-up-random-state*))
   (and sequence
-       (elt sequence (random (length sequence) my-random-state))))
+       (elt sequence (random (length sequence) random-state))))
 
-(defun pick-some (num sequence)
+(defun pick-some (num sequence &optional (random-state *act-up-random-state*))
   (if (and (> num 0) sequence)
-      (let ((index (random (length sequence) my-random-state)))
+      (let ((index (random (length sequence) random-state)))
 	
 	(multiple-value-bind (rest remainder) 
 	    (pick-some (1- num) (append (subseq sequence 0 index) (subseq sequence (1+ index))))
@@ -46,25 +46,25 @@
 		  remainder)))
       (values nil sequence)))
 
-(defun shuffle (sequence)
-  (pick-some (length sequence) sequence))
-(defun noisy-shuffle (list noise)
+(defun shuffle (sequence &optional (random-state *act-up-random-state*))
+  (pick-some (length sequence) sequence random-state))
+(defun noisy-shuffle (list noise &optional (random-state *act-up-random-state*))
   "Shuffles list.  List is changed by side-effect.
 Noise [0,1] gives amount of shuffling. 
 Returns shuffled list."
     (loop for i from 1 to (* 0.5 noise (length list)) do
 	 
-	 (let ((p1 (random (length list) my-random-state))
-	       (p2 (random (length list) my-random-state)))
+	 (let ((p1 (random (length list) random-state))
+	       (p2 (random (length list) random-state)))
 	   (let ((elt (nth p1 list)))
 	     (setf (nth p1 list) (nth p2 list)
 		   (nth p2 list) elt))))
     list)
 
-(defun random-pareto (&optional xm k)
+(defun random-pareto (&optional xm k (random-state *act-up-random-state*))
   "Returns a random sample from a pareto distribution.
 We're using inverse transform sampling to obtain the sample."
-  (/ (or xm 1) (expt (random 1.0 my-random-state) (/ 1 (or k 1)))))
+  (/ (or xm 1) (expt (random 1.0 random-state) (/ 1 (or k 1)))))
 
 
 ;; calculate necessary noise
