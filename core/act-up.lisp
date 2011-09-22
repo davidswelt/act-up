@@ -711,8 +711,11 @@ Includes Sji/Rji weights and cooccurrence data."
 
 (defun chunk-name (chunk)
   "The unique name of CHUNK.
-The returned value is a symbol or number assigned as unique name of CHUNK
-in the current model."
+The returned value is a structure assigned as unique name of CHUNK
+in the current model.  No guarantee is made regarding the type of
+the name; it may be a number or a symbol, for example, although 
+`eq' may always be used to compare two chunk names for identity
+of the chunks they refer to."
   (actup-chunk-name chunk))
 
 (defun get-chunk-name (chunk-or-name)
