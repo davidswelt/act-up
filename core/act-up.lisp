@@ -1,6 +1,6 @@
 ;; ACT-UP
 ;; (C) Carnegie Mellon University
-;; (C) David Reitter, 2010
+;; (C) David Reitter, 2010,2011
 
 ;; reitter@cmu.edu
 
@@ -25,7 +25,7 @@
   (:documentation "The ACT-UP library.  Defines a number of functions
 and macros implementing the ACT-R theory (Anderson 1993, Anderson et al. 1998,
 Anderson 2007, etc.).
- (C) 2010, David Reitter, Carnegie Mellon University.")
+ (C) 2010, 2011, David Reitter, Carnegie Mellon University.")
   (:use :common-lisp))
 
 
@@ -73,7 +73,7 @@ Anderson 2007, etc.).
   "List of ACT-UP parameters
 Each element is of form (name init-form init-value module).")
 
-(defmacro def-actup-parameter (name init-value &optional doc-string module)
+(defmacro def-actup-parameter (name init-value &optional doc-string module type)
   "Define ACT-UP parameter.
 Macro internal to ACT-UP. Modifies `*actup-parameters*'.
 Upon reset, ACT-UP initializes each parameters of NAME with 
@@ -81,7 +81,11 @@ the result of evaluating INIT-FORM.
 Internal parameters should be marked with MODULE `internal'.
 These are not shown by `show-parameters'." 
   `(progn
+     ,(when type
+	    `(declaim (type ,type ,name)))
      (defparameter ,name ,init-value ,(or doc-string "Undocumented ACT-UP parameter."))
+     ;; how to define ranges that exclude limits?
+     ;; Q: does this type persist after compilation?
      (push (list ',name ',init-value ,name ,module) *actup-parameters*)))
 
 (defun reset-actup ()
@@ -610,29 +614,31 @@ functions and model-independent procedures."
 ;; parameters
 
 (def-actup-parameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
-See also: ACT-R parameter :bll")
+Valid range of values: 0<BLL<1.
+See also: ACT-R parameter :bll" 'declarative '(float 0.000000001 0.9999999999))
 (def-actup-parameter *blc* 0.0 "Base-level constant parameter for declarative memory.
-See also: ACT-R parameter :blc") 
+See also: ACT-R parameter :blc" 'declarative)
 (def-actup-parameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
 Chunks with activation lower than `*rt*' are not retrieved.
-See also: ACT-R parameter :rt")  ; can be (cons 'pres 4)
+See also: ACT-R parameter :rt" 'declarative)  ; can be (cons 'pres 4)
 
 (def-actup-parameter *ans* 0.2 "Transient noise parameter for declarative memory.
-See also: ACT-R parameter :ans") ;; transient noise  
+See also: ACT-R parameter :ans" 'declarative) ;; transient noise  
 
 (def-actup-parameter *pas* nil "Permanent noise parameter for declarative memory.
-See also: ACT-R parameter :pas") ;; permanent noise  
+See also: ACT-R parameter :pas" 'declarative) ;; permanent noise
 
 (export '(*bll* *blc* *rt* *ans* *pas* *dat*))
 
 
-(defvar *ol* 3  "Optimized Learning parameter for base-level learning in Declarative Memory.
-OL is always on in ACT-UP.
-See also: ACT-R parameter :ol")
+(def-actup-parameter *ol* 3  "Optimized Learning parameter for base-level learning in Declarative Memory.
+Optimized learning is always enabled in ACT-UP.  This integer value specifies the number
+of recent presentations for which an exact activation calculation is used.
+See also: ACT-R parameter :ol" 'declarative (integer 1 9999999999999))
 
 (def-actup-parameter *associative-learning* nil ; would be 1.0 if on
   "The trigger for associative learning, a in ROM Equation 4.5.
-   Can be any non-negative value.")
+   Can be any non-negative value." 'declarative)
 (export '(*ol* *associative-learning*))
 
 
@@ -785,7 +791,7 @@ Returns nil if NOERROR is non-nil, otherwise signals an error if chunk can't be 
 (def-actup-parameter *maximum-associative-strength* 1.0 "Maximum associative strength parameter for Declarative Memory.
 `*mas*' is defined as alias for `maximum-associative-strength'.
 See also `*associative-learning*', `reset-sji-fct'.
-See also: ACT-R parameter :mas.")
+See also: ACT-R parameter :mas." 'declarative)
 (define-symbol-macro *mas* *maximum-associative-strength*) ; compatibility macro
 (export '(*maximum-associative-strength* *mas*))
 
@@ -949,16 +955,16 @@ See also: ACT-R parameter :mas.")
 
 
 (def-actup-parameter *mp* 1.0 "ACT-UP Partial Match Scaling parameter
-Mismatch (`set-similarities-fct') is linearly scaled using this coefficient.")
+Mismatch (`set-similarities-fct') is linearly scaled using this coefficient." 'declarative)
 
 (def-actup-parameter *ms* 0 "ACT-UP Partial Match Maximum Similarity
 Similarity penalty assigned when chunks are equal.
-Value in activation (log) space.")
+Value in activation (log) space." 'declarative)
 
 (def-actup-parameter *md* -1 "ACT-UP Partial Match Maximum Difference
 Similarity penalty assigned when chunks are different
 and no explicit similarity is set.
-Value in activation (log) space.")
+Value in activation (log) space." 'declarative)
 
 (export '(*mp* *ms* *md*))
 
@@ -1302,9 +1308,9 @@ It defaults to the current meta-process."
 
 
 (def-actup-parameter *lf* 1.0 "Latency Factor parameter for declarative retrieval time calculation.
-See ACT-R parameter :lf")
+See ACT-R parameter :lf" 'declarative)
 (def-actup-parameter *le* 1.0  "Latency Exponent parameter for declarative retrieval time calculation.
-See ACT-R parameter :le")
+See ACT-R parameter :le" 'declarative)
 (export '(*lf* *le*))
 
 (def-actup-parameter *declarative-num-finsts* 4  "Number of Declarative Finsts
@@ -1313,7 +1319,7 @@ The maximum number of chunks considered recently retrieved.
 
 Defaults to 4.
 
-See ACT-R parameter :declarative-num-finsts")
+See ACT-R parameter :declarative-num-finsts" 'declarative)
 (def-actup-parameter *declarative-finst-span* 3.0  "Declarative Finst time span
 
 The maximum time period during whichg a finst marks a chunk as recently retrieved.
@@ -1321,7 +1327,7 @@ Chunks retrieved longer ago are not considered 'recently retrieved'.
 
 Time in seconds, defaults to 3.0.
 
-See ACT-R parameter :declarative-finst-span")
+See ACT-R parameter :declarative-finst-span" 'declarative)
 (export '(*declarative-num-finsts* *declarative-finst-span*))
 
 
@@ -1749,7 +1755,7 @@ See also `*declarative-num-finsts*' and `*declarative-finst-span*'."
 	 (debug-print *detailed* "~a~%" (explain-activation c cues (append spec soft-spec))))
     best-chunk))
  
-(def-actup-parameter *blend-temperature* 1.0 "Blend temperature.")
+(def-actup-parameter *blend-temperature* 1.0 "Blend temperature." 'declarative)
 
 (defun blend (chunks &key cues chunk-type retrieval-spec)
   "Return a blended variant of chunks.
@@ -2094,17 +2100,17 @@ See the function `filter-chunks' for a description of possible constraints."
 e.g., after 10 seconds we want to assign 50% of the remaining reward: 0.5/10 = 0.05
 time is in between procedures.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
-See also the parameter `*au-rfr*' and the function `assign-reward'.")
+See also the parameter `*au-rfr*' and the function `assign-reward'." 'procedural)
 
 (def-actup-parameter *au-rfr* nil
   "base reward proportion for each procedure
 e.g., the each procedure before the reward trigger gets 10% of the reward.
 Set to nil (default) to use the ACT-R discounting by time in seconds.
-See also the parameter `*au-rpps*' and the function `assign-reward'.")
-	   
+See also the parameter `*au-rpps*' and the function `assign-reward'." 'procedural)
+
 (def-actup-parameter *alpha* 0.2  "Utility learning rate.
 See also the function `assign-reward'.
-See also: ACT-R parameter :alpha")
+See also: ACT-R parameter :alpha" 'procedural)
 		   
 (def-actup-parameter *nu* 0.0 "Utility assigned to compiled procedures.
 
@@ -2114,7 +2120,7 @@ such a procedure if utility learning is enabled and the default utility if
 learning is not enabled. The default value is 0.
 
 See also the function `assign-reward' and the variable `*procedure-compilation*'.
-See also: ACT-R parameter :nu")
+See also: ACT-R parameter :nu" 'procedural)
 
 (def-actup-parameter *iu* 0.0 "Initial procedure utility.
 
@@ -2124,7 +2130,7 @@ default utility if learning (`*ul*') is not enabled. The default value
 is 0.
 
 See also the function `assign-reward'.
-See also: ACT-R parameter :iu")
+See also: ACT-R parameter :iu" 'procedural)
 
 (def-actup-parameter *ul* t "Utility learning flag.
 
@@ -2137,7 +2143,7 @@ non-zero). The default value is nil.
 See also the function `assign-reward'.
 Only if `assign-reward' is called will this parameter have any effect.
 
-See also: ACT-R parameter :ul")
+See also: ACT-R parameter :ul" 'procedural)
 
 (def-actup-parameter *ut* nil "Utility threshold.
 
@@ -2147,7 +2153,7 @@ conflict resolution. Procedures with a lower utility value than that
 will not be selected. The default value is nil which means that there
 is no threshold value and all procedures will be considered.
 
-See also: ACT-R parameter :ut")
+See also: ACT-R parameter :ut" 'procedural)
 
 (def-actup-parameter *egs* nil "Transient noise parameter for ACT-UP procedures.
 
@@ -2155,7 +2161,7 @@ This is the expected gain s parameter. It specifies the s parameter
 for the noise added to the utility values. It defaults to 0 which
 means there is no noise in utilities.
 
-See also: ACT-R parameter :egs")
+See also: ACT-R parameter :egs" 'procedural)
 
 (export '(*au-rpps* *alpha* *au-rfr* *iu* *nu* *ut* *ul* *egs* assign-reward))
 
@@ -2349,7 +2355,7 @@ When the group is executed, compiled procedures compete for execution with the o
 
 The initial utility of a compiled procedure equals the initial utility of the source procedure.  When a source procedure is compiled multiple times, the utility of the compiled procedure is updated by assigning the source procedure utility as reward to the compiled procedure (according to the ACT-R difference learning equation).  See also `assign-reward' for reward assignment to regular procedures.
 
-`*epl*' is defined as alias for `*procedure-compilation*'.")
+`*epl*' is defined as alias for `*procedure-compilation*'." 'procedural)
 
 (define-symbol-macro *epl* *procedure-compilation*) ; compatibility macro
 (export '(*procedure-compilation* *epl*))
