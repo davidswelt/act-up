@@ -615,7 +615,7 @@ functions and model-independent procedures."
 
 (def-actup-parameter *bll* 0.5 "Base-level learning decay parameter for declarative memory.
 Valid range of values: 0<BLL<1.
-See also: ACT-R parameter :bll" 'declarative '(float 0.000000001 0.9999999999))
+See also: ACT-R parameter :bll" 'declarative) ;; (or null (float 0.000000001 0.9999999999)))
 (def-actup-parameter *blc* 0.0 "Base-level constant parameter for declarative memory.
 See also: ACT-R parameter :blc" 'declarative)
 (def-actup-parameter *rt* 0.0 "Retrieval Threshold parameter for declarative memory.
@@ -634,7 +634,7 @@ See also: ACT-R parameter :pas" 'declarative) ;; permanent noise
 (def-actup-parameter *ol* 3  "Optimized Learning parameter for base-level learning in Declarative Memory.
 Optimized learning is always enabled in ACT-UP.  This integer value specifies the number
 of recent presentations for which an exact activation calculation is used.
-See also: ACT-R parameter :ol" 'declarative (integer 1 9999999999999))
+See also: ACT-R parameter :ol" 'declarative (integer 1 *))
 
 (def-actup-parameter *associative-learning* nil ; would be 1.0 if on
   "The trigger for associative learning, a in ROM Equation 4.5.
