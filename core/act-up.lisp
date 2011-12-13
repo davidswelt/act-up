@@ -548,7 +548,7 @@ See also `receive'." fun-name fun-name module)
 		   module-name-list)
 	   :type list)  ; alist of module objects
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
-  (time 0.0d0 :type long-float))
+  (time (actup-time) :type long-float))
 
    
 (def-actup-parameter *current-actUP-model* (make-model) "Current ACT-UP Model" 'internal)
@@ -1220,7 +1220,7 @@ STREAM, if given, indicates the stream to which output is sent."
 
 (export '(current-model set-current-model with-current-model 
 	  make-model model-name
-	  actUP-time stop-actup-time
+	  actUP-time stop-actup-time measure-actup-time
 	  pass-time wait-for-model
 	  model-chunks 
 	  defproc defrule assign-reward assign-reward* flush-procedure-queue
@@ -1260,6 +1260,23 @@ See also `current-model' and `set-current-model'."
 
 
 (defmacro stop-actup-time (&body body)
+  "Returns execution time of BODY in current ACT-UP model, halting time.
+Evaluates BODY.  
+Do not execute model-changing operations that record the time, such as
+`learn-chunk'!
+See also `actup-time' and `measure-actup-time'."
+
+  `(let* ((mp *current-actup-meta-process*)
+	  (actup---actup-time-t0 (meta-process-actUP-time mp))
+	  (actup---model-time (model-time *current-actup-model*)))
+     ,@body
+     (setf (model-time *current-actup-model*) actup---model-time)
+     (prog1
+	 (- (meta-process-actUP-time mp) actup---actup-time-t0)
+       (setf (meta-process-actup-time *current-actup-meta-process*)
+	     actup---actup-time-t0))))
+
+(defmacro measure-actup-time (&body body)
   "Returns execution time of BODY in current ACT-UP model.
 Evaluates BODY.  See also `actup-time'."
 
@@ -1523,7 +1540,7 @@ which calls this function."
 	  template))))
 
 
-(DECLAIM (FTYPE (FUNCTION (t &optional t) t) learn-chunk))
+(DECLAIM (FTYPE (FUNCTION (t &key (:co-presentations t))) learn-chunk))
 
 (defun get-chunk-object-add-to-dm (chunk-or-name)
   "Returns chunk object for CHUNK-OR-NAME.
@@ -1592,6 +1609,7 @@ NUMBER-OF-PRESENTATIONS indicates the total number of presentation, including th
 
 ;; (defparameter *actup--chunk-slots* (mapcar #'car (structure-alist (make-chunk)))
 ;;   "Internal to ACT-UP.")
+
 (defun learn-chunk (chunk &key co-presentations)
   "Learn chunk CHUNK.
 
@@ -1631,8 +1649,9 @@ Returns the added chunk."
 		      
     ;; (car (search-for-chunks model chunk-descr)) ;; use unifiable object 
     
-    (debug-print *informational* "Presentation of chunk ~a.~%"  ;;  (MP: ~a t=~a.  M: ~a, t=~a
-		 (actup-chunk-name chunk) 
+    (debug-print *informational* "Presentation of chunk ~a at time ~2,2f.~%"  ;;  (MP: ~a t=~a.  M: ~a, t=~a
+		 (actup-chunk-name chunk)
+		 (actup-time)
 		 ;; (meta-process-name *current-actup-meta-process*)
 		 ;; (actup-time)
 		 ;; (model-name model)
