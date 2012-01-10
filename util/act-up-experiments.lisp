@@ -15,7 +15,8 @@
 (defun mean (&rest list)
   (if (cdr list)
       (/ (sum list) (length list))
-      (/ (sum (car list)) (length (car list)))))
+      (if (car list)
+	  (/ (sum (car list)) (length (car list))))))
 
 (defun sum (&rest list)
       (loop for x in (if (cdr list) list (car list))
