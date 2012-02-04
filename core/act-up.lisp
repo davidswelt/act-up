@@ -133,6 +133,13 @@ May be read and manipulated by setting it to a different
 instance of type `meta-process'." 'internal)
 (export '(meta-process make-meta-process meta-process-name *current-actup-meta-process*))
 
+(defun actup-time (&optional meta-process)
+  "Returns the current runtime.
+An optional parameter META-PROCESS specifies the meta-process to use.
+It defaults to the current meta-process."
+  (meta-process-actUP-time (or meta-process *current-actup-meta-process*)))
+
+
 (defmacro forward-declare (fun args)
   `(DECLAIM (FTYPE (FUNCTION ,(loop for nil in args collect t)
 			     t) ,fun)))
@@ -1262,35 +1269,41 @@ See also `current-model' and `set-current-model'."
 (defmacro stop-actup-time (&body body)
   "Returns execution time of BODY in current ACT-UP model, halting time.
 Evaluates BODY.  
+
+Returns multiple values: the first value is the execution time,
+the second value is the value resulting from evaluating BODY.
+
 Do not execute model-changing operations that record the time, such as
 `learn-chunk'!
 See also `actup-time' and `measure-actup-time'."
 
-  `(let* ((mp *current-actup-meta-process*)
-	  (actup---actup-time-t0 (meta-process-actUP-time mp))
-	  (actup---model-time (model-time *current-actup-model*)))
-     ,@body
+  `(let* ((actup---mp *current-actup-meta-process*)
+	  (actup---actup-time-t0 (meta-process-actUP-time actup---mp))
+	  (actup---model-time (model-time *current-actup-model*))
+	  (actup---return-value ,@body))
      (setf (model-time *current-actup-model*) actup---model-time)
-     (prog1
-	 (- (meta-process-actUP-time mp) actup---actup-time-t0)
-       (setf (meta-process-actup-time *current-actup-meta-process*)
-	     actup---actup-time-t0))))
+     (values
+      (prog1
+	  (- (meta-process-actUP-time actup---mp) actup---actup-time-t0)
+	(setf (meta-process-actup-time *current-actup-meta-process*)
+	      actup---actup-time-t0))
+      actup---return-value)))
 
 (defmacro measure-actup-time (&body body)
   "Returns execution time of BODY in current ACT-UP model.
-Evaluates BODY.  See also `actup-time'."
+Evaluates BODY.  
+Returns multiple values: the first value is the execution time,
+the second value is the value resulting from evaluating BODY.
+See also `actup-time'."
 
-  `(let* ((mp *current-actup-meta-process*)
-	  (actup---actup-time-t0 (meta-process-actUP-time mp)))
-     ,@body
-     (- (meta-process-actUP-time mp) actup---actup-time-t0)))
+  `(let* ((actup---mp *current-actup-meta-process*)
+	  (actup---actup-time-t0 (meta-process-actUP-time actup---mp))
+	  (actup---return-value ,@body))
+     (values
+      (- (meta-process-actUP-time actup---mp) actup---actup-time-t0)
+      actup---return-value)))
 
 
-(defun actup-time (&optional meta-process)
-  "Returns the current runtime.
-An optional parameter META-PROCESS specifies the meta-process to use.
-It defaults to the current meta-process."
-  (meta-process-actUP-time (or meta-process *current-actup-meta-process*)))
 
 (defvar *actup-timeout* nil)
 (defun pass-time (seconds &optional meta-process)
