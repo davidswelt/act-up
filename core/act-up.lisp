@@ -273,13 +273,15 @@ The log output can be retrieved with `debug-log'."
 
 ;; this is instantiated for each model and each module
 
-(defvar module-name-list nil)  ; define-module fills this, mkae-model reads it.
+(defvar module-list nil)  ; define-module fills this, mkae-model reads it.
 
 (defstruct module
 ;  (name "mod")
   (name (gensym "MODULE"))  ;; :read-only t)  can't use read-only - does not work if name is given with constructor (why?)
   (last-operation-handle nil)
   (lock nil)
+  (init-fun nil)
+  (memory nil)
 )
 
 
@@ -363,7 +365,8 @@ not become available to the requesters."
       (when handle
 	(setf (request-handle-result handle) nil)
 	(setf (request-handle-busy-until handle) 0))
-      (setf (module-last-operation-handle module) nil))))
+      (setf (module-last-operation-handle module) nil)))
+      (funcall (or (module-init-fun module) (lambda () nil))))
 
 (defun terminate-request (handle)
   "Terminate a parallel request, discarding any results."
@@ -374,8 +377,8 @@ not become available to the requesters."
 ;; can we unwind?
 
 
-(defun define-module (name)
-  (push name module-name-list)) ; register
+(defun define-module (name &optional init-fun)
+  (push (list name init-fun) module-list)) ; register
 
 
 (define-module 'declarative)
@@ -432,7 +435,10 @@ request was sent via a function such as
 MODULE must be a defined ACT-UP module.
 FUN-NAME names the function.
 ARGLIST contains argument list.  &optional arguments are supported,
-but &body is not."
+but &body is not.
+
+The code in BODY can use a variable `act-up-module-memory', which
+contains the module's persistant storage object."
   (let ((req-name (intern (format nil "REQUEST-~a" fun-name)))
 	(docstring (if (stringp (car body)) (prog1 (car body) (setq body (cdr body))))))
 
@@ -442,7 +448,8 @@ but &body is not."
 	 ,docstring
 	 (wait-for-module ',module)
 	 (with-module-lock ',module
-	   ,@body))
+	   (let ((act-up-module-memory (module-memory (get-actup-module module))))
+	     ,@body)))
        (defun ,req-name (&rest args)
 	 ,(format nil "Call `~A' asynchronuously.
 Initiates execution of the `~A' function, with ARGS as arguments.
@@ -457,6 +464,13 @@ See also `receive'." fun-name fun-name module)
 		       ;; req-name   ; not exported until parallelism is tested
 		       )))))
 
+
+(defun make-init-module (&rest args)   
+  (let ((m (apply #'make-module args)))
+    (setf (module-memory m)
+	  (funcall (or (module-init-fun m) (lambda () nil))))
+    m))
+   
 
 ;; To do:
 ;; what happens when expression is more complex, such as
@@ -551,13 +565,15 @@ See also `receive'." fun-name fun-name module)
   ;; NOT IMPLEMENTED YET.
   (pm (make-procedural-memory) :type procedural-memory)
   (dm (make-declarative-memory) :type declarative-memory)
-  (modules (mapcar (lambda (name) (cons name (make-module :name name)))
-		   module-name-list)
+  (modules (mapcar (lambda (e) (cons (first e) (make-init-module :name (first e) :init-fun (second e))))
+		   module-list)
 	   :type list)  ; alist of module objects
   ;; time (should be in sync with meta-process, unless meta-process is exchanged by user)
   (time (actup-time) :type long-float))
 
-   
+    
+
+
 (def-actup-parameter *current-actUP-model* (make-model) "Current ACT-UP Model" 'internal)
 
 (setf (documentation 'make-model 'function) "Create a new ACT-UP model.
@@ -568,7 +584,7 @@ NAME, if given, specifies a name.")
 See also: ACT-R parameter :dat  [which pertains to ACT-R productions]")
 
 (defun wait-for-model (&optional model)
-  "Waits until meta-process and MODEL are synchronized.
+  "Waits until current meta-process and MODEL are synchronized.
 When a model is run with a new meta-process, it can happen that
 the meta-process time is behind the model's time (since the model
 was operated with a different meta-process before).
@@ -586,6 +602,28 @@ MODEL defaults to the current model."
       ;; 	      diff)
       (setf (meta-process-actUP-time *current-actup-meta-process*)
 	    (+ (meta-process-actUP-time *current-actup-meta-process*) (+ *dat* diff))))))
+
+
+(defun synchronize (mps-and-models &optional time)
+  "Synchronizes all meta-processes and models in MPS-AND-MODELS.
+Waits until TIME in each given object.  If TIME is not given,
+wait until the latest time of all objects.
+Waiting means advancing each meta-process's or model's timer.
+See also `wait-for-model' for a simpler function."
+
+  (let ((mps (mapc (lambda (x) (if (meta-process-p x) x (model-mp x))) mps-and-models)))
+    
+    (let ((time (or time
+		    (loop for mp in mps
+		       maximize (meta-process-actUP-time mp)))))
+
+      (loop for mpm in mps-and-models do
+	   (let ((mp (if (meta-process-p mpm) mpm (model-mp mpm))))
+	     (setf (meta-process-actUP-time mp)
+		   time))
+	   (if (model-p mpm)
+	       (setf (model-time mpm) time))))))
+
 
 (defmacro model-chunks (&optional model)
   "Evaluates to the list of chunks in the given model MODEL."
