@@ -1185,10 +1185,13 @@ chunk is found in DM, it is returned."
 				       (attrs ',attr-list))))))
     ;; mark each member as read-only
     (setq members 
-	  (loop for m in members collect
+	  (loop for me in members
+	     for m = (normalize-slotname me)
+	     collect
 	       (append
 		(if (consp m) 
-		    (if (cdr m) m (list (car m))) (list m nil))
+		    (if (cdr m) m (list (car m))) 
+		    (list m nil))
 		'(:read-only t))))
     `(progn
        (defstruct ,incl
@@ -1213,7 +1216,8 @@ Overrides any slot set defined earlier."
   "Print a human-readable representation of chunk CHUNK.
 STREAM, if given, indicates the stream to which output is sent.
 INTERNALS, if given and t, causes `pc' to print architectural
-internals (see also `pc*' for a shortcut)."
+internals (see also `pc*' for a shortcut).
+Evaluates to the chunk to facilitate in-place debugging."
   (loop for chunk in (if (listp chunk) chunk (list chunk)) do
   (let ((obj (get-chunk-object chunk 'noerror))
 	(*print-circle* t)
@@ -1251,7 +1255,7 @@ internals (see also `pc*' for a shortcut)."
        (format stream "~%"))
      (error (v) (progn (format stream "ERR~a" v) nil)))
     (format stream "`~a' (not a chunk)" chunk))
-    m)))
+    chunk)))
 
 (defun pc* (obj &key (stream t))
   "Print a human-readable representation of chunk OBJ, including architectural internals.
