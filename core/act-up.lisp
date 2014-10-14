@@ -1424,7 +1424,7 @@ See also the higher-level function `retrieve-chunk'."
 ;; must go through this even for empty confusion set
 ;; because we need to pass-time in this case
       (let* ((last-retrieved-activation nil)
-	     (cues (get-chunk-objects cues))
+	     (cues (get-chunk-objects cues 'noerror))
 	     (below-rt-count 0)
 	     (best  (loop  with bc = nil with bs = nil 
 		       for c in confusion-set
